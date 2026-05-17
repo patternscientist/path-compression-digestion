@@ -1,0 +1,50 @@
+flowchart TD
+    SS["Seidel--Sharir source package<br/>rank bound, g^diamond, shifting lemma, Corollary 6"]
+    SR["Source recurrence<br/>f(m,n,r) <= k m + 2n J_k(r)"]
+    JH["J hierarchy<br/>J_0, J_{k+1}=J_k^diamond"]
+    JPKG["Basic J lemmas<br/>monotone, unbounded, finite R_k"]
+    RDEF["R threshold inverse<br/>R_k(t)=max { r : J_k(r) <= t }"]
+    RREC["R threshold recurrence<br/>R_{k+1}(t+1) >= R_k(2^{R_{k+1}(t)})"]
+    RJUMP["Threshold jump<br/>R_{k+1}(Q) >= R_k(4Q)"]
+    ADEF["Packet Ackermann normalization<br/>A(0,x)=2x; A(i,x)=A(i-1,A(i,x-1))"]
+    AMON["Ackermann monotonicity<br/>growth and row domination"]
+    RADOM["R/Ackermann domination<br/>R_j(x) >= A(j+1,x)"]
+    MAIN["Ackermann comparison<br/>R_{z+1}(Q) >= A(z,4Q)"]
+    NORM["Packet normalizations<br/>L(n)=ceil(log2 max(n,2)); Q(m,n)=ceil(1+m/n)"]
+    ALPHAQ["alpha_Q / alpha_J^Q comparison<br/>alpha_J^Q <= alpha_Q + 1"]
+    BUFFER["Ackermann buffer<br/>A(z+1,4p) >= A(z,4p+4)"]
+    ALPHAS["source-faithful alpha_J^S comparison<br/>alpha_J^S <= alpha_Q + 2"]
+    COST["final path-compression bound<br/>f(m,n,L(n)) <= (alpha_Q+3)m + 4n"]
+    APP["normalization and hazard notes<br/>source alpha_S relation; no alpha_T dependency"]
+
+    SS --> SR
+    SS --> JH
+    SS --> NORM
+    JH --> JPKG
+    JPKG --> RDEF
+    JH --> RREC
+    RDEF --> RREC
+    JPKG --> RREC
+    RREC --> RJUMP
+    RDEF --> RJUMP
+    JPKG --> RJUMP
+    ADEF --> AMON
+    AMON --> RADOM
+    RREC --> RADOM
+    RDEF --> RADOM
+    RJUMP --> MAIN
+    RADOM --> MAIN
+    AMON --> MAIN
+    MAIN --> ALPHAQ
+    NORM --> ALPHAQ
+    ADEF --> BUFFER
+    AMON --> BUFFER
+    MAIN --> ALPHAS
+    BUFFER --> ALPHAS
+    NORM --> ALPHAS
+    SR --> COST
+    ALPHAQ --> COST
+    NORM --> COST
+    ALPHAQ --> APP
+    ALPHAS --> APP
+    SS --> APP
