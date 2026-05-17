@@ -1,9 +1,10 @@
 # Clean Folder Manifest
 
-Generated: 2026-05-17T15:42:07.875578+00:00
+Generated: 2026-05-17T18:25:46.645867+00:00
 
 | file | SHA-256 |
 |---|---|
+| `.gitignore` | `5f81f8751d909a31a9bd3470be4bef5151204157afeaa0171433f178a6a7c416` |
 | `AGENTS.md` | `20a6f25e50e3f945a68d391ae61e147a01287a56a3ddbf4b624c1cab683754be` |
 | `CHANGELOG.md` | `27ad7c0c7be48c6bd25587e2132229d17df55f5f190c56803414f43056480d58` |
 | `CURRENT_STATUS.md` | `cc99f3d8dcc529d5c9e7800e1131faa5b93b617f6c40d65fa50491cad6f1a91f` |
@@ -19,12 +20,13 @@ Generated: 2026-05-17T15:42:07.875578+00:00
 | `paper/Makefile` | `a5078d118f6727de0d0bba1b174c66223495008e8b3ff96855d5d7ae78dd4e09` |
 | `paper/README.md` | `bfe69fca800920f3b9e91ea3c63b0487545a2897de487f61517d391f7f7609a9` |
 | `paper/macros.tex` | `353f971d9903e3ab8daec3022ecdb3277b2b02656e0f496d6fab9138ce2ab2c6` |
-| `paper/main.tex` | `dd5e83482629acef6940ba9c8b82a87eec5e3a839f44cb0a3abafb5ffe848dfc` |
+| `paper/main.pdf` | `c553d82f401d9078f8cc2c82c7417e2a7d2ca3b7447300c4a2d45ef595534ac7` |
+| `paper/main.tex` | `96688dfea8e84eafa8d49242aa6e635d1d6ece8229a90a25ff0dd8485415b52c` |
 | `paper/refs.bib` | `d2c3cb96c2881ba1de5efd35aefc6770443eb4b331d53e70ff586ee2d3063860` |
 | `prompts/codex_dependency_dag_prompt.md` | `d87702b8adecaf3a2f1bf37a5a72d693ed004245c737563869c7528cc79cfef5` |
 | `prompts/codex_initial_mechanical_audit_prompt.md` | `fd8d746f39d41478c9e7bbf4580c0ac5aa5247a4f379407cc5e1043d12c161c1` |
 | `prompts/codex_release_builder_prompt.md` | `f191a3b9f08e0f7eeb8a1223c69b96c573fcabc1b36b98a8a00f3abe497fbb1a` |
-| `proof_note/path_compression_v2_2_integrated_proof_note_public_packaging.md` | `1262bc2ae889950896a5a1056f226fa8235fd6a27743f4055e75e43b5d67985f` |
+| `proof_note/path_compression_v2_2_integrated_proof_note_public_packaging.md` | `73e9bdac73a386564fac9483f29d870ca0d42501d683f33ce4adf4f1a2afb530` |
 | `provenance/original_zips/latest_latest_1_v2_2_worker_output.zip` | `3889f3ca7b6e104c4cbc71423cbfaa273bcd327fdfc95c817355f0625bff3693` |
 | `provenance/original_zips/path_compression_final_source_anchor_packet.zip` | `4277c183a2492185d97bcb9c2f2e30d8339fe465ac320abccddb5bd1cbd1b704` |
 | `provenance/original_zips/path_compression_v2_1_publication_packet_COMPLETE.zip` | `1b1d707f1d9bc08b3993e0778997448372b8eb7315dba1c788c3a5b4b02aa3ce` |
@@ -39,7 +41,7 @@ Generated: 2026-05-17T15:42:07.875578+00:00
 | `provenance/source_anchor_packet/path_compression_final_source_anchor_packet/appendices/path_compression_source_fidelity_appendix_AUDIT.txt` | `c05cdb92f9717122bd3c326282f6d437678a6e7070bbc3779c6ce9f13f51defa` |
 | `provenance/source_anchor_packet/path_compression_final_source_anchor_packet/errata/path_compression_source_fidelity_erratum.md` | `0e551aae2b8c34a14d2b249f6b29a7dd4454158437884227a478189250df0a5e` |
 | `provenance/source_anchor_packet/path_compression_final_source_anchor_packet/manifests/path_compression_final_source_anchor_manifest.md` | `ea4edafba1325c156361d4018255ac2a3070e3193a7b70c81d53973a5e020ec5` |
-| `provenance/source_anchor_packet/path_compression_final_source_anchor_packet/source_anchors/source_anchors.md` | `e4a85edb3f31e8b21c6671134fe71d7a08ffdba5987be93bf38799bed92053c2` |
+| `provenance/source_anchor_packet/path_compression_final_source_anchor_packet/source_anchors/source_anchors.md` | `999b3ed6525ab0f972bac81b65297b77164a50a910767230f34c677dab90f1de` |
 | `publication/abstract/path_compression_v2_1_abstract.md` | `3d7febae74ab62a2921179d52f2871f298d8216fd164d8e5f7534003439f85c1` |
 | `publication/talk_outline/path_compression_v2_1_talk_outline.md` | `d3d0facb473bb914d301e712a515176abb9f9c18903de5c5e959fca436d7ca9c` |
 | `scripts/README.md` | `55c42c5affd62cae35835ae1208a77ee9f3a2083f746181e51933e17cd8cbef9` |

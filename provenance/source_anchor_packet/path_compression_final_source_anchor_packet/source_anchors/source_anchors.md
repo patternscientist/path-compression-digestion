@@ -16,6 +16,10 @@ Primary URL:
 https://drops.dagstuhl.de/storage/04dagstuhl-reports/volume15/issue05/25191/html/DagRep.15.5.1/DagRep.15.5.1.html
 ```
 
+Verbatim prompt quote, from Dagstuhl Report 15(5), Seminar 25191, Section 5.3 "Top-down analysis of path compression":
+
+> “Seidel and Sharir gave a proof of the inverse-Ackermann-function upper bound for path compression based on a beautiful top-down recurrence. The analysis does not use Ackermann’s function explicitly, but uses a related function they call ‘J.’ Problem: Give a simple, direct proof of the inverse-Ackermann function bound using their top-down recurrence and the classical definition of Ackermann’s function.”
+
 ## Technical source anchor
 
 Seidel--Sharir source:

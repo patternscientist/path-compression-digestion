@@ -33,7 +33,14 @@ it is not a replacement for the full Seidel--Sharir recurrence proof.
 Tarjan's Dagstuhl prompt asks for a simple direct proof that the
 Seidel--Sharir top-down $J$ hierarchy for path compression implies an
 inverse-Ackermann bound using a classical Ackermann definition; see the
-problem anchor in the Dagstuhl report and the original Seidel--Sharir
+problem anchor in the Dagstuhl report\footnote{Dagstuhl Report 15(5),
+Seminar 25191, Section 5.3, asks: ``Seidel and Sharir gave a proof of
+the inverse-Ackermann-function upper bound for path compression based
+on a beautiful top-down recurrence. The analysis does not use
+Ackermann's function explicitly, but uses a related function they call
+`J.' Problem: Give a simple, direct proof of the inverse-Ackermann
+function bound using their top-down recurrence and the classical
+definition of Ackermann's function.''} and the original Seidel--Sharir
 paper \cite{dagstuhl-prompt,seidel-sharir-2005}.
 
 This note proves that comparison under the packet normalization.  It
@@ -144,11 +151,34 @@ $g(r)<r$ for $r>1$.  Since
   \lceil\log_2 x\rceil\le x-1 \qquad (x\ge2),
 \]
 the recursive branch of $h$ calls $h$ only on smaller arguments.  A
-strong induction on $r$ gives $h(r)\le g(r)$ for all $r$, hence
-$h(r)<r$ for $r>1$ and $h(0)=0$.  Monotonicity follows by comparing
-$g(r)\le g(s)$ and, in the recursive branch, using the monotonicity of
-the ceiling logarithm and the strong induction hypothesis.  To see
+strong induction on $r$ gives $h(r)\le g(r)$ for all $r$.  Indeed, if
+$g(r)\le1$, then $h(r)=g(r)$.  If $g(r)=2$, then
+$h(r)=1+h(1)$.  Monotonicity of $g$ and $g(2)<2$ give $g(1)\le1$, so
+$h(1)=g(1)\le1$ and $h(r)\le2=g(r)$.  If $g(r)\ge3$, set
+$a=\lceil\log_2 g(r)\rceil$.  Then
+$a\le g(r)-1\le r-2$, so the induction hypothesis applies.  Hence
+\[
+  h(r)=1+h(a)\le1+g(a)\le1+g(g(r)-1).
+\]
+Since $g(r)-1\ge2$ and $g(s)<s$ for $s>1$,
+$g(g(r)-1)\le g(r)-2$, and therefore $h(r)\le g(r)-1<g(r)$.
+Thus $h(r)\le g(r)$ for all $r$, hence $h(r)<r$ for $r>1$ and
+$h(0)=0$.
+
+For monotonicity, we prove by strong induction on $s$ that $r\le s$
+implies $h(r)\le h(s)$.  Let $r\le s$ and put
+$x=g(r)$ and $y=g(s)$.  Since $g$ is nondecreasing, $x\le y$.  If
+$y\le1$, then $h(r)=x\le y=h(s)$.  If $x\le1<y$, then
+\[
+  h(r)=x\le1\le1+h(\lceil\log_2 y\rceil)=h(s),
+\]
+using nonnegativity of $h$.  If $x>1$, put
+$u=\lceil\log_2 x\rceil$ and $v=\lceil\log_2 y\rceil$.  The ceiling
+logarithm is nondecreasing, so $u\le v$, and
+$v\le y-1<s$.  The strong induction hypothesis gives $h(u)\le h(v)$,
+whence $h(r)=1+h(u)\le1+h(v)=h(s)$.  To see
 unboundedness, if $h(u)\ge M$ and $g(r)>2^u$, then
+$\lceil\log_2 g(r)\rceil>u$, and monotonicity gives
 \[
   h(r)=1+h(\lceil\log_2 g(r)\rceil)\ge M+1.
 \]
@@ -173,6 +203,12 @@ For every $t\ge0$,
 The inequality $J_0(r)\le t$ is equivalent to
 $\lceil(r-1)/2\rceil\le t$, hence to $r\le2t+1$.
 \end{proof}
+
+\begin{remark}
+For every $k\ge0$, $R_k(0)=1$.  Indeed, $J_k(0)=J_k(1)=0$ and
+$J_k(2)=1$ by induction from $J_0$ and the definition of
+$g^\diamond$.
+\end{remark}
 
 \begin{lemma}[Threshold step]\label{lem:threshold-step}
 Let $B,t$ be nonnegative integers.  If
@@ -235,7 +271,6 @@ and for $i\ge1$,
   A(i,0)=0,\qquad A(i,1)=2,\qquad
   A(i,x)=A(i-1,A(i,x-1))\quad(x\ge2).
 \]
-In particular, $A(1,x)=2^x$ for $x\ge1$.
 
 \begin{lemma}[Ackermann monotonicity and row domination]\label{lem:ack-mon}
 For the packet Ackermann function:
@@ -267,6 +302,20 @@ The growth bound gives $A(i+1,x-1)\ge2(x-1)\ge x$, and monotonicity in
 row $i$ gives $A(i+1,x)\ge A(i,x)$.
 \end{proof}
 
+\noindent\textbf{Corollary.}
+For every $y\ge1$,
+\[
+  A(1,y)=2^y.
+\]
+
+\begin{proof}
+The claim follows by induction on $y$.  The base case is $A(1,1)=2$.
+For $y\ge2$,
+\[
+  A(1,y)=A(0,A(1,y-1))=2A(1,y-1).
+\]
+\end{proof}
+
 \begin{lemma}[Row-domination invariant]\label{lem:row-domination}
 For every $j\ge1$ and $x\ge1$,
 \[
@@ -290,6 +339,7 @@ If $R_1(x)\ge A(2,x)$, then
   \ge 2^{A(2,x)}
   = A(2,x+1).
 \]
+Here the last equality uses the corollary above.
 
 Now assume $R_j(y)\ge A(j+1,y)$ for all $y\ge1$.  We prove the claim
 for $j+1$.  At $x=1$, $R_{j+1}(1)\ge R_0(1)=3\ge2=A(j+2,1)$.  If
@@ -297,7 +347,8 @@ $R_{j+1}(x)\ge A(j+2,x)$, then Lemma~\ref{lem:threshold-step} gives
 \[
   R_{j+1}(x+1)\ge R_j(2^{R_{j+1}(x)}).
 \]
-By the outer induction hypothesis and Ackermann monotonicity,
+By the outer induction hypothesis, the corollary above, and Ackermann
+monotonicity,
 \[
   R_j(2^{R_{j+1}(x)})
   \ge A(j+1,2^{R_{j+1}(x)})
@@ -342,8 +393,8 @@ $R_z(2)\ge R_{z-1}(8)$.  Since $z-1\ge1$,
 Lemma~\ref{lem:row-domination} gives
 $R_{z-1}(8)\ge A(z,8)\ge A(z,4)$.
 
-Thus $R_{z+1}(Q)\ge A(z,4Q)$ in all cases.  If
-$A(z,4Q)>r$, then $r\le A(z,4Q)-1\le R_{z+1}(Q)$, so
+Thus $R_{z+1}(Q)\ge A(z,4Q)$ in all cases.  If $r\ge0$ is an integer
+and $A(z,4Q)>r$, then $r\le A(z,4Q)-1\le R_{z+1}(Q)$, so
 $J_{z+1}(r)\le Q$ by the definition of $R_{z+1}$.
 \end{proof}
 
@@ -411,7 +462,8 @@ Since $4p\ge2$,
   A(z+1,4p)=A(z,A(z+1,4p-1)).
 \]
 If $p=1$, then
-$A(z+1,3)=A(z,4)\ge8=4p+4$.  If $p\ge2$, then
+$A(z+1,3)=A(z,4)\ge A(1,4)=16\ge8=4p+4$, using row domination for
+$z\ge1$.  If $p\ge2$, then
 Lemma~\ref{lem:ack-mon} gives
 $A(z+1,4p-1)\ge2(4p-1)=8p-2\ge4p+4$.  Monotonicity of $A(z,-)$
 finishes the proof.

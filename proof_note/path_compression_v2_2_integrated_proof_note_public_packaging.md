@@ -322,13 +322,19 @@ A(i,1)=2,
 A(i,x)=A(i-1,A(i,x-1))\quad(x\ge2).
 \]
 
-In particular,
+Consequently, for every \(y\ge1\),
 
 \[
-A(1,x)=2^x
+A(1,y)=2^y.
 \]
 
-for \(x\ge1\).
+This follows by induction from \(A(1,1)=2\) and
+
+\[
+A(1,y)=A(0,A(1,y-1))=2A(1,y-1)
+\]
+
+for \(y\ge2\).
 
 ### 4.2 Threshold inverse
 
@@ -398,23 +404,41 @@ u\le g(r)-1<r.
 
 So \(h(r)\) is defined by recursion on smaller arguments. It is integer-valued and nonnegative because \(g\) is.
 
-We prove \(h(r)\le g(r)\) by induction on \(r\). If \(g(r)\le1\), then \(h(r)=g(r)\). If \(g(r)>1\), set \(u=\lceil\log_2 g(r)\rceil\). Since \(u<r\), the induction hypothesis gives \(h(u)\le g(u)\). Since \(g(u)<u\) when \(u>1\) and \(g(u)\le u\) also for \(u=0,1\), we get
+We prove \(h(r)\le g(r)\) by induction on \(r\). If \(g(r)\le1\), then \(h(r)=g(r)\). If \(g(r)=2\), then
 
 \[
-h(r)=1+h(u)\le1+u\le g(r).
+h(r)=1+h(1).
 \]
 
-Thus \(h(r)\le g(r)\). In particular, for \(r>1\),
+Monotonicity of \(g\) and \(g(2)<2\) give \(g(1)\le1\), so \(h(1)=g(1)\le1\) and \(h(r)\le2=g(r)\). If \(g(r)\ge3\), set
 
 \[
-h(r)\le g(r)<r.
+a=\lceil\log_2 g(r)\rceil.
 \]
 
-Also \(h(0)=g(0)=0\), since \(g(0)\le1\).
+Then \(a\le g(r)-1\le r-2\), so the induction hypothesis applies. Hence
+
+\[
+h(r)=1+h(a)\le1+g(a)\le1+g(g(r)-1).
+\]
+
+Since \(g(r)-1\ge2\) and \(g(s)<s\) for \(s>1\),
+
+\[
+g(g(r)-1)\le g(r)-2.
+\]
+
+Therefore \(h(r)\le g(r)-1<g(r)\). This proves \(h(r)\le g(r)\). In particular, \(h(r)<r\) for \(r>1\). Also \(h(0)=g(0)=0\), since \(g(0)\le1\).
 
 It remains to prove monotonicity. We prove by strong induction on \(s\) that \(r\le s\) implies \(h(r)\le h(s)\). Let \(r\le s\), and set \(x=g(r)\), \(y=g(s)\). Since \(g\) is nondecreasing, \(x\le y\).
 
-If \(y\le1\), then \(h(r)=x\le y=h(s)\). If \(y>1\) but \(x\le1\), then \(h(r)=x\le1\le h(s)\). If \(x>1\), put
+If \(y\le1\), then \(h(r)=x\le y=h(s)\). If \(x\le1<y\), then
+
+\[
+h(r)=x\le1\le1+h(\lceil\log_2 y\rceil)=h(s),
+\]
+
+using nonnegativity of \(h\). If \(x>1\), put
 
 \[
 u=\lceil\log_2 x\rceil,
@@ -547,6 +571,8 @@ Therefore
 \[
 R_0(t)=2t+1.
 \]
+
+For every \(k\ge0\), \(R_k(0)=1\). Indeed, \(J_k(0)=J_k(1)=0\) and \(J_k(2)=1\) by induction from \(J_0\) and the definition of \(g^\diamond\).
 
 ### 4.5 Diamond-to-threshold recurrence
 
@@ -792,7 +818,7 @@ Since \(R_0(t)=2t+1\),
 R_0(2^{R_1(x)})=2\cdot2^{R_1(x)}+1.
 \]
 
-Using the induction hypothesis and \(A(1,y)=2^y\),
+Using the induction hypothesis and the identity \(A(1,y)=2^y\) proved above,
 
 \[
 2\cdot2^{R_1(x)}+1
@@ -995,7 +1021,7 @@ Combining the three cases proves
 R_{z+1}(Q)\ge A(z,4Q).
 \]
 
-If \(A(z,4Q)>r\), then \(r\le A(z,4Q)-1\le R_{z+1}(Q)\), and hence
+If \(r\ge0\) is an integer and \(A(z,4Q)>r\), then \(r\le A(z,4Q)-1\le R_{z+1}(Q)\), and hence
 
 \[
 J_{z+1}(r)\le Q.
@@ -1125,8 +1151,10 @@ A(z+1,4p-1)\ge4p+4.
 If \(p=1\), then \(4p-1=3\), and \(A(i,2)=4\) for all \(i\ge1\), so
 
 \[
-A(z+1,3)=A(z,4)\ge8=4p+4.
+A(z+1,3)=A(z,4)\ge A(1,4)=16\ge8=4p+4,
 \]
+
+using row domination for \(z\ge1\).
 
 If \(p\ge2\), Lemma 4.5 gives
 
