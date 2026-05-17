@@ -17,5 +17,5 @@ This patch does not rewrite the proof body, change theorem statements, or reopen
 4. Updated the publication manifest to distinguish files included in the v2.2 publication-facing packet from external provenance dependencies.
 
 5. Updated the verification report to name the actual final source-anchor packet zip:
-   `path_compression_source_anchor_patch_packet.zip`,
+   `provenance/original_zips/path_compression_final_source_anchor_packet.zip`,
    and to include the verification report itself in the expected v2.2 contents list.

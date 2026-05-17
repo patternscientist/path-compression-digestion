@@ -1,19 +1,19 @@
 # Clean Folder Manifest
 
-Generated: 2026-05-17T14:07:18.805835+00:00
+Generated: 2026-05-17T14:17:15.164151+00:00
 
 | file | SHA-256 |
 |---|---|
 | `AGENTS.md` | `20a6f25e50e3f945a68d391ae61e147a01287a56a3ddbf4b624c1cab683754be` |
-| `CHANGELOG.md` | `19bf4c64c41971542ed182cb4e2a8aab4fdf19d5ed92a3b3c76fb0bc4a439cc1` |
+| `CHANGELOG.md` | `27ad7c0c7be48c6bd25587e2132229d17df55f5f190c56803414f43056480d58` |
 | `CURRENT_STATUS.md` | `cc99f3d8dcc529d5c9e7800e1131faa5b93b617f6c40d65fa50491cad6f1a91f` |
 | `README.md` | `2e10ac68f5f881fb091708784276451f1a1cdfef840e33132935720f9a899eed` |
 | `audits/README.md` | `9161403e0c269297223044409bb7af6082c7a083bc3a1221f597a52813c1bc4e` |
-| `audits/path_compression_v2_2_changelog.md` | `19bf4c64c41971542ed182cb4e2a8aab4fdf19d5ed92a3b3c76fb0bc4a439cc1` |
-| `audits/path_compression_v2_2_publication_packaging_VERIFICATION.md` | `7134c5f86e80352955c5ccf0c5778e0d6e22c23beb8dfcab6c8a88a1cbd97410` |
-| `audits/path_compression_v2_2_self_audit.md` | `f1095297017b2fa0569d1372b666752ca9a1c0fbb55cc1fad2b91d90fe439dd4` |
+| `audits/path_compression_v2_2_changelog.md` | `27ad7c0c7be48c6bd25587e2132229d17df55f5f190c56803414f43056480d58` |
+| `audits/path_compression_v2_2_publication_packaging_VERIFICATION.md` | `cf11c6ecc2133113a67d2d05c99bac37a022b06e6f8fd634626f1e10adac1ce7` |
+| `audits/path_compression_v2_2_self_audit.md` | `6eec76549eb32c3be471eb0bba93133facacb9d2dacdfd0a303fcb1a38dbd681` |
 | `audits/path_compression_v2_integrated_proof_note_AUDIT.md` | `156d95b3f1820ed82988809a5fa635eaa1e4f690cd79cbd1a2db12c152edfc8e` |
-| `manifests/path_compression_v2_2_publication_packet_manifest.md` | `8738a6245a635fd840abc3a5cbf9088524070ab759a43cf23f14bfc86ec67c2c` |
+| `manifests/path_compression_v2_2_publication_packet_manifest.md` | `d9a99da5adcdddf961a785f1f5bbb3b52e52793636d612475b602da6d6e6fe42` |
 | `prompts/codex_dependency_dag_prompt.md` | `d87702b8adecaf3a2f1bf37a5a72d693ed004245c737563869c7528cc79cfef5` |
 | `prompts/codex_initial_mechanical_audit_prompt.md` | `fd8d746f39d41478c9e7bbf4580c0ac5aa5247a4f379407cc5e1043d12c161c1` |
 | `prompts/codex_release_builder_prompt.md` | `f191a3b9f08e0f7eeb8a1223c69b96c573fcabc1b36b98a8a00f3abe497fbb1a` |
@@ -35,7 +35,6 @@ Generated: 2026-05-17T14:07:18.805835+00:00
 | `provenance/source_anchor_packet/path_compression_final_source_anchor_packet/source_anchors/source_anchors.md` | `e4a85edb3f31e8b21c6671134fe71d7a08ffdba5987be93bf38799bed92053c2` |
 | `publication/abstract/path_compression_v2_1_abstract.md` | `3d7febae74ab62a2921179d52f2871f298d8216fd164d8e5f7534003439f85c1` |
 | `publication/talk_outline/path_compression_v2_1_talk_outline.md` | `d3d0facb473bb914d301e712a515176abb9f9c18903de5c5e959fca436d7ca9c` |
-| `release/path-compression-digestion-clean-20260517T135916Z.zip` | `777cbf420ec6cf18c5dff0f68ad78a6b0163eabc15b657526b16a423a67e70ab` |
 | `scripts/README.md` | `55c42c5affd62cae35835ae1208a77ee9f3a2083f746181e51933e17cd8cbef9` |
-| `scripts/build_release.py` | `6a234719f9a015307f6cbbd8aabe375cf0d721ddd5f6a368eab844bf93b8f1e8` |
+| `scripts/build_release.py` | `813ebdb3bc0ff1779461e4403d5f5ac9d03fee0e7a85ec8141b521d6d2971dda` |
 | `scripts/sanity_check_j_thresholds.py` | `c309ed7ceaef09f0f4eb68d1098f434ce2b141bfe18e0020f965b3e0e9e6ef9c` |

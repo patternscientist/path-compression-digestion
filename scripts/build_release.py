@@ -61,6 +61,8 @@ def all_release_files() -> list[Path]:
         rel = path.relative_to(ROOT)
         if any(part in skip_dirs for part in rel.parts):
             continue
+        if rel.parts[0] == "release" and path.suffix == ".zip":
+            continue
         if path.is_file():
             files.append(path)
     return sorted(files, key=lambda p: str(p.relative_to(ROOT)))
@@ -90,8 +92,6 @@ def build_zip(files: list[Path]) -> Path:
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as z:
         for path in files:
             rel = path.relative_to(ROOT)
-            if rel.parts[0] == "release" and path.name.endswith(".zip"):
-                continue
             z.write(path, Path("path-compression-digestion") / rel)
     return out
 
