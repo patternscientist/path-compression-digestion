@@ -1,6 +1,6 @@
 # Clean Folder Manifest
 
-Generated: 2026-05-17T19:55:35.871529+00:00
+Generated: 2026-05-17T20:25:22.026825+00:00
 
 | file | SHA-256 |
 |---|---|
@@ -20,14 +20,8 @@ Generated: 2026-05-17T19:55:35.871529+00:00
 | `paper/Makefile` | `a5078d118f6727de0d0bba1b174c66223495008e8b3ff96855d5d7ae78dd4e09` |
 | `paper/README.md` | `bfe69fca800920f3b9e91ea3c63b0487545a2897de487f61517d391f7f7609a9` |
 | `paper/macros.tex` | `353f971d9903e3ab8daec3022ecdb3277b2b02656e0f496d6fab9138ce2ab2c6` |
-| `paper/main.aux` | `f76af33f3eb80273124b411e0cfb6018b88cc67bbc82089aae18b64479aafdca` |
-| `paper/main.bbl` | `2b110668efb620e6083fd63376bb7f2ad8cb7d36612af5c5877b8580ac343d2e` |
-| `paper/main.blg` | `d48e2f3ac24b4cf1f5c9ee36dae305dbbaa14397bc8c4d640c0f0484cd187a7c` |
-| `paper/main.log` | `bea142da300ca4b93839e6d91eddc60350f6de82a8957212cb0db55ccd97004d` |
-| `paper/main.out` | `02745acac35f2a46fb9ca2c40788051195479d94abd29dbbfc9cfa2ad73872f7` |
 | `paper/main.pdf` | `ee9c423ba13f12ceac6f01296c066d170a040b500cb7c1b73801fbf715021922` |
 | `paper/main.tex` | `4d63c8faeba0435a0d8c24cb2be2d1e87946c7776be8dd82bb9504c3cd96729b` |
-| `paper/main.toc` | `e5d228f1f09b7c06d7917fd98500184a235eabeaa4fadf9bd24e92e1dda00f51` |
 | `paper/refs.bib` | `d2c3cb96c2881ba1de5efd35aefc6770443eb4b331d53e70ff586ee2d3063860` |
 | `prompts/codex_dependency_dag_prompt.md` | `d87702b8adecaf3a2f1bf37a5a72d693ed004245c737563869c7528cc79cfef5` |
 | `prompts/codex_initial_mechanical_audit_prompt.md` | `fd8d746f39d41478c9e7bbf4580c0ac5aa5247a4f379407cc5e1043d12c161c1` |
@@ -51,5 +45,5 @@ Generated: 2026-05-17T19:55:35.871529+00:00
 | `publication/abstract/path_compression_v2_1_abstract.md` | `3d7febae74ab62a2921179d52f2871f298d8216fd164d8e5f7534003439f85c1` |
 | `publication/talk_outline/path_compression_v2_1_talk_outline.md` | `d3d0facb473bb914d301e712a515176abb9f9c18903de5c5e959fca436d7ca9c` |
 | `scripts/README.md` | `55c42c5affd62cae35835ae1208a77ee9f3a2083f746181e51933e17cd8cbef9` |
-| `scripts/build_release.py` | `813ebdb3bc0ff1779461e4403d5f5ac9d03fee0e7a85ec8141b521d6d2971dda` |
+| `scripts/build_release.py` | `42df7feae69764d44cc8991a021ba496911d93b541068189521d426559dce7a2` |
 | `scripts/sanity_check_j_thresholds.py` | `c309ed7ceaef09f0f4eb68d1098f434ce2b141bfe18e0020f965b3e0e9e6ef9c` |

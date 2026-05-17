@@ -16,6 +16,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE = ROOT / "release"
 
+LATEX_BUILD_SUFFIXES = {
+    ".aux",
+    ".bbl",
+    ".blg",
+    ".log",
+    ".out",
+    ".toc",
+    ".fdb_latexmk",
+    ".fls",
+    ".synctex.gz",
+}
+
 EXPECTED = [
     "README.md",
     "AGENTS.md",
@@ -54,6 +66,10 @@ def run_sanity() -> None:
     subprocess.run([sys.executable, str(script)], cwd=ROOT, check=True)
 
 
+def is_latex_build_artifact(rel: Path) -> bool:
+    return any(rel.as_posix().endswith(suffix) for suffix in LATEX_BUILD_SUFFIXES)
+
+
 def all_release_files() -> list[Path]:
     skip_dirs = {".git", "__pycache__"}
     files = []
@@ -62,6 +78,10 @@ def all_release_files() -> list[Path]:
         if any(part in skip_dirs for part in rel.parts):
             continue
         if rel.parts[0] == "release" and path.suffix == ".zip":
+            continue
+        # Exclude generated LaTeX intermediates; paper/main.pdf is intentionally
+        # included as the compiled paper artifact alongside its source files.
+        if is_latex_build_artifact(rel):
             continue
         if path.is_file():
             files.append(path)
