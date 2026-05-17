@@ -1,5 +1,9 @@
 \documentclass[11pt]{amsart}
 
+% Hide PDF link boxes while preserving clickable links.
+% Must be declared before macros.tex loads hyperref.
+\PassOptionsToPackage{hidelinks}{hyperref}
+
 \input{macros}
 
 \title[Top-down path compression thresholds]{A source-anchored Ackermann comparison for the Seidel--Sharir top-down path-compression hierarchy}
