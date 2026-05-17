@@ -1,6 +1,6 @@
 # Clean Folder Manifest
 
-Generated: 2026-05-17T14:50:46.705759+00:00
+Generated: 2026-05-17T15:42:07.875578+00:00
 
 | file | SHA-256 |
 |---|---|
@@ -16,6 +16,11 @@ Generated: 2026-05-17T14:50:46.705759+00:00
 | `audits/path_compression_v2_integrated_proof_note_AUDIT.md` | `156d95b3f1820ed82988809a5fa635eaa1e4f690cd79cbd1a2db12c152edfc8e` |
 | `audits/proof_dependency_dag.mmd` | `9664f15b003e473ff5bb19cf26d55b589ab334f1c014a8f3c31a39e2d71d3063` |
 | `manifests/path_compression_v2_2_publication_packet_manifest.md` | `d9a99da5adcdddf961a785f1f5bbb3b52e52793636d612475b602da6d6e6fe42` |
+| `paper/Makefile` | `a5078d118f6727de0d0bba1b174c66223495008e8b3ff96855d5d7ae78dd4e09` |
+| `paper/README.md` | `bfe69fca800920f3b9e91ea3c63b0487545a2897de487f61517d391f7f7609a9` |
+| `paper/macros.tex` | `353f971d9903e3ab8daec3022ecdb3277b2b02656e0f496d6fab9138ce2ab2c6` |
+| `paper/main.tex` | `dd5e83482629acef6940ba9c8b82a87eec5e3a839f44cb0a3abafb5ffe848dfc` |
+| `paper/refs.bib` | `d2c3cb96c2881ba1de5efd35aefc6770443eb4b331d53e70ff586ee2d3063860` |
 | `prompts/codex_dependency_dag_prompt.md` | `d87702b8adecaf3a2f1bf37a5a72d693ed004245c737563869c7528cc79cfef5` |
 | `prompts/codex_initial_mechanical_audit_prompt.md` | `fd8d746f39d41478c9e7bbf4580c0ac5aa5247a4f379407cc5e1043d12c161c1` |
 | `prompts/codex_release_builder_prompt.md` | `f191a3b9f08e0f7eeb8a1223c69b96c573fcabc1b36b98a8a00f3abe497fbb1a` |
