@@ -1,0 +1,19 @@
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{hyperref}
+\IfFileExists{cleveref.sty}{\usepackage[nameinlink]{cleveref}}{}
+\IfFileExists{enumitem.sty}{\usepackage{enumitem}\setlist{leftmargin=*,itemsep=2pt,topsep=3pt}}{}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\NN}{\mathbb N}
+\newcommand{\ceil}[1]{\left\lceil #1\right\rceil}
+\newcommand{\floor}[1]{\left\lfloor #1\right\rfloor}
+\newcommand{\diam}{\diamond}

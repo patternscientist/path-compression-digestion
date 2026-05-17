@@ -1,18 +1,20 @@
 # Clean Folder Manifest
 
-Generated: 2026-05-17T14:17:15.164151+00:00
+Generated: 2026-05-17T14:50:46.705759+00:00
 
 | file | SHA-256 |
 |---|---|
 | `AGENTS.md` | `20a6f25e50e3f945a68d391ae61e147a01287a56a3ddbf4b624c1cab683754be` |
 | `CHANGELOG.md` | `27ad7c0c7be48c6bd25587e2132229d17df55f5f190c56803414f43056480d58` |
 | `CURRENT_STATUS.md` | `cc99f3d8dcc529d5c9e7800e1131faa5b93b617f6c40d65fa50491cad6f1a91f` |
-| `README.md` | `2e10ac68f5f881fb091708784276451f1a1cdfef840e33132935720f9a899eed` |
+| `README.md` | `cbd16a9946226940cc7763c5e88faa579921c2f72584c9f9ef05d1485e9cedd8` |
 | `audits/README.md` | `9161403e0c269297223044409bb7af6082c7a083bc3a1221f597a52813c1bc4e` |
+| `audits/dependency_table.md` | `b004bd82c2c4f6e25e7b206685813a690d36f4ae2f0109aedd73943f3aea649a` |
 | `audits/path_compression_v2_2_changelog.md` | `27ad7c0c7be48c6bd25587e2132229d17df55f5f190c56803414f43056480d58` |
 | `audits/path_compression_v2_2_publication_packaging_VERIFICATION.md` | `cf11c6ecc2133113a67d2d05c99bac37a022b06e6f8fd634626f1e10adac1ce7` |
 | `audits/path_compression_v2_2_self_audit.md` | `6eec76549eb32c3be471eb0bba93133facacb9d2dacdfd0a303fcb1a38dbd681` |
 | `audits/path_compression_v2_integrated_proof_note_AUDIT.md` | `156d95b3f1820ed82988809a5fa635eaa1e4f690cd79cbd1a2db12c152edfc8e` |
+| `audits/proof_dependency_dag.mmd` | `9664f15b003e473ff5bb19cf26d55b589ab334f1c014a8f3c31a39e2d71d3063` |
 | `manifests/path_compression_v2_2_publication_packet_manifest.md` | `d9a99da5adcdddf961a785f1f5bbb3b52e52793636d612475b602da6d6e6fe42` |
 | `prompts/codex_dependency_dag_prompt.md` | `d87702b8adecaf3a2f1bf37a5a72d693ed004245c737563869c7528cc79cfef5` |
 | `prompts/codex_initial_mechanical_audit_prompt.md` | `fd8d746f39d41478c9e7bbf4580c0ac5aa5247a4f379407cc5e1043d12c161c1` |

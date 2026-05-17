@@ -1,0 +1,542 @@
+\documentclass[11pt]{amsart}
+
+\input{macros}
+
+\title[Top-down path compression thresholds]{A source-anchored Ackermann comparison for the Seidel--Sharir top-down path-compression hierarchy}
+\author{Path-compression proof-digestion packet}
+\date{\today}
+
+\begin{document}
+
+\begin{abstract}
+This exposition packages the proof that the Seidel--Sharir top-down
+$J$ hierarchy implies an inverse-Ackermann bound under the packet
+normalization.  The main comparison is
+\[
+  R_{z+1}(Q) \ge A(z,4Q) \qquad (z\ge 1,\ Q\ge 1),
+\]
+with constants $c=1$, $C=1$, and $D=4$ in the comparison template
+$R_{cz+C}(Q)\ge A(z,DQ)$.  The note is a source-fidelity and
+threshold-inversion exposition.  It is not a new union-find bound, and
+it is not a replacement for the full Seidel--Sharir recurrence proof.
+\end{abstract}
+
+\maketitle
+\tableofcontents
+
+\section{Introduction}
+
+Tarjan's Dagstuhl prompt asks for a simple direct proof that the
+Seidel--Sharir top-down $J$ hierarchy for path compression implies an
+inverse-Ackermann bound using a classical Ackermann definition; see the
+problem anchor in the Dagstuhl report and the original Seidel--Sharir
+paper \cite{dagstuhl-prompt,seidel-sharir-2005}.
+
+This note proves that comparison under the packet normalization.  It
+uses the source $J$ hierarchy and the packet Ackermann function to prove
+\[
+  R_{z+1}(Q)\ge A(z,4Q)\qquad (z\ge1,\ Q\ge1).
+\]
+Thus the packet comparison constants are explicit:
+\[
+  c=1,\qquad C=1,\qquad D=4.
+\]
+
+The role of this document is deliberately narrow.  It does not claim a
+new union-find bound, does not reprove the full Seidel--Sharir top-down
+recurrence, and does not replace that recurrence with a bottom-up
+Tarjan-potential argument.  The only recurrence used here is the
+source-anchored consequence
+\[
+  f(m,n,r)\le k m+2nJ_k(r).
+\]
+
+\section{Source Recurrence and Conventions}
+
+All logarithms are base $2$.  For an integer-valued function $g$ with
+$g(r)<r$ for positive $r$, the source defines
+\[
+g^*(r)=
+\begin{cases}
+0, & r\le 1,\\
+1+g^*(g(r)), & r>1,
+\end{cases}
+\]
+and
+\[
+g^\diamond(r)=
+\begin{cases}
+g(r), & g(r)\le 1,\\[3pt]
+1+g^\diamond(\lceil\log_2 g(r)\rceil), & g(r)>1.
+\end{cases}
+\]
+
+\begin{lemma}[Source-correct shifting lemma]
+If
+\[
+  f(m,n,r)\le k m+2n g(r),
+\]
+then
+\[
+  f(m,n,r)\le (k+1)m+2n g^\diamond(r).
+\]
+\end{lemma}
+
+The source hierarchy is
+\[
+  J_0(r)=\left\lceil\frac{r-1}{2}\right\rceil,
+  \qquad
+  J_{k+1}=J_k^\diamond.
+\]
+Equivalently,
+\[
+J_{k+1}(r)=
+\begin{cases}
+J_k(r),&J_k(r)\le1,\\[3pt]
+1+J_{k+1}(\lceil\log_2J_k(r)\rceil),&J_k(r)>1.
+\end{cases}
+\]
+The source recurrence consequence used in the cost bound is
+\[
+  f(m,n,r)\le k m+2nJ_k(r).
+\]
+
+\section{Threshold Inversion}
+
+For $t\ge0$, define the threshold inverse
+\[
+  R_k(t)=\max\{r\ge0:J_k(r)\le t\}.
+\]
+The following package supplies the finite-threshold and unboundedness
+facts needed for this definition.
+
+\begin{lemma}[Basic $J$ package]
+For every $k\ge0$:
+\begin{enumerate}
+\item $J_k$ is integer-valued, nonnegative, nondecreasing, and unbounded on $\mathbb N$.
+\item $J_k(0)=0$ and $J_k(r)<r$ for every $r>1$.
+\item $J_{k+1}(r)\le J_k(r)$ for every $r\ge0$.
+\item $R_k(t)$ is finite for every finite $t\ge0$.
+\item $R_k(t)$ is nondecreasing in $t$, and $R_{k+1}(t)\ge R_k(t)$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+For $k=0$, the formula
+$J_0(r)=\lceil(r-1)/2\rceil$ gives the asserted properties directly.
+For the induction step, let $h=g^\diamond$ where $g$ is integer-valued,
+nonnegative, nondecreasing, unbounded, satisfies $g(0)=0$, and
+$g(r)<r$ for $r>1$.  Since
+\[
+  \lceil\log_2 x\rceil\le x-1 \qquad (x\ge2),
+\]
+the recursive branch of $h$ calls $h$ only on smaller arguments.  A
+strong induction on $r$ gives $h(r)\le g(r)$ for all $r$, hence
+$h(r)<r$ for $r>1$ and $h(0)=0$.  Monotonicity follows by comparing
+$g(r)\le g(s)$ and, in the recursive branch, using the monotonicity of
+the ceiling logarithm and the strong induction hypothesis.  To see
+unboundedness, if $h(u)\ge M$ and $g(r)>2^u$, then
+\[
+  h(r)=1+h(\lceil\log_2 g(r)\rceil)\ge M+1.
+\]
+Thus $g^\diamond$ preserves the stated properties, and induction gives
+the claims for every $J_k$.
+
+Since each $J_k$ is nondecreasing and unbounded, the set
+$\{r\ge0:J_k(r)\le t\}$ is nonempty and finite for finite $t\ge0$.
+This proves finiteness of $R_k(t)$.  Monotonicity in $t$ is immediate
+from inclusion of threshold sets, and $J_{k+1}\le J_k$ gives
+$R_{k+1}(t)\ge R_k(t)$.
+\end{proof}
+
+\begin{lemma}[Exact base inverse]
+For every $t\ge0$,
+\[
+  R_0(t)=2t+1.
+\]
+\end{lemma}
+
+\begin{proof}
+The inequality $J_0(r)\le t$ is equivalent to
+$\lceil(r-1)/2\rceil\le t$, hence to $r\le2t+1$.
+\end{proof}
+
+\begin{lemma}[Threshold step]\label{lem:threshold-step}
+Let $B,t$ be nonnegative integers.  If
+\[
+  r\le R_k(2^B)
+  \qquad\text{and}\qquad
+  B\le R_{k+1}(t),
+\]
+then
+\[
+  J_{k+1}(r)\le t+1.
+\]
+Consequently,
+\[
+  R_{k+1}(t+1)\ge R_k(2^{R_{k+1}(t)}).
+\]
+\end{lemma}
+
+\begin{proof}
+The first hypothesis gives $J_k(r)\le2^B$.  If $J_k(r)\le1$, then
+$J_{k+1}(r)=J_k(r)\le1\le t+1$.  If $J_k(r)>1$, then
+\[
+  J_{k+1}(r)
+  =1+J_{k+1}(\lceil\log_2J_k(r)\rceil),
+\]
+and $\lceil\log_2J_k(r)\rceil\le B$.  Since $J_{k+1}$ is
+nondecreasing and $B\le R_{k+1}(t)$,
+\[
+  J_{k+1}(\lceil\log_2J_k(r)\rceil)\le J_{k+1}(B)\le t.
+\]
+Thus $J_{k+1}(r)\le t+1$.  Taking $B=R_{k+1}(t)$ gives the displayed
+threshold recurrence.
+\end{proof}
+
+\begin{lemma}[Threshold jump]\label{lem:threshold-jump}
+For every $k\ge0$ and every $Q\ge2$,
+\[
+  R_{k+1}(Q)\ge R_k(4Q).
+\]
+\end{lemma}
+
+\begin{proof}
+Apply Lemma~\ref{lem:threshold-step} with $t=Q-1$:
+\[
+  R_{k+1}(Q)\ge R_k(2^{R_{k+1}(Q-1)}).
+\]
+The basic package and the exact base inverse give
+$R_{k+1}(Q-1)\ge R_0(Q-1)=2Q-1$.  For $Q\ge2$,
+$2^{2Q-1}\ge4Q$, and monotonicity of $R_k$ finishes the proof.
+\end{proof}
+
+\section{Ackermann Comparison}
+
+The packet Ackermann function is defined exactly as follows:
+\[
+  A(0,x)=2x,
+\]
+and for $i\ge1$,
+\[
+  A(i,0)=0,\qquad A(i,1)=2,\qquad
+  A(i,x)=A(i-1,A(i,x-1))\quad(x\ge2).
+\]
+In particular, $A(1,x)=2^x$ for $x\ge1$.
+
+\begin{lemma}[Ackermann monotonicity and row domination]\label{lem:ack-mon}
+For the packet Ackermann function:
+\begin{enumerate}
+\item for every $i\ge0$, $A(i,x)$ is nondecreasing in $x$;
+\item for every $i\ge1$ and $x\ge1$, $A(i,x)\ge2x$;
+\item for every $i\ge0$ and $x\ge1$, $A(i+1,x)\ge A(i,x)$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+For $i=0$, monotonicity follows from $A(0,x)=2x$.  For $i\ge1$,
+monotonicity follows inductively from
+$A(i,x+1)=A(i-1,A(i,x))$ and the lower-row monotonicity.
+
+The growth bound is by induction on $x$.  At $x=1$ it says $2=2x$.
+For $x\ge2$,
+\[
+  A(i,x)=A(i-1,A(i,x-1)).
+\]
+If $i=1$, this equals $2A(1,x-1)$; if $i\ge2$, the lower-row growth
+bound gives at least $2A(i,x-1)$.  Hence $A(i,x)\ge2x$.
+
+For row domination, equality holds at $x=1$.  For $x\ge2$,
+\[
+  A(i+1,x)=A(i,A(i+1,x-1)).
+\]
+The growth bound gives $A(i+1,x-1)\ge2(x-1)\ge x$, and monotonicity in
+row $i$ gives $A(i+1,x)\ge A(i,x)$.
+\end{proof}
+
+\begin{lemma}[Row-domination invariant]\label{lem:row-domination}
+For every $j\ge1$ and $x\ge1$,
+\[
+  R_j(x)\ge A(j+1,x).
+\]
+\end{lemma}
+
+\begin{proof}
+We prove this by induction on $j$, with an inner induction on $x$.
+
+For $j=1$ and $x=1$, Lemma~\ref{lem:threshold-step} with $k=0,t=0$
+gives
+\[
+  R_1(1)\ge R_0(2^{R_1(0)}).
+\]
+Since $R_1(0)\ge R_0(0)=1$, this gives $R_1(1)\ge R_0(2)=5\ge2=A(2,1)$.
+If $R_1(x)\ge A(2,x)$, then
+\[
+  R_1(x+1)\ge R_0(2^{R_1(x)})
+  =2\cdot2^{R_1(x)}+1
+  \ge 2^{A(2,x)}
+  = A(2,x+1).
+\]
+
+Now assume $R_j(y)\ge A(j+1,y)$ for all $y\ge1$.  We prove the claim
+for $j+1$.  At $x=1$, $R_{j+1}(1)\ge R_0(1)=3\ge2=A(j+2,1)$.  If
+$R_{j+1}(x)\ge A(j+2,x)$, then Lemma~\ref{lem:threshold-step} gives
+\[
+  R_{j+1}(x+1)\ge R_j(2^{R_{j+1}(x)}).
+\]
+By the outer induction hypothesis and Ackermann monotonicity,
+\[
+  R_j(2^{R_{j+1}(x)})
+  \ge A(j+1,2^{R_{j+1}(x)})
+  \ge A(j+1,A(j+2,x)).
+\]
+The last expression is $A(j+2,x+1)$ by the Ackermann recursion.
+\end{proof}
+
+\begin{theorem}[Main comparison]\label{thm:main-comparison}
+For all integers $z\ge1$ and $Q\ge1$,
+\[
+  R_{z+1}(Q)\ge A(z,4Q).
+\]
+Consequently,
+\[
+  A(z,4Q)>r
+  \quad\Longrightarrow\quad
+  J_{z+1}(r)\le Q.
+\]
+\end{theorem}
+
+\begin{proof}
+First suppose $Q\ge2$.  By Lemma~\ref{lem:threshold-jump},
+$R_{z+1}(Q)\ge R_z(4Q)$.  Since $z\ge1$,
+Lemma~\ref{lem:row-domination} gives
+$R_z(4Q)\ge A(z+1,4Q)$.  Row domination from
+Lemma~\ref{lem:ack-mon} gives $A(z+1,4Q)\ge A(z,4Q)$.
+
+For $Q=1,z=1$, Lemma~\ref{lem:threshold-step} gives
+$R_2(1)\ge R_1(2^{R_2(0)})\ge R_1(2)$.  The proof above gave
+$R_1(1)\ge5$, so another use of Lemma~\ref{lem:threshold-step} gives
+$R_1(2)\ge R_0(2^{R_1(1)})\ge R_0(2^5)=65\ge16=A(1,4)$.
+
+For $Q=1,z\ge2$, Lemma~\ref{lem:threshold-step} gives
+$R_{z+1}(1)\ge R_z(2^{R_{z+1}(0)})\ge R_z(2)$.  Applying
+Lemma~\ref{lem:threshold-jump} with level $z-1$ and $Q=2$ gives
+$R_z(2)\ge R_{z-1}(8)$.  Since $z-1\ge1$,
+Lemma~\ref{lem:row-domination} gives
+$R_{z-1}(8)\ge A(z,8)\ge A(z,4)$.
+
+Thus $R_{z+1}(Q)\ge A(z,4Q)$ in all cases.  If
+$A(z,4Q)>r$, then $r\le A(z,4Q)-1\le R_{z+1}(Q)$, so
+$J_{z+1}(r)\le Q$ by the definition of $R_{z+1}$.
+\end{proof}
+
+\section{Path-Compression Consequence}
+
+Define
+\[
+  L(n)=\lceil\log_2\max(n,2)\rceil,\qquad
+  Q(m,n)=\left\lceil1+\frac mn\right\rceil.
+\]
+Define
+\[
+  \alpha_Q(m,n)=\min\{z\ge1:A(z,4Q(m,n))>L(n)\},
+\]
+\[
+  \alpha_J^Q(m,n)=\min\{k\ge0:J_k(L(n))\le Q(m,n)\},
+\]
+and
+\[
+  \alpha_J^S(m,n)=
+  \min\left\{k\ge0:J_k(L(n))\le1+\frac mn\right\}.
+\]
+
+\begin{lemma}[Existence of $\alpha_Q$]
+For positive integers $m,n$, the minimum defining $\alpha_Q(m,n)$ exists.
+\end{lemma}
+
+\begin{proof}
+Since $Q(m,n)\ge1$, it suffices to prove that $A(z,4)$ is unbounded in
+$z$.  Let $a_z=A(z,4)$.  Then $a_1=16$, and for $z\ge1$,
+\[
+  A(z+1,2)=4,\qquad A(z+1,3)=A(z,4)=a_z,
+\]
+so $a_{z+1}=A(z+1,4)=A(z,a_z)$.  By
+Lemma~\ref{lem:ack-mon}, $A(z,a_z)\ge2a_z$.  Hence $a_z$ is unbounded,
+and monotonicity in the second argument gives
+$A(z,4Q(m,n))\ge A(z,4)$.
+\end{proof}
+
+\begin{theorem}[Packet threshold comparison]\label{thm:alpha-q}
+For all positive integers $m,n$,
+\[
+  \alpha_J^Q(m,n)\le \alpha_Q(m,n)+1.
+\]
+\end{theorem}
+
+\begin{proof}
+Let $z=\alpha_Q(m,n)$, $Q=Q(m,n)$, and $L=L(n)$.  By definition,
+$A(z,4Q)>L$.  Theorem~\ref{thm:main-comparison} gives
+$R_{z+1}(Q)\ge A(z,4Q)>L$.  Since $L$ is an integer,
+$L\le R_{z+1}(Q)$, so $J_{z+1}(L)\le Q$.  Therefore
+$\alpha_J^Q(m,n)\le z+1=\alpha_Q(m,n)+1$.
+\end{proof}
+
+\begin{lemma}[Ackermann buffer]\label{lem:ack-buffer}
+For $z\ge1$ and integer $p\ge1$,
+\[
+  A(z+1,4p)\ge A(z,4p+4).
+\]
+\end{lemma}
+
+\begin{proof}
+Since $4p\ge2$,
+\[
+  A(z+1,4p)=A(z,A(z+1,4p-1)).
+\]
+If $p=1$, then
+$A(z+1,3)=A(z,4)\ge8=4p+4$.  If $p\ge2$, then
+Lemma~\ref{lem:ack-mon} gives
+$A(z+1,4p-1)\ge2(4p-1)=8p-2\ge4p+4$.  Monotonicity of $A(z,-)$
+finishes the proof.
+\end{proof}
+
+\begin{theorem}[Source-faithful real threshold]\label{thm:alpha-s}
+For all positive integers $m,n$,
+\[
+  \alpha_J^S(m,n)\le \alpha_Q(m,n)+2.
+\]
+If $1+m/n$ is integral, then
+\[
+  \alpha_J^S(m,n)\le \alpha_Q(m,n)+1.
+\]
+\end{theorem}
+
+\begin{proof}
+Let $s=1+m/n$, $Q=\lceil s\rceil$, $L=L(n)$, and
+$z=\alpha_Q(m,n)$.  Then $A(z,4Q)>L$.
+
+If $s$ is integral, then $Q=s$.  Theorem~\ref{thm:main-comparison}
+gives $R_{z+1}(s)\ge A(z,4Q)>L$, hence $J_{z+1}(L)\le s$.  Thus
+$\alpha_J^S(m,n)\le z+1$.
+
+If $s$ is not integral, put $p=\lfloor s\rfloor$.  Since $m,n\ge1$,
+$p\ge1$, and $Q=p+1$.  Thus $A(z,4p+4)>L$.  By
+Lemma~\ref{lem:ack-buffer}, $A(z+1,4p)>L$.  Theorem~\ref{thm:main-comparison}
+gives $R_{z+2}(p)\ge A(z+1,4p)>L$, so $J_{z+2}(L)\le p<s$.  Therefore
+$\alpha_J^S(m,n)\le z+2$.
+\end{proof}
+
+\begin{theorem}[Cost consequence]\label{thm:cost}
+Using the source recurrence
+\[
+  f(m,n,r)\le k m+2nJ_k(r),
+\]
+one obtains
+\[
+  f(m,n,L(n))
+  \le
+  (\alpha_Q(m,n)+3)m+4n.
+\]
+Consequently,
+\[
+  f(m,n,L(n))=O(m\alpha_Q(m,n)+n).
+\]
+\end{theorem}
+
+\begin{proof}
+Let $z=\alpha_Q(m,n)$, $Q=Q(m,n)$, and $L=L(n)$.  By
+Theorem~\ref{thm:alpha-q}, $J_{z+1}(L)\le Q$.  Apply the source
+recurrence with $k=z+1$:
+\[
+  f(m,n,L)\le (z+1)m+2nJ_{z+1}(L)\le (z+1)m+2nQ.
+\]
+Since
+\[
+  Q=\left\lceil1+\frac mn\right\rceil\le2+\frac mn,
+\]
+we have $2nQ\le4n+2m$.  Therefore
+\[
+  f(m,n,L(n))\le(\alpha_Q(m,n)+3)m+4n.
+\]
+The big-$O$ statement follows immediately.
+\end{proof}
+
+\section{Normalization and Source-Fidelity Comments}
+
+The packet integer threshold
+\[
+  Q(m,n)=\left\lceil1+\frac mn\right\rceil
+\]
+is not an original source threshold.  It is a normalization that lets the
+integer-valued inverse $R_k(t)$ compare directly with the source real
+threshold $1+m/n$.  The exact real threshold is handled by
+Theorem~\ref{thm:alpha-s}; the nonintegral case costs one extra level.
+
+The source page 10 comparison with Tarjan's $\alpha_T$ is context, not a
+proof dependency here.  The proof above uses only the source $J$
+hierarchy, the source shifting lemma and recurrence, the packet
+Ackermann normalization, and the packet thresholds $L(n)$ and $Q(m,n)$.
+
+The main hazards avoided are:
+\begin{itemize}
+\item the wrong shifting-lemma factor: the source-correct premise is
+  $f(m,n,r)\le k m+2n g(r)$;
+\item a silent replacement of the source threshold $1+m/n$ by $2m/n$;
+\item drift into a bottom-up Tarjan-potential proof;
+\item fake equivalence wording: Theorem~\ref{thm:main-comparison} gives
+  the displayed implication, not an unwarranted equivalence.
+\end{itemize}
+
+\appendix
+
+\section{Dependency Table and DAG}
+
+\begin{center}
+\small
+\begin{tabular}{p{0.18\textwidth}p{0.35\textwidth}p{0.35\textwidth}}
+\textbf{Stage} & \textbf{Input} & \textbf{Output}\\
+\hline
+Source definitions & $g^*$, $g^\diamond$, $J_0$, $J_{k+1}=J_k^\diamond$ & The $J$ hierarchy\\
+Source recurrence & Shifting lemma with $2n g(r)$ premise & $f(m,n,r)\le k m+2nJ_k(r)$\\
+Basic $J$ lemmas & Diamond preservation & $J_k$ monotone, unbounded, $J_k(r)<r$, finite $R_k$\\
+Threshold recurrence & $J_{k+1}=J_k^\diamond$ & $R_{k+1}(t+1)\ge R_k(2^{R_{k+1}(t)})$\\
+Ackermann domination & Threshold recurrence plus $R_0(t)=2t+1$ & $R_j(x)\ge A(j+1,x)$\\
+Main comparison & Threshold jump and row domination & $R_{z+1}(Q)\ge A(z,4Q)$\\
+Alpha translation & $A(z,4Q)>L(n)$ & $\alpha_J^Q\le\alpha_Q+1$, $\alpha_J^S\le\alpha_Q+2$\\
+Cost bound & $f\le k m+2nJ_k$ & $f(m,n,L(n))\le(\alpha_Q+3)m+4n$
+\end{tabular}
+\end{center}
+
+A compact text form of the dependency DAG is:
+\begin{verbatim}
+source definitions
+  -> J hierarchy
+  -> basic J lemmas
+  -> threshold recurrence
+  -> Ackermann domination
+  -> R/Ackermann comparison
+  -> alpha consequences
+  -> cost bound
+
+source shifting lemma
+  -> recurrence f(m,n,r) <= k m + 2n J_k(r)
+  -> cost bound
+
+packet normalizations L(n), Q(m,n)
+  -> alpha consequences
+  -> cost bound
+\end{verbatim}
+
+\section{Finite Sanity Check}
+
+The script \texttt{scripts/sanity\_check\_j\_thresholds.py} is a finite
+off-by-one sanity check.  It computes small values of the packet $J$,
+$R$, and capped $A$ definitions, checks monotonicity in small ranges,
+checks small instances of the threshold step, and checks the smallest
+published comparison instance $R_2(1)\ge A(1,4)$.  It is not a proof and
+is not used as a dependency in the argument above.
+
+\bibliographystyle{plain}
+\bibliography{refs}
+
+\end{document}
