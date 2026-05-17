@@ -1,0 +1,16 @@
+title_present: True
+mentions_no_standalone_source_anchors: True
+items_1_to_8_present: True
+source_anchor_gap_occurrences: 8
+does_not_rewrite_theorem_statements_phrase: True
+g_star_present: True
+g_diamond_present: True
+J0_present: True
+shifting_lemma_present: True
+recurrence_present: True
+source_threshold_present: True
+L_present: True
+Q_present: True
+2mn_caveat_present: True
+control_characters: []
+sha256: d274426867ab0e87cde078546fab7d124a5e555e9564215099ad59cd690681d9

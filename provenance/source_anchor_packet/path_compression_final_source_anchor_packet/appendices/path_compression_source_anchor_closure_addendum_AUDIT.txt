@@ -1,0 +1,15 @@
+title_present: True
+accepted_note_read_only_declared: True
+closure_table_data_row_count: 9
+closure_table_CLOSED_count: 8
+closure_table_PARTIAL_count: 1
+closure_table_STILL_GAP_count: 0
+closure_table_bad_statuses: []
+source_anchors_recovered_statement_present: True
+archival_bundle_absence_statement_present: True
+shifting_lemma_marked_partial: True
+recurrence_marked_closed: True
+source_threshold_marked_closed: True
+2mn_caveat_marked_closed: True
+control_characters: []
+sha256: 9e919b518ef83b4962e94164b2c8e9f32623e6b5f4095a15b254e0f1763bb638
