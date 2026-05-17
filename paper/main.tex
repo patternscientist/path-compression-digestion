@@ -46,14 +46,18 @@ The role of this document is deliberately narrow.  It does not claim a
 new union-find bound, does not reprove the full Seidel--Sharir top-down
 recurrence, and does not replace that recurrence with a bottom-up
 Tarjan-potential argument.  The only recurrence used here is the
-source-anchored consequence
+source-anchored consequence, where $f(m,n,r)$ denotes the
+path-compression cost function in the Seidel--Sharir recurrence
+\cite[p.~9]{seidel-sharir-2005},
 \[
   f(m,n,r)\le k m+2nJ_k(r).
 \]
 
 \section{Source Recurrence and Conventions}
 
-All logarithms are base $2$.  For an integer-valued function $g$ with
+All logarithms are base $2$.  The source definitions and recurrence
+quoted in this section are from Seidel--Sharir
+\cite[pp.~7--9]{seidel-sharir-2005}.  For an integer-valued function $g$ with
 $g(r)<r$ for positive $r$, the source defines
 \[
 g^*(r)=
@@ -71,6 +75,9 @@ g(r), & g(r)\le 1,\\[3pt]
 \end{cases}
 \]
 
+The source shifting lemma, with the $2n$ coefficient used below, is
+Lemma 5 of Seidel--Sharir \cite[pp.~7--8]{seidel-sharir-2005}.
+
 \begin{lemma}[Source-correct shifting lemma]
 If
 \[
@@ -82,7 +89,8 @@ then
 \]
 \end{lemma}
 
-The source hierarchy is
+The source hierarchy is Corollary 6 of Seidel--Sharir
+\cite[p.~9]{seidel-sharir-2005}:
 \[
   J_0(r)=\left\lceil\frac{r-1}{2}\right\rceil,
   \qquad
@@ -96,7 +104,8 @@ J_k(r),&J_k(r)\le1,\\[3pt]
 1+J_{k+1}(\lceil\log_2J_k(r)\rceil),&J_k(r)>1.
 \end{cases}
 \]
-The source recurrence consequence used in the cost bound is
+The same corollary gives the source recurrence consequence used in the
+cost bound:
 \[
   f(m,n,r)\le k m+2nJ_k(r).
 \]
@@ -313,13 +322,17 @@ Lemma~\ref{lem:row-domination} gives
 $R_z(4Q)\ge A(z+1,4Q)$.  Row domination from
 Lemma~\ref{lem:ack-mon} gives $A(z+1,4Q)\ge A(z,4Q)$.
 
-For $Q=1,z=1$, Lemma~\ref{lem:threshold-step} gives
-$R_2(1)\ge R_1(2^{R_2(0)})\ge R_1(2)$.  The proof above gave
-$R_1(1)\ge5$, so another use of Lemma~\ref{lem:threshold-step} gives
+For $Q=1,z=1$, Lemma~\ref{lem:threshold-step} with $k=1,t=0$ gives
+$R_2(1)\ge R_1(2^{R_2(0)})$.  Since $R_2(0)\ge R_0(0)=1$,
+monotonicity gives $R_2(1)\ge R_1(2)$.  The same lemma with $k=0,t=0$
+gives $R_1(1)\ge R_0(2^{R_1(0)})\ge R_0(2)=5$.  Applying it again
+with $k=0,t=1$ gives
 $R_1(2)\ge R_0(2^{R_1(1)})\ge R_0(2^5)=65\ge16=A(1,4)$.
 
-For $Q=1,z\ge2$, Lemma~\ref{lem:threshold-step} gives
-$R_{z+1}(1)\ge R_z(2^{R_{z+1}(0)})\ge R_z(2)$.  Applying
+For $Q=1,z\ge2$, Lemma~\ref{lem:threshold-step} with $k=z,t=0$ gives
+$R_{z+1}(1)\ge R_z(2^{R_{z+1}(0)})$.  Since
+$R_{z+1}(0)\ge R_0(0)=1$, monotonicity gives
+$R_{z+1}(1)\ge R_z(2)$.  Applying
 Lemma~\ref{lem:threshold-jump} with level $z-1$ and $Q=2$ gives
 $R_z(2)\ge R_{z-1}(8)$.  Since $z-1\ge1$,
 Lemma~\ref{lem:row-domination} gives
@@ -469,10 +482,11 @@ The packet integer threshold
 \]
 is not an original source threshold.  It is a normalization that lets the
 integer-valued inverse $R_k(t)$ compare directly with the source real
-threshold $1+m/n$.  The exact real threshold is handled by
+threshold $1+m/n$ \cite[p.~9]{seidel-sharir-2005}.  The exact real threshold is handled by
 Theorem~\ref{thm:alpha-s}; the nonintegral case costs one extra level.
 
-The source page 10 comparison with Tarjan's $\alpha_T$ is context, not a
+The source page 10 comparison with Tarjan's $\alpha_T$
+\cite[p.~10]{seidel-sharir-2005} is context, not a
 proof dependency here.  The proof above uses only the source $J$
 hierarchy, the source shifting lemma and recurrence, the packet
 Ackermann normalization, and the packet thresholds $L(n)$ and $Q(m,n)$.
