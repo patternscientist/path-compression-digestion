@@ -48,16 +48,13 @@ This lane does not formalize:
 
 Those are out of scope for this first pass.
 
-## Remaining `sorry`s
+## Proof status
 
-There are four `sorry`s, all in `PathCompressionDigestion/Ackermann.lean`:
+The Ackermann package in `PathCompressionDigestion/Ackermann.lean` is now
+proof-complete for the four public facts mapped to paper Lemma 4.5 and its
+exponential corollary.
 
-* `Ackermann.monotone_right`, paper Lemma 4.5(1);
-* `Ackermann.ge_two_mul`, paper Lemma 4.5(2);
-* `Ackermann.row_domination`, paper Lemma 4.5(3);
-* `Ackermann.one_eq_pow`, the corollary `A(1,y)=2^y` for `y>=1`.
-
-The threshold and comparison layer has no `sorry`; it is abstracted by explicit
+The threshold and comparison layer remains intentionally abstracted by explicit
 structure hypotheses corresponding to paper Lemmas 4.2--4.7.
 
 ## Build
