@@ -8,3 +8,4 @@ paper/*.toc
 paper/*.fdb_latexmk
 paper/*.fls
 paper/*.synctex.gz
+tmp_release_check/
