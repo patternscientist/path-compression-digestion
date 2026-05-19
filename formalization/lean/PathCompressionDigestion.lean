@@ -1,4 +1,5 @@
 import PathCompressionDigestion.Basic
+import PathCompressionDigestion.CeilLog2
 import PathCompressionDigestion.Ackermann
 import PathCompressionDigestion.Threshold
 import PathCompressionDigestion.MainComparison
