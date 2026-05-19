@@ -1,0 +1,4 @@
+import PathCompressionDigestion.Basic
+import PathCompressionDigestion.Ackermann
+import PathCompressionDigestion.Threshold
+import PathCompressionDigestion.MainComparison
