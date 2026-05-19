@@ -35,7 +35,7 @@ jobs:
         run: lean --version
 
       - name: Fetch mathlib cache
-        run: lake exe cache get
+        run: lake cache get || lake exe cache get
 
       - name: Build formalization
         run: lake build
