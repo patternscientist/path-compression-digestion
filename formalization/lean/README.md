@@ -23,8 +23,10 @@ the paper's threshold engine:
 * `R 0 t = 2*t + 1`;
 * monotonicity in the threshold parameter;
 * monotonicity in the level;
-* the threshold step from paper Lemma 4.3;
-* the threshold jump from paper Lemma 4.4.
+* the threshold step from paper Lemma 4.3.
+
+The threshold jump from paper Lemma 4.4 is now proved from those primitive
+assumptions, rather than assumed as part of the core interface.
 
 `PathCompressionDigestion/MainComparison.lean` proves the abstract comparison
 
@@ -55,8 +57,8 @@ proof-complete for the four public facts mapped to paper Lemma 4.5 and its
 exponential corollary.
 
 The row-domination invariant and main comparison are now proved from
-`ThresholdAssumptions R` alone. The project is still intentionally abstract at
-the threshold-engine boundary: the concrete `J`, `diamond`, and maximum
+`ThresholdCoreAssumptions R` alone. The project is still intentionally abstract
+at the threshold-engine boundary: the concrete `J`, `diamond`, and maximum
 definition of `R_k(t)` are not yet formalized.
 
 ## Build
@@ -80,10 +82,10 @@ The project was created with the mathlib Lake template and is pinned by
 | `Ackermann.ge_two_mul` | Lemma 4.5(2) |
 | `Ackermann.row_domination` | Lemma 4.5(3) |
 | `Ackermann.one_eq_pow` | Corollary after Lemma 4.5 |
-| `Abstract.ThresholdAssumptions.baseExact` | Section 4.4, exact base inverse |
-| `Abstract.ThresholdAssumptions.thresholdStep` | Lemma 4.3 |
-| `Abstract.ThresholdAssumptions.thresholdJump` | Lemma 4.4 |
+| `Abstract.ThresholdCoreAssumptions.baseExact` | Section 4.4, exact base inverse |
+| `Abstract.ThresholdCoreAssumptions.thresholdStep` | Lemma 4.3 |
+| `Abstract.threshold_jump_from_step` | Lemma 4.4 |
 | `Abstract.row_domination_invariant` | Lemma 4.6 |
 | `Abstract.small_Q_one` | Theorem 4.7, `Q=1` cases |
-| `Abstract.main_comparison_from_threshold` | Theorem 4.7 main comparison |
+| `Abstract.main_comparison_from_core` | Theorem 4.7 main comparison |
 | `Abstract.MainComparisonAssumptions` / `Abstract.main_comparison` | Legacy wrapper for the original scaffold interface |
