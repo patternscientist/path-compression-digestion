@@ -1,10 +1,10 @@
 LATEXMK ?= latexmk
-TEX ?= main.tex
+PAPER_TEX ?= main.tex
 
 .PHONY: all clean
 
 all:
-	$(LATEXMK) -pdf $(TEX)
+	$(LATEXMK) -pdf $(PAPER_TEX)
 
 clean:
-	$(LATEXMK) -C $(TEX)
+	$(LATEXMK) -C $(PAPER_TEX)
