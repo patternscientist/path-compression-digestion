@@ -54,8 +54,10 @@ The Ackermann package in `PathCompressionDigestion/Ackermann.lean` is now
 proof-complete for the four public facts mapped to paper Lemma 4.5 and its
 exponential corollary.
 
-The threshold and comparison layer remains intentionally abstracted by explicit
-structure hypotheses corresponding to paper Lemmas 4.2--4.7.
+The row-domination invariant and main comparison are now proved from
+`ThresholdAssumptions R` alone. The project is still intentionally abstract at
+the threshold-engine boundary: the concrete `J`, `diamond`, and maximum
+definition of `R_k(t)` are not yet formalized.
 
 ## Build
 
@@ -81,6 +83,7 @@ The project was created with the mathlib Lake template and is pinned by
 | `Abstract.ThresholdAssumptions.baseExact` | Section 4.4, exact base inverse |
 | `Abstract.ThresholdAssumptions.thresholdStep` | Lemma 4.3 |
 | `Abstract.ThresholdAssumptions.thresholdJump` | Lemma 4.4 |
-| `Abstract.MainComparisonAssumptions.rowDominationInvariant` | Lemma 4.6 |
-| `Abstract.MainComparisonAssumptions.smallQOne` | Theorem 4.7, `Q=1` cases |
-| `Abstract.main_comparison` | Theorem 4.7 main comparison |
+| `Abstract.row_domination_invariant` | Lemma 4.6 |
+| `Abstract.small_Q_one` | Theorem 4.7, `Q=1` cases |
+| `Abstract.main_comparison_from_threshold` | Theorem 4.7 main comparison |
+| `Abstract.MainComparisonAssumptions` / `Abstract.main_comparison` | Legacy wrapper for the original scaffold interface |
