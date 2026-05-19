@@ -1,5 +1,5 @@
 import PathCompressionDigestion.Basic
-import PathCompressionDigestion.JBase
+import PathCompressionDigestion.CeilLog2
 import PathCompressionDigestion.Ackermann
 import PathCompressionDigestion.Threshold
 import PathCompressionDigestion.ThresholdInverse
