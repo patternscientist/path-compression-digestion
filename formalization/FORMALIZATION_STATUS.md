@@ -15,6 +15,10 @@ citation/bibliography-rendering patch over v0.2.0: it fixes unresolved
 compiled-paper citation markers, but does not change theorem statements, proof
 constants, Lean formalization content, or talk slides from v0.2.0.
 
+For the current file-by-file Lean theorem map and worker audit guide, see:
+
+- `formalization/lean/THEOREM_MAP.md`
+
 At the paper/proof-note layer, the target comparison remains
 
 ```text
@@ -59,11 +63,20 @@ under `ThresholdCoreAssumptions R`.
 - `JBase.lean` proves the base inverse facts, including the exact
   characterization corresponding to `R_0(t) = 2*t + 1`.
 - `formalization/lean/PathCompressionDigestion/CeilLog2.lean` wraps
-  `Nat.clog 2` and proves termination estimates needed for a future diamond
-  recursion formalization.
+  `Nat.clog 2` and proves termination estimates used by the diamond recursion.
+- `formalization/lean/PathCompressionDigestion/Diamond.lean` formalizes the
+  concrete `g^diamond` transform and its preservation package.
+- `formalization/lean/PathCompressionDigestion/JHierarchy.lean` formalizes the
+  recursive concrete `J_k` hierarchy using the diamond transform.
 - `formalization/lean/PathCompressionDigestion/ThresholdInverse.lean` provides
   generic finite maximum/inverse infrastructure for a future concrete
   definition `R_k(t) = max { r : J_k r <= t }`.
+- `formalization/lean/PathCompressionDigestion/ThresholdInverseExtras.lean`
+  provides generic support lemmas for constructing threshold-inverse data from
+  monotone, unbounded rows and for later concrete `R` work.
+- `formalization/lean/PathCompressionDigestion/AlphaPrelude.lean` provides
+  generic alpha/least-index preparation and Ackermann buffer facts. It is not
+  the final paper-specific alpha/cost formalization.
 - `formalization/lean/PathCompressionDigestion.lean` imports these concrete
   support modules along with the abstract comparison modules.
 
@@ -75,15 +88,24 @@ under `ThresholdCoreAssumptions R`.
   `formalization/lean/PathCompressionDigestion/Threshold.lean`.
 - Row-domination and main comparison from `ThresholdCoreAssumptions` in
   `formalization/lean/PathCompressionDigestion/MainComparison.lean`.
+- The diamond transform and preservation facts in
+  `formalization/lean/PathCompressionDigestion/Diamond.lean`.
+- The recursive concrete `J_k` hierarchy and basic package in
+  `formalization/lean/PathCompressionDigestion/JHierarchy.lean`.
+- Generic threshold-inverse extras in
+  `formalization/lean/PathCompressionDigestion/ThresholdInverseExtras.lean`.
+- Generic alpha prelude facts in
+  `formalization/lean/PathCompressionDigestion/AlphaPrelude.lean`.
 - The concrete base-row facts and generic infrastructure listed above.
 
 ## Not Yet Proved in Lean
 
-- The concrete `diamond` operator.
-- The recursive concrete `J_k` hierarchy.
 - The concrete maximum-defined inverse `R_k(t)`.
 - The proof that the concrete `R` satisfies `ThresholdCoreAssumptions`.
-- The alpha definitions and cost consequences.
+- The concrete main-comparison corollary obtained by applying
+  `main_comparison_from_core` to a concrete `R`.
+- The direct paper consequence `A z (4*Q) > r -> J (z+1) r <= Q`.
+- The paper-specific alpha definitions and cost consequences.
 - The source Seidel--Sharir recurrence itself.
 
 ## Build Check
@@ -91,9 +113,14 @@ under `ThresholdCoreAssumptions R`.
 From `formalization/lean/`:
 
 ```powershell
-lake build
+lake build PathCompressionDigestion
+lake env lean PathCompressionDigestion.lean
 ```
 
 The GitHub Actions workflow `.github/workflows/lean-formalization.yml` runs
 this build lane using the toolchain pinned by
 `formalization/lean/lean-toolchain`.
+
+For docs-only branches, use targeted module checks and the source-only
+`sorry`/`admit`/`axiom` scan rather than forcing a full Mathlib rebuild when
+the local dependency cache is cold.
