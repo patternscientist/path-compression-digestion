@@ -15,6 +15,10 @@ citation/bibliography-rendering patch over v0.2.0: it fixes unresolved
 compiled-paper citation markers, but does not change theorem statements, proof
 constants, Lean formalization content, or talk slides from v0.2.0.
 
+For a file-by-file Lean theorem map and worker audit guide, see:
+
+- `formalization/lean/THEOREM_MAP.md`
+
 At the paper/proof-note layer, the target comparison remains
 
 ```text
@@ -59,8 +63,12 @@ under `ThresholdCoreAssumptions R`.
 - `JBase.lean` proves the base inverse facts, including the exact
   characterization corresponding to `R_0(t) = 2*t + 1`.
 - `formalization/lean/PathCompressionDigestion/CeilLog2.lean` wraps
-  `Nat.clog 2` and proves termination estimates needed for a future diamond
-  recursion formalization.
+  `Nat.clog 2` and proves termination estimates used by the diamond transform
+  and needed for a future recursive `J_k` formalization.
+- `formalization/lean/PathCompressionDigestion/Diamond.lean` formalizes the
+  concrete `g^diamond` transform as a reusable preservation package for any
+  input satisfying the required monotonicity, unboundedness, zero, and strict
+  descent hypotheses.
 - `formalization/lean/PathCompressionDigestion/ThresholdInverse.lean` provides
   generic finite maximum/inverse infrastructure for a future concrete
   definition `R_k(t) = max { r : J_k r <= t }`.
@@ -75,14 +83,17 @@ under `ThresholdCoreAssumptions R`.
   `formalization/lean/PathCompressionDigestion/Threshold.lean`.
 - Row-domination and main comparison from `ThresholdCoreAssumptions` in
   `formalization/lean/PathCompressionDigestion/MainComparison.lean`.
+- The diamond transform and preservation facts in
+  `formalization/lean/PathCompressionDigestion/Diamond.lean`.
 - The concrete base-row facts and generic infrastructure listed above.
 
 ## Not Yet Proved in Lean
 
-- The concrete `diamond` operator.
 - The recursive concrete `J_k` hierarchy.
 - The concrete maximum-defined inverse `R_k(t)`.
 - The proof that the concrete `R` satisfies `ThresholdCoreAssumptions`.
+- The concrete main-comparison corollary obtained by instantiating
+  `main_comparison_from_core`.
 - The alpha definitions and cost consequences.
 - The source Seidel--Sharir recurrence itself.
 

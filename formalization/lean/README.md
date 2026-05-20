@@ -10,6 +10,9 @@ The current paper/release layer is v0.2.1, a citation/bibliography-rendering
 patch over v0.2.0. No theorem statements, proof constants, Lean formalization
 content, or talk slides changed from v0.2.0.
 
+For the current file-by-file theorem map and worker audit guide, see
+`THEOREM_MAP.md`.
+
 ## What is formalized
 
 ### Abstract threshold comparison
@@ -58,6 +61,11 @@ threshold assumptions.
 the termination estimates needed for a future formalization of the paper's
 diamond recursion.
 
+`PathCompressionDigestion/Diamond.lean` formalizes the paper's `g^diamond`
+transform for any input function satisfying the required zero, monotonicity,
+unboundedness, and strict-descent hypotheses. It proves the preservation facts
+needed by a future recursive `J_k` hierarchy, but does not define that hierarchy.
+
 `PathCompressionDigestion/ThresholdInverse.lean` provides generic finite
 maximum/inverse infrastructure for a later concrete definition
 `R_k(t) = max { r : J_k r <= t }`.
@@ -71,8 +79,8 @@ modules.
 This lane does not formalize:
 
 * the source Seidel--Sharir path-compression recurrence;
-* the concrete `diamond` operator;
 * the recursive concrete `J_k` hierarchy;
+* the instantiation of the diamond transform as the recursive `J_{k+1}` step;
 * the concrete maximum definition of `R_k(t) = max { r >= 0 : J_k(r) <= t }`;
 * the proof that the concrete `R` satisfies `ThresholdCoreAssumptions`;
 * alpha definitions, cost consequences, source anchors, or release packaging.
@@ -87,11 +95,13 @@ exponential corollary.
 
 The row-domination invariant and main comparison are now proved from
 `ThresholdCoreAssumptions R` alone. The project is still intentionally abstract
-at the threshold-engine boundary: the concrete `J`, `diamond`, and maximum
-definition of `R_k(t)` are not yet formalized.
+at the threshold-engine boundary: the recursive concrete `J` hierarchy,
+concrete maximum definition of `R_k(t)`, and concrete proof of
+`ThresholdCoreAssumptions` are not yet formalized.
 
-The concrete base row, `ceilLog2` support facts, and generic threshold-inverse
-infrastructure are present as setup for future concrete formalization work.
+The concrete base row, `ceilLog2` support facts, diamond preservation package,
+and generic threshold-inverse infrastructure are present as setup for future
+concrete formalization work.
 
 ## Build
 
@@ -114,6 +124,7 @@ The project was created with the mathlib Lake template and is pinned by
 | `Ackermann.ge_two_mul` | Lemma 4.5(2) |
 | `Ackermann.row_domination` | Lemma 4.5(3) |
 | `Ackermann.one_eq_pow` | Corollary after Lemma 4.5 |
+| `DiamondInput.diamond` and preservation facts | Diamond preservation lemma / diamond transform setup |
 | `Abstract.ThresholdCoreAssumptions.baseExact` | Section 4.4, exact base inverse |
 | `Abstract.ThresholdCoreAssumptions.thresholdStep` | Lemma 4.3 |
 | `Abstract.threshold_jump_from_step` | Lemma 4.4 |
