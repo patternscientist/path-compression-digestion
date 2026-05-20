@@ -10,6 +10,9 @@ The current paper/release layer is v0.2.1, a citation/bibliography-rendering
 patch over v0.2.0. No theorem statements, proof constants, Lean formalization
 content, or talk slides changed from v0.2.0.
 
+For the current file-by-file theorem map and worker audit guide, see
+`THEOREM_MAP.md`.
+
 ## What is formalized
 
 ### Abstract threshold comparison
@@ -58,9 +61,36 @@ threshold assumptions.
 the termination estimates needed for a future formalization of the paper's
 diamond recursion.
 
+`PathCompressionDigestion/Diamond.lean` formalizes the paper's `g^diamond`
+transform for natural-valued functions satisfying the required zero,
+monotonicity, unboundedness, and strict-descent hypotheses. It proves the
+equation lemmas and preservation facts for zero, pointwise bound, strict
+descent, monotonicity, and unboundedness.
+
+`PathCompressionDigestion/JHierarchy.lean` builds the recursive concrete
+hierarchy:
+
+```lean
+J 0 r = J0 r
+J (k+1) r = (JInput k).diamond r
+```
+
+It packages each row as a `DiamondInput` and proves the basic concrete `J_k`
+facts: monotonicity, unboundedness, strict descent below the identity, pointwise
+identity bound, successor-row bound, and level antitonicity.
+
 `PathCompressionDigestion/ThresholdInverse.lean` provides generic finite
 maximum/inverse infrastructure for a later concrete definition
 `R_k(t) = max { r : J_k r <= t }`.
+
+`PathCompressionDigestion/ThresholdInverseExtras.lean` adds generic support
+lemmas for constructing threshold-inverse data from monotone, unbounded rows,
+including eventual-growth lemmas, a constructor wrapper, a function-comparison
+wrapper, and a successor escape lemma.
+
+`PathCompressionDigestion/AlphaPrelude.lean` adds generic alpha/least-index
+preparation and Ackermann buffer facts. This is preparation for later
+paper-specific alpha/cost consequences, not the final paper alpha/cost theorem.
 
 The Lean root file `PathCompressionDigestion.lean` imports these concrete
 support modules along with the Ackermann, threshold, and main-comparison
@@ -71,11 +101,12 @@ modules.
 This lane does not formalize:
 
 * the source Seidel--Sharir path-compression recurrence;
-* the concrete `diamond` operator;
-* the recursive concrete `J_k` hierarchy;
 * the concrete maximum definition of `R_k(t) = max { r >= 0 : J_k(r) <= t }`;
 * the proof that the concrete `R` satisfies `ThresholdCoreAssumptions`;
-* alpha definitions, cost consequences, source anchors, or release packaging.
+* the concrete main-comparison corollary obtained by instantiating
+  `main_comparison_from_core`;
+* paper-specific alpha definitions, cost consequences, source anchors, or
+  release packaging.
 
 Those are out of scope for this first pass.
 
@@ -87,23 +118,30 @@ exponential corollary.
 
 The row-domination invariant and main comparison are now proved from
 `ThresholdCoreAssumptions R` alone. The project is still intentionally abstract
-at the threshold-engine boundary: the concrete `J`, `diamond`, and maximum
-definition of `R_k(t)` are not yet formalized.
+at the threshold-engine boundary: the concrete maximum definition of `R_k(t)`
+and the proof that this concrete `R` satisfies `ThresholdCoreAssumptions` are
+not yet formalized.
 
-The concrete base row, `ceilLog2` support facts, and generic threshold-inverse
-infrastructure are present as setup for future concrete formalization work.
+The concrete base row, `ceilLog2` support facts, diamond transform, recursive
+concrete `J_k` hierarchy, generic threshold-inverse infrastructure, generic
+threshold-inverse extras, and generic alpha prelude are present as setup for
+future concrete threshold and paper-specific alpha/cost work.
 
 ## Build
 
 From this directory:
 
 ```powershell
-lake exe cache get
-lake build
+lake build PathCompressionDigestion
+lake env lean PathCompressionDigestion.lean
 ```
 
 The project was created with the mathlib Lake template and is pinned by
 `lean-toolchain`.
+
+For docs-only branches, prefer targeted module checks and the source-only
+`sorry`/`admit`/`axiom` scan. Do not force a full Mathlib rebuild just to
+validate Markdown changes when the local dependency cache is cold.
 
 ## Paper map
 
@@ -114,6 +152,11 @@ The project was created with the mathlib Lake template and is pinned by
 | `Ackermann.ge_two_mul` | Lemma 4.5(2) |
 | `Ackermann.row_domination` | Lemma 4.5(3) |
 | `Ackermann.one_eq_pow` | Corollary after Lemma 4.5 |
+| `DiamondInput.diamond` and preservation facts | Diamond preservation lemma / diamond transform setup |
+| `J`, `J_zero_row`, `J_succ_row`, `J_monotone`, `J_unbounded`, `J_succ_le`, `J_level_antitone` | Basic `J_k` package |
+| `ThresholdInverse.thresholdInverse` and generic max facts | Generic setup for `R_k(t)` |
+| `ThresholdInverse.Data.of_monotone_unbounded` and extras | Generic setup for concrete threshold inverse construction |
+| `Abstract.alphaOf` and alpha prelude facts | Generic preparation for later alpha consequences |
 | `Abstract.ThresholdCoreAssumptions.baseExact` | Section 4.4, exact base inverse |
 | `Abstract.ThresholdCoreAssumptions.thresholdStep` | Lemma 4.3 |
 | `Abstract.threshold_jump_from_step` | Lemma 4.4 |
