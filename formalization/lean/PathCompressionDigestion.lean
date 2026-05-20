@@ -8,3 +8,4 @@ import PathCompressionDigestion.Threshold
 import PathCompressionDigestion.ThresholdInverse
 import PathCompressionDigestion.ThresholdInverseExtras
 import PathCompressionDigestion.MainComparison
+import PathCompressionDigestion.AlphaPrelude
