@@ -10,8 +10,12 @@ The publication-facing mathematical packet is the v2.2 proof note:
 
 - `proof_note/path_compression_v2_2_integrated_proof_note_public_packaging.md`
 
-The packaging layer tracked here is the v0.1.4 packaging-cleanup release. At
-this layer, the target comparison remains
+The current release-layer status is v0.2.1. This is a
+citation/bibliography-rendering patch over v0.2.0: it fixes unresolved
+compiled-paper citation markers, but does not change theorem statements, proof
+constants, Lean formalization content, or talk slides from v0.2.0.
+
+At the paper/proof-note layer, the target comparison remains
 
 ```text
 R_{z+1}(Q) >= A(z,4Q)
@@ -25,30 +29,19 @@ L(n) = ceil(log_2 max(n,2))
 c = 1, C = 1, D = 4
 ```
 
-## Current Lean layer
+## Current abstract Lean layer
 
-The Lean project in `formalization/lean/` formalizes an abstract threshold
-engine. It does not define the concrete Seidel--Sharir `J` hierarchy, the
-`diamond` operator, or the concrete maximum-defined inverse
-`R_k(t) = max { r >= 0 : J_k(r) <= t }`.
-
-The main Lean boundary is:
+The abstract Lean layer formalizes the packet Ackermann package and an
+abstract threshold engine. Its boundary is:
 
 ```lean
 ThresholdCoreAssumptions R
 ```
 
 The comparison results are proved for any abstract threshold family `R`
-satisfying those assumptions.
-
-## Proved in Lean
-
-- Packet Ackermann package in
-  `formalization/lean/PathCompressionDigestion/Ackermann.lean`.
-- Threshold jump from `ThresholdCoreAssumptions` in
-  `formalization/lean/PathCompressionDigestion/Threshold.lean`.
-- Main comparison from `ThresholdCoreAssumptions` in
-  `formalization/lean/PathCompressionDigestion/MainComparison.lean`.
+satisfying those assumptions. The threshold jump is derived from the primitive
+assumptions, and the row-domination/main comparison lane is now proved from
+`ThresholdCoreAssumptions R`.
 
 In particular, the abstract theorem currently built by Lean is the conditional
 comparison
@@ -59,13 +52,39 @@ forall z Q, 1 <= z -> 1 <= Q -> A z (4 * Q) <= R (z + 1) Q
 
 under `ThresholdCoreAssumptions R`.
 
+## Current concrete/infrastructure Lean layer
+
+- `formalization/lean/PathCompressionDigestion/JBase.lean` formalizes the
+  concrete base row `J0 r = r / 2`.
+- `JBase.lean` proves the base inverse facts, including the exact
+  characterization corresponding to `R_0(t) = 2*t + 1`.
+- `formalization/lean/PathCompressionDigestion/CeilLog2.lean` wraps
+  `Nat.clog 2` and proves termination estimates needed for a future diamond
+  recursion formalization.
+- `formalization/lean/PathCompressionDigestion/ThresholdInverse.lean` provides
+  generic finite maximum/inverse infrastructure for a future concrete
+  definition `R_k(t) = max { r : J_k r <= t }`.
+- `formalization/lean/PathCompressionDigestion.lean` imports these concrete
+  support modules along with the abstract comparison modules.
+
+## Proved in Lean
+
+- The packet Ackermann package in
+  `formalization/lean/PathCompressionDigestion/Ackermann.lean`.
+- Threshold jump from `ThresholdCoreAssumptions` in
+  `formalization/lean/PathCompressionDigestion/Threshold.lean`.
+- Row-domination and main comparison from `ThresholdCoreAssumptions` in
+  `formalization/lean/PathCompressionDigestion/MainComparison.lean`.
+- The concrete base-row facts and generic infrastructure listed above.
+
 ## Not Yet Proved in Lean
 
-- The concrete `J` hierarchy.
-- The `diamond` operator and its termination/properties.
+- The concrete `diamond` operator.
+- The recursive concrete `J_k` hierarchy.
 - The concrete maximum-defined inverse `R_k(t)`.
 - The proof that the concrete `R` satisfies `ThresholdCoreAssumptions`.
 - The alpha definitions and cost consequences.
+- The source Seidel--Sharir recurrence itself.
 
 ## Build Check
 

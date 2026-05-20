@@ -1,10 +1,18 @@
-# Lean formalization scaffold
+# Lean formalization lane
 
 This directory is a bounded Lean 4 + mathlib lane for the threshold-comparison
 core of the path-compression digestion paper. It is intentionally a scaffold,
 not a formalization of the Seidel--Sharir recurrence.
 
+## Release-layer context
+
+The current paper/release layer is v0.2.1, a citation/bibliography-rendering
+patch over v0.2.0. No theorem statements, proof constants, Lean formalization
+content, or talk slides changed from v0.2.0.
+
 ## What is formalized
+
+### Abstract threshold comparison
 
 The project defines the packet Ackermann function on `Nat` in
 `PathCompressionDigestion/Ackermann.lean`:
@@ -28,24 +36,45 @@ the paper's threshold engine:
 The threshold jump from paper Lemma 4.4 is now proved from those primitive
 assumptions, rather than assumed as part of the core interface.
 
-`PathCompressionDigestion/MainComparison.lean` proves the abstract comparison
+`PathCompressionDigestion/MainComparison.lean` proves row-domination and the
+abstract comparison from `ThresholdCoreAssumptions R`:
 
 ```lean
-theorem main_comparison :
+theorem main_comparison_from_core :
   forall z Q, 1 <= z -> 1 <= Q -> A z (4*Q) <= R (z+1) Q
 ```
 
-from the threshold assumptions, the row-domination invariant corresponding to
-paper Lemma 4.6, and the paper's explicit `Q = 1` case split in Theorem 4.7.
+The older `MainComparisonAssumptions` wrapper remains as a compatibility layer,
+but the current abstract main comparison is derived from the primitive
+threshold assumptions.
+
+### Concrete/infrastructure support
+
+`PathCompressionDigestion/JBase.lean` formalizes the concrete base row
+`J0 r = r / 2`, including the exact characterization corresponding to
+`R_0(t) = 2*t + 1`.
+
+`PathCompressionDigestion/CeilLog2.lean` wraps Mathlib's `Nat.clog 2` and proves
+the termination estimates needed for a future formalization of the paper's
+diamond recursion.
+
+`PathCompressionDigestion/ThresholdInverse.lean` provides generic finite
+maximum/inverse infrastructure for a later concrete definition
+`R_k(t) = max { r : J_k r <= t }`.
+
+The Lean root file `PathCompressionDigestion.lean` imports these concrete
+support modules along with the Ackermann, threshold, and main-comparison
+modules.
 
 ## What is intentionally not formalized
 
 This lane does not formalize:
 
 * the source Seidel--Sharir path-compression recurrence;
-* the source paper's `g^diamond` termination argument;
-* the concrete `J_k` hierarchy;
+* the concrete `diamond` operator;
+* the recursive concrete `J_k` hierarchy;
 * the concrete maximum definition of `R_k(t) = max { r >= 0 : J_k(r) <= t }`;
+* the proof that the concrete `R` satisfies `ThresholdCoreAssumptions`;
 * alpha definitions, cost consequences, source anchors, or release packaging.
 
 Those are out of scope for this first pass.
@@ -60,6 +89,9 @@ The row-domination invariant and main comparison are now proved from
 `ThresholdCoreAssumptions R` alone. The project is still intentionally abstract
 at the threshold-engine boundary: the concrete `J`, `diamond`, and maximum
 definition of `R_k(t)` are not yet formalized.
+
+The concrete base row, `ceilLog2` support facts, and generic threshold-inverse
+infrastructure are present as setup for future concrete formalization work.
 
 ## Build
 
