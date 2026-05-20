@@ -6,4 +6,5 @@ import PathCompressionDigestion.JHierarchy
 import PathCompressionDigestion.Ackermann
 import PathCompressionDigestion.Threshold
 import PathCompressionDigestion.ThresholdInverse
+import PathCompressionDigestion.ThresholdInverseExtras
 import PathCompressionDigestion.MainComparison
