@@ -86,6 +86,9 @@ under `ThresholdCoreAssumptions R`.
   the concrete `R` with the generic inverse families for `JInput`, proves the
   concrete threshold core assumptions for `R`, and derives the concrete main
   comparison from the abstract theorem.
+- `formalization/lean/PathCompressionDigestion/PaperConsequences.lean`
+  formalizes the direct paper-facing consequence
+  `A z (4 * Q) > r -> J (z + 1) r <= Q`.
 - `formalization/lean/PathCompressionDigestion/AlphaPrelude.lean` provides
   generic alpha/least-index preparation and Ackermann buffer facts. It is not
   the final paper-specific alpha/cost formalization.
@@ -120,13 +123,14 @@ under `ThresholdCoreAssumptions R`.
   comparison
   `forall z Q, 1 <= z -> 1 <= Q -> A z (4 * Q) <= R (z + 1) Q`, obtained via
   `Abstract.main_comparison_from_core`.
+- The direct paper-facing consequence
+  `A z (4 * Q) > r -> J (z + 1) r <= Q`.
 - Generic/preparatory alpha prelude facts in
   `formalization/lean/PathCompressionDigestion/AlphaPrelude.lean`.
 - The concrete base-row facts and generic infrastructure listed above.
 
 ## Not Yet Proved in Lean
 
-- The direct paper consequence `A z (4*Q) > r -> J (z+1) r <= Q`.
 - The paper-specific alpha/cost tail: `L(n)`, `Q(m,n)`, `alpha_Q`,
   `alpha_J^Q`, `alpha_J^S`, and the `+1/+2` comparisons.
 - The source recurrence/cost theorem, including the source Seidel--Sharir

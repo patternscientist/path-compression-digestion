@@ -112,6 +112,18 @@ The concrete main comparison is obtained by applying
 `Abstract.main_comparison_from_core` to
 `concrete_threshold_core_assumptions`.
 
+`PathCompressionDigestion/PaperConsequences.lean` formalizes the direct
+paper-facing consequence:
+
+```lean
+theorem direct_paper_consequence
+    {z Q r : Nat}
+    (hz : 1 <= z)
+    (hQ : 1 <= Q)
+    (hr : A z (4 * Q) > r) :
+    J (z + 1) r <= Q
+```
+
 `PathCompressionDigestion/AlphaPrelude.lean` adds generic alpha/least-index
 preparation and Ackermann buffer facts. This is preparation for later
 paper-specific alpha/cost consequences, not the final paper alpha/cost theorem.
@@ -125,7 +137,6 @@ threshold, and main-comparison modules.
 The current merged Lean lane still does not formalize:
 
 * the source Seidel--Sharir path-compression recurrence;
-* the direct paper consequence `A z (4*Q) > r -> J (z+1) r <= Q`;
 * paper-specific alpha definitions, cost consequences, source anchors, or
   release packaging;
 * the full paper-facing formalization of the final top-down compression bound.
@@ -146,13 +157,15 @@ The row-domination invariant and main comparison are now proved from
 `ThresholdCoreAssumptions R` alone. The concrete maximum definition of
 `R_k(t)` is formalized, and `ConcreteCore.lean` now proves that this concrete
 `R` satisfies `ThresholdCoreAssumptions` and derives the concrete comparison
-`A z (4*Q) <= R (z+1) Q`.
+`A z (4*Q) <= R (z+1) Q`. `PaperConsequences.lean` now derives the direct
+paper consequence `A z (4*Q) > r -> J (z+1) r <= Q`.
 
 The concrete base row, `ceilLog2` support facts, diamond transform, recursive
 concrete `J_k` hierarchy, generic threshold-inverse infrastructure, generic
 threshold-inverse extras, concrete threshold inverse `R`, generic
-diamond-to-threshold recurrence, concrete core bridge, and generic alpha
-prelude are present as setup for later paper-specific alpha/cost work.
+diamond-to-threshold recurrence, concrete core bridge, direct paper
+consequence, and generic alpha prelude are present as setup for later
+paper-specific alpha/cost work.
 
 ## Build
 
@@ -188,6 +201,7 @@ checks and do not force a full Mathlib rebuild for every branch.
 | `R_eq_Rg_JInput`, `R_succ_eq_Rdiamond_JInput` | Concrete identifications between `R` and the generic `JInput` inverses |
 | `concrete_threshold_core_assumptions` | Concrete threshold core assumptions for `R` |
 | `concrete_main_comparison` | Concrete main comparison via `Abstract.main_comparison_from_core` |
+| `J_le_of_le_R`, `direct_paper_consequence` | Direct paper-facing consequence from the concrete comparison |
 | `Abstract.alphaOf` and alpha prelude facts | Generic preparation for later alpha consequences |
 | `Abstract.ThresholdCoreAssumptions.baseExact` | Section 4.4, exact base inverse |
 | `Abstract.ThresholdCoreAssumptions.thresholdStep` | Lemma 4.3 |

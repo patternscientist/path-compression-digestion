@@ -11,4 +11,5 @@ import PathCompressionDigestion.ConcreteThreshold
 import PathCompressionDigestion.DiamondThreshold
 import PathCompressionDigestion.MainComparison
 import PathCompressionDigestion.ConcreteCore
+import PathCompressionDigestion.PaperConsequences
 import PathCompressionDigestion.AlphaPrelude
