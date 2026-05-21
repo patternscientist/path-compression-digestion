@@ -82,6 +82,10 @@ under `ThresholdCoreAssumptions R`.
 - `formalization/lean/PathCompressionDigestion/DiamondThreshold.lean` proves
   the generic diamond-to-threshold recurrence for a `DiamondInput` row and its
   diamond transform.
+- `formalization/lean/PathCompressionDigestion/ConcreteCore.lean` identifies
+  the concrete `R` with the generic inverse families for `JInput`, proves the
+  concrete threshold core assumptions for `R`, and derives the concrete main
+  comparison from the abstract theorem.
 - `formalization/lean/PathCompressionDigestion/AlphaPrelude.lean` provides
   generic alpha/least-index preparation and Ackermann buffer facts. It is not
   the final paper-specific alpha/cost formalization.
@@ -108,21 +112,26 @@ under `ThresholdCoreAssumptions R`.
   `formalization/lean/PathCompressionDigestion/ConcreteThreshold.lean`.
 - The generic diamond-to-threshold recurrence in
   `formalization/lean/PathCompressionDigestion/DiamondThreshold.lean`.
+- The concrete core bridge in
+  `formalization/lean/PathCompressionDigestion/ConcreteCore.lean`, including
+  `R_eq_Rg_JInput`, `R_succ_eq_Rdiamond_JInput`,
+  `concrete_threshold_core_assumptions`, and `concrete_main_comparison`.
+- The concrete threshold core assumptions for `R` and the concrete main
+  comparison
+  `forall z Q, 1 <= z -> 1 <= Q -> A z (4 * Q) <= R (z + 1) Q`, obtained via
+  `Abstract.main_comparison_from_core`.
 - Generic/preparatory alpha prelude facts in
   `formalization/lean/PathCompressionDigestion/AlphaPrelude.lean`.
 - The concrete base-row facts and generic infrastructure listed above.
 
 ## Not Yet Proved in Lean
 
-- The `ConcreteCore` bridge proving that the concrete `R` satisfies
-  `ThresholdCoreAssumptions`.
-- The concrete main-comparison corollary obtained by applying
-  `main_comparison_from_core` to a concrete `R`.
 - The direct paper consequence `A z (4*Q) > r -> J (z+1) r <= Q`.
-- The paper-specific alpha/cost tail: paper-specific alpha definitions,
-  `+1/+2` consequences, and cost consequences.
+- The paper-specific alpha/cost tail: `L(n)`, `Q(m,n)`, `alpha_Q`,
+  `alpha_J^Q`, `alpha_J^S`, and the `+1/+2` comparisons.
 - The source recurrence/cost theorem, including the source Seidel--Sharir
   recurrence itself.
+- The full paper-facing formalization of the final top-down compression bound.
 
 ## Build Check
 

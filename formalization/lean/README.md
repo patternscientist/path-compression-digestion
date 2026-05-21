@@ -96,29 +96,45 @@ threshold monotonicity, level monotonicity, and concrete inverse/spec wrappers.
 for a `DiamondInput` row and its diamond transform, then proves the generic
 diamond-to-threshold recurrence.
 
+`PathCompressionDigestion/ConcreteCore.lean` connects the concrete `R` family
+to the generic diamond-threshold inverses for `JInput`:
+
+```lean
+R_eq_Rg_JInput
+R_succ_eq_Rdiamond_JInput
+concrete_threshold_core_assumptions :
+  Abstract.ThresholdCoreAssumptions R
+concrete_main_comparison :
+  forall z Q, 1 <= z -> 1 <= Q -> A z (4 * Q) <= R (z + 1) Q
+```
+
+The concrete main comparison is obtained by applying
+`Abstract.main_comparison_from_core` to
+`concrete_threshold_core_assumptions`.
+
 `PathCompressionDigestion/AlphaPrelude.lean` adds generic alpha/least-index
 preparation and Ackermann buffer facts. This is preparation for later
 paper-specific alpha/cost consequences, not the final paper alpha/cost theorem.
 
 The Lean root file `PathCompressionDigestion.lean` imports these concrete
-support modules along with the Ackermann, threshold, and main-comparison
-modules.
+support modules, including `ConcreteCore.lean`, along with the Ackermann,
+threshold, and main-comparison modules.
 
 ## What is intentionally not formalized
 
 The current merged Lean lane still does not formalize:
 
 * the source Seidel--Sharir path-compression recurrence;
-* the proof that the concrete `R` satisfies `ThresholdCoreAssumptions`;
-* the concrete main-comparison corollary obtained by instantiating
-  `main_comparison_from_core`;
+* the direct paper consequence `A z (4*Q) > r -> J (z+1) r <= Q`;
 * paper-specific alpha definitions, cost consequences, source anchors, or
-  release packaging.
+  release packaging;
+* the full paper-facing formalization of the final top-down compression bound.
 
 These remain outside the current merged stack. The concrete diamond transform,
 recursive concrete `J_k` hierarchy, concrete threshold inverse `R`, generic
-diamond-to-threshold recurrence, and generic alpha prelude are in the Lean lane
-and should not be marked absent.
+diamond-to-threshold recurrence, concrete threshold core assumptions for `R`,
+concrete main comparison via `Abstract.main_comparison_from_core`, and generic
+alpha prelude are in the Lean lane and should not be marked absent.
 
 ## Proof status
 
@@ -128,15 +144,15 @@ exponential corollary.
 
 The row-domination invariant and main comparison are now proved from
 `ThresholdCoreAssumptions R` alone. The concrete maximum definition of
-`R_k(t)` is formalized, but the project is still intentionally abstract at the
-core threshold-engine boundary: the proof that this concrete `R` satisfies
-`ThresholdCoreAssumptions` is not yet formalized.
+`R_k(t)` is formalized, and `ConcreteCore.lean` now proves that this concrete
+`R` satisfies `ThresholdCoreAssumptions` and derives the concrete comparison
+`A z (4*Q) <= R (z+1) Q`.
 
 The concrete base row, `ceilLog2` support facts, diamond transform, recursive
 concrete `J_k` hierarchy, generic threshold-inverse infrastructure, generic
 threshold-inverse extras, concrete threshold inverse `R`, generic
-diamond-to-threshold recurrence, and generic alpha prelude are present as setup
-for future concrete core and paper-specific alpha/cost work.
+diamond-to-threshold recurrence, concrete core bridge, and generic alpha
+prelude are present as setup for later paper-specific alpha/cost work.
 
 ## Build
 
@@ -169,6 +185,9 @@ checks and do not force a full Mathlib rebuild for every branch.
 | `ThresholdInverse.Data.of_monotone_unbounded` and extras | Generic setup for concrete threshold inverse construction |
 | `R`, `R_zero_eq`, `R_monotone_threshold`, `R_monotone_level`, `J_R_le`, `le_R_of_J_le`, `lt_J_of_R_lt` | Concrete threshold inverse package |
 | `DiamondInput.threshold_step` | Generic diamond-to-threshold recurrence |
+| `R_eq_Rg_JInput`, `R_succ_eq_Rdiamond_JInput` | Concrete identifications between `R` and the generic `JInput` inverses |
+| `concrete_threshold_core_assumptions` | Concrete threshold core assumptions for `R` |
+| `concrete_main_comparison` | Concrete main comparison via `Abstract.main_comparison_from_core` |
 | `Abstract.alphaOf` and alpha prelude facts | Generic preparation for later alpha consequences |
 | `Abstract.ThresholdCoreAssumptions.baseExact` | Section 4.4, exact base inverse |
 | `Abstract.ThresholdCoreAssumptions.thresholdStep` | Lemma 4.3 |
