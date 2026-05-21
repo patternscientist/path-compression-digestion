@@ -8,11 +8,14 @@ formalized.
 ## Repository/checkpoint status
 
 - Current main checkpoint used for this map:
-  `86f3d09` (`origin/lean-post-concrete-core-status-v1` merge).
+  `72cc15a` (`origin/lean-direct-paper-consequence-v1` merge).
 - Recent merged Lean work available at this checkpoint includes:
   - `lean-concrete-core-v1`: added `ConcreteCore.lean`, proving the concrete
     threshold core assumptions for `R` and the concrete main comparison via
     `Abstract.main_comparison_from_core`.
+  - `lean-direct-paper-consequence-v1`: added `PaperConsequences.lean`,
+    proving the direct paper-facing implication
+    `A z (4 * Q) > r -> J (z + 1) r <= Q`.
   - `lean-concrete-threshold-v1`: defined the concrete threshold inverse `R`
     for the `J` hierarchy and proved its base, threshold-monotonicity,
     level-monotonicity, and inverse/spec wrappers.
@@ -67,7 +70,8 @@ Any edit touching these normalizations or constants is high risk.
 | Concrete core bridge | `PathCompressionDigestion/ConcreteCore.lean` | `R_eq_Rg_JInput`, `R_succ_eq_Rdiamond_JInput`, `concrete_threshold_core_assumptions`, `concrete_main_comparison` | Proved | Proves `Abstract.ThresholdCoreAssumptions R` and derives `forall z Q, 1 <= z -> 1 <= Q -> A z (4 * Q) <= R (z + 1) Q` via `Abstract.main_comparison_from_core`. |
 | Direct paper consequence | `PathCompressionDigestion/PaperConsequences.lean` | `J_le_of_le_R`, `direct_paper_consequence` | Proved | Derives `A z (4 * Q) > r -> J (z + 1) r <= Q` from `concrete_main_comparison` and the concrete threshold inverse bridge. |
 | Generic alpha prelude | `PathCompressionDigestion/AlphaPrelude.lean` | `Ackermann.monotone_left_of_pos`, `Ackermann.eval_two`, `Ackermann.four_mul_column_mono`, `Ackermann.four_mul_column_succ`, `le_four_mul`, `Abstract.alphaOf`, `Abstract.alpha_spec`, `Abstract.alpha_min`, `Abstract.target_le_R_of_le_ackermann_four_mul`, `Abstract.alphaOf_le_succ_of_le_ackermann_four_mul`, `Abstract.alphaOf_le_succ_of_main_comparison_from_core` | Proved generically/preparatory | Useful for later alpha/cost work, but not the final paper-specific alpha or cost theorem. |
-| Lean root import surface | `PathCompressionDigestion.lean` | Imports `Basic`, `JBase`, `CeilLog2`, `Diamond`, `JHierarchy`, `Ackermann`, `Threshold`, `ThresholdInverse`, `ThresholdInverseExtras`, `ConcreteThreshold`, `DiamondThreshold`, `MainComparison`, `ConcreteCore`, `PaperConsequences`, `AlphaPrelude` | Present | This is the current public Lean lane. |
+| Paper-specific alpha tail, first layer | `PathCompressionDigestion/AlphaTail.lean` | `ceilDiv`, `L`, `Q`, `sourceThreshold`, `ackermannAlphaFamily`, `alphaQ`, `alphaJQ`, `alphaJS`, `alphaQExists`, `one_le_Q`, `one_le_L`, `one_le_alphaQ`, `sourceThreshold_le_Q`, `alphaQ_spec`, `alphaJQ_le_succ_of_ackermann_witness`, `alphaJQ_le_alphaQ_add_one`, `alphaJS_eq_alphaJQ_of_sourceThreshold_eq_Q`, `alphaJS_le_alphaQ_add_one_of_sourceThreshold_eq_Q` | Proved/defined, with explicit conditional existence for `alphaQ` comparisons | Defines the paper-specific packet alpha quantities and immediate bridge lemmas. It does not formalize the source recurrence/cost theorem or the full real-threshold `+2` comparison. |
+| Lean root import surface | `PathCompressionDigestion.lean` | Imports `Basic`, `JBase`, `CeilLog2`, `Diamond`, `JHierarchy`, `Ackermann`, `Threshold`, `ThresholdInverse`, `ThresholdInverseExtras`, `ConcreteThreshold`, `DiamondThreshold`, `MainComparison`, `ConcreteCore`, `PaperConsequences`, `AlphaPrelude`, `AlphaTail` | Present | This is the current public Lean lane. |
 
 ## Already formalized layers
 
@@ -93,9 +97,9 @@ Any edit touching these normalizations or constants is high risk.
 
 The following items remain open at this checkpoint:
 
-- Paper-specific alpha/cost tail:
-  `L(n)`, `Q(m,n)`, `alpha_Q`, `alpha_J^Q`, `alpha_J^S`, and the `+1/+2`
-  comparisons.
+- Full paper-specific alpha/cost tail beyond the first definition layer:
+  unconditional `alpha_Q` existence, the full source-faithful
+  `alpha_J^S <= alpha_Q + 2` comparison, and the cost consequence.
 - Source recurrence/cost theorem, including the source Seidel--Sharir
   recurrence itself.
 - Full paper-facing formalization of the final top-down compression bound.
@@ -121,7 +125,8 @@ ThresholdInverseExtras complete
   -> ConcreteThreshold
 
 AlphaPrelude complete
-  -> paper-specific alpha/cost consequences
+  -> AlphaTail first paper-specific alpha definition layer
+  -> remaining paper-specific alpha/cost consequences
 
 TheoremMap/docs audit
   -> worker coordination

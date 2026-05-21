@@ -128,6 +128,12 @@ theorem direct_paper_consequence
 preparation and Ackermann buffer facts. This is preparation for later
 paper-specific alpha/cost consequences, not the final paper alpha/cost theorem.
 
+`PathCompressionDigestion/AlphaTail.lean` adds the first paper-specific alpha
+definition layer: packet `L`, packet `Q`, `alphaQ`, `alphaJQ`, and a
+Nat-threshold encoding of `alphaJS`, plus immediate conditional bridge lemmas.
+It does not formalize the source recurrence/cost theorem or the full
+real-threshold `+2` comparison.
+
 The Lean root file `PathCompressionDigestion.lean` imports these concrete
 support modules, including `ConcreteCore.lean`, along with the Ackermann,
 threshold, and main-comparison modules.
@@ -137,7 +143,7 @@ threshold, and main-comparison modules.
 The current merged Lean lane still does not formalize:
 
 * the source Seidel--Sharir path-compression recurrence;
-* paper-specific alpha definitions, cost consequences, source anchors, or
+* the remaining paper-specific alpha/cost consequences, source anchors, or
   release packaging;
 * the full paper-facing formalization of the final top-down compression bound.
 
@@ -165,7 +171,8 @@ concrete `J_k` hierarchy, generic threshold-inverse infrastructure, generic
 threshold-inverse extras, concrete threshold inverse `R`, generic
 diamond-to-threshold recurrence, concrete core bridge, direct paper
 consequence, and generic alpha prelude are present as setup for later
-paper-specific alpha/cost work.
+paper-specific alpha/cost work. The first paper-specific alpha definitions and
+conditional bridges are present in `AlphaTail.lean`.
 
 ## Build
 
@@ -203,6 +210,7 @@ checks and do not force a full Mathlib rebuild for every branch.
 | `concrete_main_comparison` | Concrete main comparison via `Abstract.main_comparison_from_core` |
 | `J_le_of_le_R`, `direct_paper_consequence` | Direct paper-facing consequence from the concrete comparison |
 | `Abstract.alphaOf` and alpha prelude facts | Generic preparation for later alpha consequences |
+| `L`, `Q`, `alphaQ`, `alphaJQ`, `alphaJS`, and AlphaTail bridge lemmas | First paper-specific alpha-tail definition layer |
 | `Abstract.ThresholdCoreAssumptions.baseExact` | Section 4.4, exact base inverse |
 | `Abstract.ThresholdCoreAssumptions.thresholdStep` | Lemma 4.3 |
 | `Abstract.threshold_jump_from_step` | Lemma 4.4 |
