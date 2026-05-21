@@ -80,13 +80,21 @@ facts: monotonicity, unboundedness, strict descent below the identity, pointwise
 identity bound, successor-row bound, and level antitonicity.
 
 `PathCompressionDigestion/ThresholdInverse.lean` provides generic finite
-maximum/inverse infrastructure for a later concrete definition
+maximum/inverse infrastructure used by the concrete definition
 `R_k(t) = max { r : J_k r <= t }`.
 
 `PathCompressionDigestion/ThresholdInverseExtras.lean` adds generic support
 lemmas for constructing threshold-inverse data from monotone, unbounded rows,
 including eventual-growth lemmas, a constructor wrapper, a function-comparison
 wrapper, and a successor escape lemma.
+
+`PathCompressionDigestion/ConcreteThreshold.lean` defines the concrete
+threshold inverse `R` for the `J` hierarchy and proves base exactness,
+threshold monotonicity, level monotonicity, and concrete inverse/spec wrappers.
+
+`PathCompressionDigestion/DiamondThreshold.lean` packages generic inverse data
+for a `DiamondInput` row and its diamond transform, then proves the generic
+diamond-to-threshold recurrence.
 
 `PathCompressionDigestion/AlphaPrelude.lean` adds generic alpha/least-index
 preparation and Ackermann buffer facts. This is preparation for later
@@ -101,7 +109,6 @@ modules.
 This lane does not formalize:
 
 * the source Seidel--Sharir path-compression recurrence;
-* the concrete maximum definition of `R_k(t) = max { r >= 0 : J_k(r) <= t }`;
 * the proof that the concrete `R` satisfies `ThresholdCoreAssumptions`;
 * the concrete main-comparison corollary obtained by instantiating
   `main_comparison_from_core`;
@@ -117,15 +124,16 @@ proof-complete for the four public facts mapped to paper Lemma 4.5 and its
 exponential corollary.
 
 The row-domination invariant and main comparison are now proved from
-`ThresholdCoreAssumptions R` alone. The project is still intentionally abstract
-at the threshold-engine boundary: the concrete maximum definition of `R_k(t)`
-and the proof that this concrete `R` satisfies `ThresholdCoreAssumptions` are
-not yet formalized.
+`ThresholdCoreAssumptions R` alone. The concrete maximum definition of
+`R_k(t)` is formalized, but the project is still intentionally abstract at the
+core threshold-engine boundary: the proof that this concrete `R` satisfies
+`ThresholdCoreAssumptions` is not yet formalized.
 
 The concrete base row, `ceilLog2` support facts, diamond transform, recursive
 concrete `J_k` hierarchy, generic threshold-inverse infrastructure, generic
-threshold-inverse extras, and generic alpha prelude are present as setup for
-future concrete threshold and paper-specific alpha/cost work.
+threshold-inverse extras, concrete threshold inverse `R`, generic
+diamond-to-threshold recurrence, and generic alpha prelude are present as setup
+for future concrete core and paper-specific alpha/cost work.
 
 ## Build
 
@@ -139,9 +147,9 @@ lake env lean PathCompressionDigestion.lean
 The project was created with the mathlib Lake template and is pinned by
 `lean-toolchain`.
 
-For docs-only branches, prefer targeted module checks and the source-only
-`sorry`/`admit`/`axiom` scan. Do not force a full Mathlib rebuild just to
-validate Markdown changes when the local dependency cache is cold.
+For docs-only branches, use `git diff --check` and the source-only
+`sorry`/`admit`/`axiom` scan. For Lean source branches, use targeted module
+checks and do not force a full Mathlib rebuild for every branch.
 
 ## Paper map
 
@@ -156,6 +164,8 @@ validate Markdown changes when the local dependency cache is cold.
 | `J`, `J_zero_row`, `J_succ_row`, `J_monotone`, `J_unbounded`, `J_succ_le`, `J_level_antitone` | Basic `J_k` package |
 | `ThresholdInverse.thresholdInverse` and generic max facts | Generic setup for `R_k(t)` |
 | `ThresholdInverse.Data.of_monotone_unbounded` and extras | Generic setup for concrete threshold inverse construction |
+| `R`, `R_zero_eq`, `R_monotone_threshold`, `R_monotone_level`, `J_R_le`, `le_R_of_J_le`, `lt_J_of_R_lt` | Concrete threshold inverse package |
+| `DiamondInput.threshold_step` | Generic diamond-to-threshold recurrence |
 | `Abstract.alphaOf` and alpha prelude facts | Generic preparation for later alpha consequences |
 | `Abstract.ThresholdCoreAssumptions.baseExact` | Section 4.4, exact base inverse |
 | `Abstract.ThresholdCoreAssumptions.thresholdStep` | Lemma 4.3 |
