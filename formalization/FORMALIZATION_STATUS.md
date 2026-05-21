@@ -69,11 +69,19 @@ under `ThresholdCoreAssumptions R`.
 - `formalization/lean/PathCompressionDigestion/JHierarchy.lean` formalizes the
   recursive concrete `J_k` hierarchy using the diamond transform.
 - `formalization/lean/PathCompressionDigestion/ThresholdInverse.lean` provides
-  generic finite maximum/inverse infrastructure for a future concrete
+  generic finite maximum/inverse infrastructure used by the concrete
   definition `R_k(t) = max { r : J_k r <= t }`.
 - `formalization/lean/PathCompressionDigestion/ThresholdInverseExtras.lean`
   provides generic support lemmas for constructing threshold-inverse data from
-  monotone, unbounded rows and for later concrete `R` work.
+  monotone, unbounded rows, supporting the concrete `R` and diamond-threshold
+  work.
+- `formalization/lean/PathCompressionDigestion/ConcreteThreshold.lean`
+  defines the concrete threshold inverse `R` for the `J` hierarchy and proves
+  base exactness, threshold monotonicity, level monotonicity, and concrete
+  inverse/spec wrappers.
+- `formalization/lean/PathCompressionDigestion/DiamondThreshold.lean` proves
+  the generic diamond-to-threshold recurrence for a `DiamondInput` row and its
+  diamond transform.
 - `formalization/lean/PathCompressionDigestion/AlphaPrelude.lean` provides
   generic alpha/least-index preparation and Ackermann buffer facts. It is not
   the final paper-specific alpha/cost formalization.
@@ -94,13 +102,17 @@ under `ThresholdCoreAssumptions R`.
   `formalization/lean/PathCompressionDigestion/JHierarchy.lean`.
 - Generic threshold-inverse extras in
   `formalization/lean/PathCompressionDigestion/ThresholdInverseExtras.lean`.
+- The concrete threshold inverse `R` and its base, monotonicity, and inverse
+  wrappers in
+  `formalization/lean/PathCompressionDigestion/ConcreteThreshold.lean`.
+- The generic diamond-to-threshold recurrence in
+  `formalization/lean/PathCompressionDigestion/DiamondThreshold.lean`.
 - Generic alpha prelude facts in
   `formalization/lean/PathCompressionDigestion/AlphaPrelude.lean`.
 - The concrete base-row facts and generic infrastructure listed above.
 
 ## Not Yet Proved in Lean
 
-- The concrete maximum-defined inverse `R_k(t)`.
 - The proof that the concrete `R` satisfies `ThresholdCoreAssumptions`.
 - The concrete main-comparison corollary obtained by applying
   `main_comparison_from_core` to a concrete `R`.
@@ -121,6 +133,6 @@ The GitHub Actions workflow `.github/workflows/lean-formalization.yml` runs
 this build lane using the toolchain pinned by
 `formalization/lean/lean-toolchain`.
 
-For docs-only branches, use targeted module checks and the source-only
-`sorry`/`admit`/`axiom` scan rather than forcing a full Mathlib rebuild when
-the local dependency cache is cold.
+For docs-only branches, use `git diff --check` and the source-only
+`sorry`/`admit`/`axiom` scan. For Lean source branches, use targeted module
+checks and avoid forcing a full Mathlib rebuild for every branch.
