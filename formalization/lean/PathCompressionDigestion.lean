@@ -10,4 +10,5 @@ import PathCompressionDigestion.ThresholdInverseExtras
 import PathCompressionDigestion.ConcreteThreshold
 import PathCompressionDigestion.DiamondThreshold
 import PathCompressionDigestion.MainComparison
+import PathCompressionDigestion.ConcreteCore
 import PathCompressionDigestion.AlphaPrelude
