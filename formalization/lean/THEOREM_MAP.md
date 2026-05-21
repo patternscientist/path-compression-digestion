@@ -8,8 +8,11 @@ formalized.
 ## Repository/checkpoint status
 
 - Current main checkpoint used for this map:
-  `94b3eca` (`origin/lean-concrete-roadmap-v2` merge).
+  `e0d1844` (`origin/lean-concrete-core-v1` merge).
 - Recent merged Lean work available at this checkpoint includes:
+  - `lean-concrete-core-v1`: added `ConcreteCore.lean`, proving the concrete
+    threshold core assumptions for `R` and the concrete main comparison via
+    `Abstract.main_comparison_from_core`.
   - `lean-concrete-threshold-v1`: defined the concrete threshold inverse `R`
     for the `J` hierarchy and proved its base, threshold-monotonicity,
     level-monotonicity, and inverse/spec wrappers.
@@ -47,9 +50,9 @@ Any edit touching these normalizations or constants is high risk.
 |---|---|---|---|---|
 | Basic arithmetic helpers | `PathCompressionDigestion/Basic.lean` | `one_or_two_le`, `one_le_four_mul` | Proved | Small shared facts for the comparison lane. |
 | Packet Ackermann package | `PathCompressionDigestion/Ackermann.lean` | `A`, `A_zero`, `A_succ_zero`, `A_succ_one`, `A_succ_succ`, `Ackermann.monotone_right`, `Ackermann.ge_two_mul`, `Ackermann.row_domination`, `Ackermann.one_eq_pow` | Proved | Covers the packet Ackermann normalization and paper Lemma 4.5-style facts. |
-| Abstract threshold core | `PathCompressionDigestion/Threshold.lean` | `ThresholdFamily`, `Abstract.thresholdInverseShape`, `Abstract.ThresholdCoreAssumptions`, `Abstract.ThresholdAssumptions`, `Abstract.level_monotone_core`, `Abstract.threshold_lower_base`, `Abstract.one_le_threshold_core` | Proved/defined abstractly | This remains the interface the concrete `R` must next satisfy. |
-| Abstract threshold jump | `PathCompressionDigestion/Threshold.lean` | `Abstract.four_mul_le_two_pow_two_mul_sub_one`, `Abstract.threshold_jump_from_step`, `Abstract.threshold_step`, `Abstract.threshold_jump`, `Abstract.ThresholdAssumptions.ofCore` | Proved abstractly | Future workers should instantiate `ThresholdCoreAssumptions`, not re-prove this jump. |
-| Abstract main comparison | `PathCompressionDigestion/MainComparison.lean` | `Abstract.row_domination_base`, `Abstract.row_domination_step`, `Abstract.row_domination_invariant_from_core`, `Abstract.small_Q_one_from_core`, `Abstract.main_comparison`, `Abstract.main_comparison_from_threshold`, `Abstract.main_comparison_from_core` | Proved abstractly | `main_comparison_from_core` is the theorem to reuse after the concrete core bridge is proved. |
+| Abstract threshold core | `PathCompressionDigestion/Threshold.lean` | `ThresholdFamily`, `Abstract.thresholdInverseShape`, `Abstract.ThresholdCoreAssumptions`, `Abstract.ThresholdAssumptions`, `Abstract.level_monotone_core`, `Abstract.threshold_lower_base`, `Abstract.one_le_threshold_core` | Proved/defined abstractly | This is the interface now satisfied by the concrete `R` in `ConcreteCore.lean`. |
+| Abstract threshold jump | `PathCompressionDigestion/Threshold.lean` | `Abstract.four_mul_le_two_pow_two_mul_sub_one`, `Abstract.threshold_jump_from_step`, `Abstract.threshold_step`, `Abstract.threshold_jump`, `Abstract.ThresholdAssumptions.ofCore` | Proved abstractly | `ConcreteCore.lean` instantiates the core assumptions; future work should not re-prove this jump. |
+| Abstract main comparison | `PathCompressionDigestion/MainComparison.lean` | `Abstract.row_domination_base`, `Abstract.row_domination_step`, `Abstract.row_domination_invariant_from_core`, `Abstract.small_Q_one_from_core`, `Abstract.main_comparison`, `Abstract.main_comparison_from_threshold`, `Abstract.main_comparison_from_core` | Proved abstractly | `main_comparison_from_core` is reused by the concrete bridge. |
 | Base row `J_0` | `PathCompressionDigestion/JBase.lean` | `J0`, `J0_zero`, `J0_one`, `J0_two`, `J0_monotone`, `J0_lt_self` | Proved | Base row only; recursive hierarchy is in `JHierarchy.lean`. |
 | Exact base inverse for `J_0` | `PathCompressionDigestion/JBase.lean` | `J0_le_iff_le_two_mul_add_one`, `J0_base_inverse_lower`, `J0_base_inverse_upper`, `J0_base_inverse`, `J0_base_inverse_isGreatest` | Proved | Corresponds to the exact base inverse shape `R_0(t) = 2*t + 1`; used by `ConcreteThreshold.R_zero_eq`. |
 | `ceilLog2` support | `PathCompressionDigestion/CeilLog2.lean` | `ceilLog2`, `ceilLog2_zero`, `ceilLog2_one`, `ceilLog2_two`, `self_le_two_pow_pred`, `ceilLog2_le_pred`, `ceilLog2_lt_self`, `monotone_ceilLog2`, `le_two_pow_ceilLog2`, `ceilLog2_le_of_le_two_pow` | Proved | Supports the diamond recursion and later threshold recurrence work. |
@@ -59,10 +62,11 @@ Any edit touching these normalizations or constants is high risk.
 | Basic concrete `J_k` package | `PathCompressionDigestion/JHierarchy.lean` | `J_monotone`, `J_unbounded`, `J_lt_self_pos`, `J_le_self`, `J_succ_le`, `J_level_antitone` | Proved | Supplies the monotonicity, unboundedness, descent, and level-antitone facts needed for concrete threshold inverses. |
 | Generic threshold inverse infrastructure | `PathCompressionDigestion/ThresholdInverse.lean` | `ThresholdInverse.Data`, `ThresholdInverse.Data.upperBound`, `ThresholdInverse.Data.upperBound_spec`, `ThresholdInverse.thresholdInverse`, `ThresholdInverse.thresholdInverse_le_upperBound`, `ThresholdInverse.le_thresholdInverse_of_apply_le`, `ThresholdInverse.apply_thresholdInverse_le`, `ThresholdInverse.apply_le_of_le_thresholdInverse`, `ThresholdInverse.thresholdInverse_mono_threshold`, `ThresholdInverse.thresholdInverse_mono_function` | Proved generically | Used by `ConcreteThreshold.lean` and `DiamondThreshold.lean`. |
 | Generic threshold inverse extras | `PathCompressionDigestion/ThresholdInverseExtras.lean` | `ThresholdInverse.eventually_ge_of_monotone_unbounded`, `ThresholdInverse.eventually_gt_of_monotone_unbounded`, `ThresholdInverse.Data.of_monotone_unbounded`, `ThresholdInverse.thresholdInverse_mono_function_of_monotone_unbounded`, `ThresholdInverse.lt_apply_succ_thresholdInverse` | Proved generically | Constructor and escape lemmas used by concrete threshold inverse data from `J` rows and by diamond-threshold data. |
-| Concrete threshold inverse family | `PathCompressionDigestion/ConcreteThreshold.lean` | `JThresholdData`, `R`, `J_R_le`, `le_R_of_J_le`, `lt_J_of_R_lt`, `R_monotone_threshold`, `R_mono_t`, `R_monotone_level`, `R_zero_eq` | Proved | Concrete `R k t = max { r : J k r <= t }` is formalized. The remaining bridge is the `ThresholdCoreAssumptions R` package. |
+| Concrete threshold inverse family | `PathCompressionDigestion/ConcreteThreshold.lean` | `JThresholdData`, `R`, `J_R_le`, `le_R_of_J_le`, `lt_J_of_R_lt`, `R_monotone_threshold`, `R_mono_t`, `R_monotone_level`, `R_zero_eq` | Proved | Concrete `R k t = max { r : J k r <= t }` is formalized and consumed by `ConcreteCore.lean`. |
 | Generic diamond-to-threshold recurrence | `PathCompressionDigestion/DiamondThreshold.lean` | `DiamondInput.gThresholdData`, `DiamondInput.diamondThresholdData`, `DiamondInput.Rg`, `DiamondInput.Rdiamond`, `DiamondInput.threshold_step` | Proved generically | Supplies the threshold-step field after specialization to `JInput k`. |
+| Concrete core bridge | `PathCompressionDigestion/ConcreteCore.lean` | `R_eq_Rg_JInput`, `R_succ_eq_Rdiamond_JInput`, `concrete_threshold_core_assumptions`, `concrete_main_comparison` | Proved | Proves `Abstract.ThresholdCoreAssumptions R` and derives `forall z Q, 1 <= z -> 1 <= Q -> A z (4 * Q) <= R (z + 1) Q` via `Abstract.main_comparison_from_core`. |
 | Generic alpha prelude | `PathCompressionDigestion/AlphaPrelude.lean` | `Ackermann.monotone_left_of_pos`, `Ackermann.eval_two`, `Ackermann.four_mul_column_mono`, `Ackermann.four_mul_column_succ`, `le_four_mul`, `Abstract.alphaOf`, `Abstract.alpha_spec`, `Abstract.alpha_min`, `Abstract.target_le_R_of_le_ackermann_four_mul`, `Abstract.alphaOf_le_succ_of_le_ackermann_four_mul`, `Abstract.alphaOf_le_succ_of_main_comparison_from_core` | Proved generically/preparatory | Useful for later alpha/cost work, but not the final paper-specific alpha or cost theorem. |
-| Lean root import surface | `PathCompressionDigestion.lean` | Imports `Basic`, `JBase`, `CeilLog2`, `Diamond`, `JHierarchy`, `Ackermann`, `Threshold`, `ThresholdInverse`, `ThresholdInverseExtras`, `ConcreteThreshold`, `DiamondThreshold`, `MainComparison`, `AlphaPrelude` | Present | This is the current public Lean lane. |
+| Lean root import surface | `PathCompressionDigestion.lean` | Imports `Basic`, `JBase`, `CeilLog2`, `Diamond`, `JHierarchy`, `Ackermann`, `Threshold`, `ThresholdInverse`, `ThresholdInverseExtras`, `ConcreteThreshold`, `DiamondThreshold`, `MainComparison`, `ConcreteCore`, `AlphaPrelude` | Present | This is the current public Lean lane. |
 
 ## Already formalized layers
 
@@ -79,26 +83,22 @@ Any edit touching these normalizations or constants is high risk.
 - Generic threshold inverse extras.
 - Concrete threshold inverse `R` for the `J` hierarchy.
 - Generic diamond-to-threshold recurrence for a `DiamondInput`.
+- Concrete threshold core assumptions for `R`.
+- Concrete main comparison via `Abstract.main_comparison_from_core`.
 - Generic alpha prelude.
 
 ## Not yet formalized
 
 The following items remain open at this checkpoint:
 
-- Proof that concrete `R` satisfies `ThresholdCoreAssumptions`, packaging:
-  base exactness for concrete `R`, threshold monotonicity, level monotonicity,
-  and the threshold-step obtained from the generic diamond-to-threshold
-  recurrence.
-- Concrete main comparison corollary, obtained by applying
-  `Abstract.main_comparison_from_core` after the concrete core assumptions are
-  proved.
 - Direct paper consequence:
   `A z (4*Q) > r -> J (z+1) r <= Q`.
-- Full paper alpha/cost tail:
-  paper-specific `L(n)`, integer `Q(m,n)`, concrete `alpha_Q`,
-  `alpha_J^Q`, `alpha_J^S`, the `+1/+2` concrete alpha consequences, and the
-  source recurrence/cost theorem.
-- Source Seidel--Sharir recurrence itself as a full formal cost theorem.
+- Paper-specific alpha/cost tail:
+  `L(n)`, `Q(m,n)`, `alpha_Q`, `alpha_J^Q`, `alpha_J^S`, and the `+1/+2`
+  comparisons.
+- Source recurrence/cost theorem, including the source Seidel--Sharir
+  recurrence itself.
+- Full paper-facing formalization of the final top-down compression bound.
 
 In particular, `AlphaPrelude.lean` is generic preparation. It does not by
 itself formalize the paper-specific alpha definitions or cost consequences.
@@ -109,12 +109,13 @@ itself formalize the paper-specific alpha definitions or cost consequences.
 Diamond complete
   -> JHierarchy complete
   -> ConcreteThreshold complete
-  -> ConcreteCore / ThresholdCoreAssumptions R open
-  -> concrete main comparison corollary open
+  -> ConcreteCore / ThresholdCoreAssumptions R complete
+  -> concrete main comparison via Abstract.main_comparison_from_core complete
+  -> direct paper consequence open
   -> paper-specific alpha/cost consequences open
 
 DiamondThreshold complete
-  -> ConcreteCore
+  -> ConcreteCore complete
 
 ThresholdInverseExtras complete
   -> ConcreteThreshold
@@ -128,12 +129,10 @@ TheoremMap/docs audit
 
 ## Worker guidance
 
-- Do not re-prove `Abstract.main_comparison_from_core`; reuse it after the
-  concrete `R` bridge is established.
-- Do not claim full concrete formalization until concrete `R` satisfies
-  `ThresholdCoreAssumptions`.
-- The next critical path branch should be the concrete core package /
-  `ConcreteCore.lean`.
+- Do not re-prove `Abstract.main_comparison_from_core`; the concrete
+  comparison already reuses it through `ConcreteCore.lean`.
+- Do not claim the direct paper consequence or paper alpha/cost consequences
+  from the concrete comparison alone.
 - Do not claim paper alpha/cost consequences from `AlphaPrelude.lean` alone.
 - Do not use `sorry`, `admit`, or `axiom`.
 - For docs-only branches, run `git diff --check` and the source-only
