@@ -8,7 +8,7 @@ formalized.
 ## Repository/checkpoint status
 
 - Current main checkpoint used for this map:
-  `e0d1844` (`origin/lean-concrete-core-v1` merge).
+  `86f3d09` (`origin/lean-post-concrete-core-status-v1` merge).
 - Recent merged Lean work available at this checkpoint includes:
   - `lean-concrete-core-v1`: added `ConcreteCore.lean`, proving the concrete
     threshold core assumptions for `R` and the concrete main comparison via
@@ -65,8 +65,9 @@ Any edit touching these normalizations or constants is high risk.
 | Concrete threshold inverse family | `PathCompressionDigestion/ConcreteThreshold.lean` | `JThresholdData`, `R`, `J_R_le`, `le_R_of_J_le`, `lt_J_of_R_lt`, `R_monotone_threshold`, `R_mono_t`, `R_monotone_level`, `R_zero_eq` | Proved | Concrete `R k t = max { r : J k r <= t }` is formalized and consumed by `ConcreteCore.lean`. |
 | Generic diamond-to-threshold recurrence | `PathCompressionDigestion/DiamondThreshold.lean` | `DiamondInput.gThresholdData`, `DiamondInput.diamondThresholdData`, `DiamondInput.Rg`, `DiamondInput.Rdiamond`, `DiamondInput.threshold_step` | Proved generically | Supplies the threshold-step field after specialization to `JInput k`. |
 | Concrete core bridge | `PathCompressionDigestion/ConcreteCore.lean` | `R_eq_Rg_JInput`, `R_succ_eq_Rdiamond_JInput`, `concrete_threshold_core_assumptions`, `concrete_main_comparison` | Proved | Proves `Abstract.ThresholdCoreAssumptions R` and derives `forall z Q, 1 <= z -> 1 <= Q -> A z (4 * Q) <= R (z + 1) Q` via `Abstract.main_comparison_from_core`. |
+| Direct paper consequence | `PathCompressionDigestion/PaperConsequences.lean` | `J_le_of_le_R`, `direct_paper_consequence` | Proved | Derives `A z (4 * Q) > r -> J (z + 1) r <= Q` from `concrete_main_comparison` and the concrete threshold inverse bridge. |
 | Generic alpha prelude | `PathCompressionDigestion/AlphaPrelude.lean` | `Ackermann.monotone_left_of_pos`, `Ackermann.eval_two`, `Ackermann.four_mul_column_mono`, `Ackermann.four_mul_column_succ`, `le_four_mul`, `Abstract.alphaOf`, `Abstract.alpha_spec`, `Abstract.alpha_min`, `Abstract.target_le_R_of_le_ackermann_four_mul`, `Abstract.alphaOf_le_succ_of_le_ackermann_four_mul`, `Abstract.alphaOf_le_succ_of_main_comparison_from_core` | Proved generically/preparatory | Useful for later alpha/cost work, but not the final paper-specific alpha or cost theorem. |
-| Lean root import surface | `PathCompressionDigestion.lean` | Imports `Basic`, `JBase`, `CeilLog2`, `Diamond`, `JHierarchy`, `Ackermann`, `Threshold`, `ThresholdInverse`, `ThresholdInverseExtras`, `ConcreteThreshold`, `DiamondThreshold`, `MainComparison`, `ConcreteCore`, `AlphaPrelude` | Present | This is the current public Lean lane. |
+| Lean root import surface | `PathCompressionDigestion.lean` | Imports `Basic`, `JBase`, `CeilLog2`, `Diamond`, `JHierarchy`, `Ackermann`, `Threshold`, `ThresholdInverse`, `ThresholdInverseExtras`, `ConcreteThreshold`, `DiamondThreshold`, `MainComparison`, `ConcreteCore`, `PaperConsequences`, `AlphaPrelude` | Present | This is the current public Lean lane. |
 
 ## Already formalized layers
 
@@ -85,14 +86,13 @@ Any edit touching these normalizations or constants is high risk.
 - Generic diamond-to-threshold recurrence for a `DiamondInput`.
 - Concrete threshold core assumptions for `R`.
 - Concrete main comparison via `Abstract.main_comparison_from_core`.
+- Direct paper consequence `A z (4*Q) > r -> J (z+1) r <= Q`.
 - Generic alpha prelude.
 
 ## Not yet formalized
 
 The following items remain open at this checkpoint:
 
-- Direct paper consequence:
-  `A z (4*Q) > r -> J (z+1) r <= Q`.
 - Paper-specific alpha/cost tail:
   `L(n)`, `Q(m,n)`, `alpha_Q`, `alpha_J^Q`, `alpha_J^S`, and the `+1/+2`
   comparisons.
@@ -111,7 +111,7 @@ Diamond complete
   -> ConcreteThreshold complete
   -> ConcreteCore / ThresholdCoreAssumptions R complete
   -> concrete main comparison via Abstract.main_comparison_from_core complete
-  -> direct paper consequence open
+  -> direct paper consequence complete
   -> paper-specific alpha/cost consequences open
 
 DiamondThreshold complete
@@ -131,8 +131,8 @@ TheoremMap/docs audit
 
 - Do not re-prove `Abstract.main_comparison_from_core`; the concrete
   comparison already reuses it through `ConcreteCore.lean`.
-- Do not claim the direct paper consequence or paper alpha/cost consequences
-  from the concrete comparison alone.
+- Do not claim paper alpha/cost consequences from the concrete comparison or
+  direct paper consequence alone.
 - Do not claim paper alpha/cost consequences from `AlphaPrelude.lean` alone.
 - Do not use `sorry`, `admit`, or `axiom`.
 - For docs-only branches, run `git diff --check` and the source-only
