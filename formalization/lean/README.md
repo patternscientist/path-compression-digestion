@@ -1,8 +1,9 @@
 # Lean formalization lane
 
 This directory is a bounded Lean 4 + mathlib lane for the threshold-comparison
-core of the path-compression digestion paper. It is intentionally a scaffold,
-not a formalization of the Seidel--Sharir recurrence.
+core and concrete `J`/threshold infrastructure of the path-compression
+digestion paper. It is not yet a formalization of the Seidel--Sharir source
+recurrence or paper-specific alpha/cost tail.
 
 ## Release-layer context
 
@@ -58,8 +59,7 @@ threshold assumptions.
 `R_0(t) = 2*t + 1`.
 
 `PathCompressionDigestion/CeilLog2.lean` wraps Mathlib's `Nat.clog 2` and proves
-the termination estimates needed for a future formalization of the paper's
-diamond recursion.
+the termination estimates used by the paper's diamond recursion.
 
 `PathCompressionDigestion/Diamond.lean` formalizes the paper's `g^diamond`
 transform for natural-valued functions satisfying the required zero,
@@ -106,7 +106,7 @@ modules.
 
 ## What is intentionally not formalized
 
-This lane does not formalize:
+The current merged Lean lane still does not formalize:
 
 * the source Seidel--Sharir path-compression recurrence;
 * the proof that the concrete `R` satisfies `ThresholdCoreAssumptions`;
@@ -115,7 +115,10 @@ This lane does not formalize:
 * paper-specific alpha definitions, cost consequences, source anchors, or
   release packaging.
 
-Those are out of scope for this first pass.
+These remain outside the current merged stack. The concrete diamond transform,
+recursive concrete `J_k` hierarchy, concrete threshold inverse `R`, generic
+diamond-to-threshold recurrence, and generic alpha prelude are in the Lean lane
+and should not be marked absent.
 
 ## Proof status
 

@@ -92,9 +92,10 @@ under `ThresholdCoreAssumptions R`.
 
 - The packet Ackermann package in
   `formalization/lean/PathCompressionDigestion/Ackermann.lean`.
-- Threshold jump from `ThresholdCoreAssumptions` in
-  `formalization/lean/PathCompressionDigestion/Threshold.lean`.
-- Row-domination and main comparison from `ThresholdCoreAssumptions` in
+- The abstract threshold engine in
+  `formalization/lean/PathCompressionDigestion/Threshold.lean`, including
+  `ThresholdCoreAssumptions` and the threshold jump derived from it.
+- Abstract row-domination and main comparison from `ThresholdCoreAssumptions` in
   `formalization/lean/PathCompressionDigestion/MainComparison.lean`.
 - The diamond transform and preservation facts in
   `formalization/lean/PathCompressionDigestion/Diamond.lean`.
@@ -107,18 +108,21 @@ under `ThresholdCoreAssumptions R`.
   `formalization/lean/PathCompressionDigestion/ConcreteThreshold.lean`.
 - The generic diamond-to-threshold recurrence in
   `formalization/lean/PathCompressionDigestion/DiamondThreshold.lean`.
-- Generic alpha prelude facts in
+- Generic/preparatory alpha prelude facts in
   `formalization/lean/PathCompressionDigestion/AlphaPrelude.lean`.
 - The concrete base-row facts and generic infrastructure listed above.
 
 ## Not Yet Proved in Lean
 
-- The proof that the concrete `R` satisfies `ThresholdCoreAssumptions`.
+- The `ConcreteCore` bridge proving that the concrete `R` satisfies
+  `ThresholdCoreAssumptions`.
 - The concrete main-comparison corollary obtained by applying
   `main_comparison_from_core` to a concrete `R`.
 - The direct paper consequence `A z (4*Q) > r -> J (z+1) r <= Q`.
-- The paper-specific alpha definitions and cost consequences.
-- The source Seidel--Sharir recurrence itself.
+- The paper-specific alpha/cost tail: paper-specific alpha definitions,
+  `+1/+2` consequences, and cost consequences.
+- The source recurrence/cost theorem, including the source Seidel--Sharir
+  recurrence itself.
 
 ## Build Check
 

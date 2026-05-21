@@ -7,9 +7,9 @@ formalized.
 
 ## Repository/checkpoint status
 
-- Current main HEAD used for this map:
-  `c48ade4`.
-- Recent merged Lean work includes:
+- Current main checkpoint used for this map:
+  `94b3eca` (`origin/lean-concrete-roadmap-v2` merge).
+- Recent merged Lean work available at this checkpoint includes:
   - `lean-concrete-threshold-v1`: defined the concrete threshold inverse `R`
     for the `J` hierarchy and proved its base, threshold-monotonicity,
     level-monotonicity, and inverse/spec wrappers.
