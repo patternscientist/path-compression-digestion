@@ -64,13 +64,22 @@ This module defines finite raw objects for:
 - ranked forests over `Fin n`, with parent pointers and ranks bounded by `r`;
 - roots, leaves, ancestors, and the rank-validity discipline;
 - bounded top-down compression paths;
-- single compression steps that preserve ranks and rewire path vertices to the
-  path root;
-- finite compression executions and their summed path cost;
+- single compression steps that preserve ranks and rewire nonrootpath vertices
+  to the old parent of the path target;
+- finite compression executions, source-style rootpath/nonrootpath cost, and
+  base-case rank-accounting certificates;
 - `topDownCost : SourceCostFamily`, defined as the finite supremum of valid
-  execution costs in this skeleton.
+  base-accounted execution costs in this skeleton.
 
-It also records the next proof targets as `Prop` definitions, not assumptions:
+It proves the source base obligation for that base-accounted concrete cost:
+
+```lean
+theorem topDown_base_bound :
+    topDownBaseBoundTarget
+```
+
+It also records the remaining shift proof target as a `Prop` definition, not
+an assumption:
 
 ```lean
 def topDownBaseBoundTarget : Prop :=
@@ -83,14 +92,16 @@ def topDownSourceModelTarget : Prop :=
   topDownBaseBoundTarget /\ forall k : Nat, topDownShiftStepTarget k
 ```
 
-These targets are not proved in the follow-on branch.
+The shift target is not proved in the follow-on branch.
 
 ## Not achieved
 
 The bridge branch does not define a concrete top-down path-compression
 execution model and does not prove Seidel--Sharir Lemma 5 from such a model.
 The follow-on concrete skeleton defines finite execution objects and
-`topDownCost`, but still does not prove the base bound or Seidel--Sharir shift
+`topDownCost`, and proves the base bound for executions equipped with the
+base-rank-accounting certificate. It still does not derive that certificate
+from the raw step semantics, and it does not prove the Seidel--Sharir shift
 obligation for that cost family.
 
 No unconditional theorem of the following form exists yet:
@@ -108,14 +119,14 @@ exists yet.
 1. Source-model definition now has a first finite skeleton, but its exact
    match to the source cost functional `f(m,n,r)` still needs audit against
    Seidel--Sharir's path-compression model.
-2. Missing base case: a proof that the modeled cost satisfies
-   `SourceBound topDownCost 0 (J 0)`, or the source-faithful adjusted base row
-   if the source recurrence starts from a different indexing convention.
+2. Missing certificate theorem: a proof that every raw source-valid compression
+   execution admits the base-rank-accounting certificate used by
+   `topDownCost`.
 3. Missing combinatorial shifting content: a proof that any bound
    `f(m,n,r) <= k*m + 2*n*g(r)` for a valid source row `g` implies
    `f(m,n,r) <= (k+1)*m + 2*n*g^diamond(r)`.
-4. Blocker type: mathematical/modeling ambiguity plus substantial Lean
-   engineering, not a failure of the existing `J`/Ackermann comparison lane.
-5. Smallest next theorem: instantiate `SourceModel` for a concrete
-   top-down path-compression model by proving its `base_bound` and
-   `shifting_step` fields.
+4. Blocker type: combinatorial proof work plus source-model audit, not a
+   failure of the existing `J`/Ackermann comparison lane.
+5. Smallest next theorem: prove that raw valid compression executions produce
+   the base-rank-accounting certificate, then attack
+   `topDownShiftStepTarget`.

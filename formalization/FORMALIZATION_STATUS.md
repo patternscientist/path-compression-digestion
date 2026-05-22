@@ -114,9 +114,11 @@ under `ThresholdCoreAssumptions R`.
 - `formalization/lean/PathCompressionDigestion/ConcreteSourceModel.lean`
   defines a finite concrete source-model skeleton beneath `SourceModel`:
   ranked forests over `Fin n`, bounded compression paths, compression steps,
-  finite executions, and `topDownCost : SourceCostFamily`. Its base and
-  shifting obligations are recorded as named `Prop` targets, not proved or
-  assumed.
+  finite executions, source-style rootpath/nonrootpath cost,
+  base-rank-accounting certificates, and `topDownCost : SourceCostFamily`. It
+  proves the base obligation for this base-accounted cost family; the
+  certificate derivation from raw step semantics and the shifting obligation
+  remain open.
 - `formalization/lean/PathCompressionDigestion/PaperPipeline.lean` exposes the
   formalized direct-proof pipeline under paper-facing wrapper names, including
   the finite bound conditional on `SourceRecurrence` and the corresponding
@@ -172,10 +174,11 @@ under `ThresholdCoreAssumptions R`.
   `formalization/lean/PathCompressionDigestion/SourceModel.lean`.
 - The concrete source-model skeleton definitions in
   `formalization/lean/PathCompressionDigestion/ConcreteSourceModel.lean`,
-  including `topDownCost` and the named targets
-  `topDownBaseBoundTarget`, `topDownShiftStepTarget`, and
-  `topDownSourceModelTarget`. These are definitions/targets only; they do not
-  prove a concrete `SourceModel`.
+  including `topDownCost`, `topDownCost_le_base_budget`,
+  `topDown_base_bound`, and the named remaining target
+  `topDownShiftStepTarget`. This proves the base field needed by
+  `SourceModel` for base-accounted executions, but does not prove the shift
+  field or a concrete `SourceModel`.
 - The paper-facing pipeline wrappers, including
   `paper_finite_bound_of_source_recurrence` and
   `paper_finite_bound_of_source_model`, in
@@ -185,8 +188,8 @@ under `ThresholdCoreAssumptions R`.
 ## Not Yet Proved in Lean
 
 - A concrete source/top-down path-compression model theorem, including proofs
-  of the base and shifting obligations for
-  `ConcreteSourceModel.topDownCost`.
+  that raw valid executions admit the base-rank-accounting certificate and the
+  shifting obligation for `ConcreteSourceModel.topDownCost`.
 - Asymptotic Big-O packaging.
 - The unconditional full paper theorem for the actual source
   path-compression model.
@@ -194,10 +197,11 @@ under `ThresholdCoreAssumptions R`.
 The finite paper-facing bound is formalized conditional on
 `SourceRecurrence`, and also for any structured source model satisfying the
 base and shifting obligations. The Lean lane now has a finite concrete
-execution skeleton and `topDownCost`, but it does not yet prove the base or
-Seidel--Sharir shift obligations for that cost family, so it still does not
-derive an unconditional theorem for the actual top-down path-compression
-source model.
+execution skeleton and `topDownCost`, and it proves the base bound for
+base-accounted executions. It does not yet derive those accounting
+certificates from raw compression semantics or prove the Seidel--Sharir shift
+obligation, so it still does not derive an unconditional theorem for the actual
+top-down path-compression source model.
 
 ## Build Check
 

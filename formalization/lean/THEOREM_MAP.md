@@ -35,8 +35,8 @@ formalized.
   - `lean-concrete-source-model-v1`: added `ConcreteSourceModel.lean`, a
     finite top-down source-model skeleton with raw ranked forests, compression
     paths/steps/executions, an extremal `topDownCost`, and named `Prop`
-    targets for the concrete base and shift obligations. It does not prove
-    those obligations.
+    targets for the concrete base and shift obligations. It proves the base
+    bound for base-accounted executions; the shift obligation remains open.
 - Earlier checkpoint `5d0b1bd39dfbf222ed4c7bb74566a0789a0aef2d`
   formalized the diamond transform.
 - Release-layer status: v0.2.1 was a citation/bibliography-rendering patch over
@@ -86,7 +86,7 @@ Any edit touching these normalizations or constants is high risk.
 | Conditional source-cost interface | `PathCompressionDigestion/SourceCost.lean` | `SourceCostFamily`, `SourceRecurrence`, `two_mul_n_mul_Q_le_two_mul_m_add_four_mul_n`, `source_cost_bound_of_recurrence` | Proved conditionally | Isolates the source recurrence as an explicit interface assumption and proves the finite paper-facing cost theorem from it. |
 | Source-shifting iteration bridge | `PathCompressionDigestion/SourceIteration.lean` | `SourceBound`, `SourceShiftStep`, `sourceBound_J_of_iterated_shifting`, `sourceRecurrence_of_iterated_shifting` | Proved from base/shift obligations | Proves by induction that a base bound at `J_0` plus the source shifting step along `JInput k` implies `SourceRecurrence`. It does not prove those source obligations for a concrete path-compression model. |
 | Structured source model interface | `PathCompressionDigestion/SourceModel.lean` | `SourceModel`, `sourceRecurrence_of_shifting`, `source_model_cost_bound` | Proved for any packaged source base/shift model | Removes direct dependence on `SourceRecurrence` for clients that can supply the base and shifting fields. It is not an unconditional top-down model theorem. |
-| Concrete source-model skeleton | `PathCompressionDigestion/ConcreteSourceModel.lean` | `RawRankedForest`, `RawCompressionPath`, `RawCompressionStep`, `RawCompressionExecution`, `topDownCost`, `topDownBaseBoundTarget`, `topDownShiftStepTarget`, `topDownSourceModelTarget`, `topDownSourceModelCandidate` | Definitions only, plus a packaging candidate from future obligations | Defines finite ranked-forest/path-compression execution objects and a concrete `SourceCostFamily`. The base and Seidel--Sharir shift obligations are documented as `Prop` targets, not assumed and not proved. |
+| Concrete source-model skeleton | `PathCompressionDigestion/ConcreteSourceModel.lean` | `RawRankedForest`, `RawCompressionPath`, `RawCompressionStep`, `RawCompressionExecution`, `RawCompressionExecution.HasBaseRankAccounting`, `topDownCost`, `topDownCost_le_base_budget`, `topDown_base_bound`, `topDownShiftStepTarget`, `topDownSourceModelTarget`, `topDownSourceModelCandidate` | Base obligation proved for base-accounted executions; shift open | Defines finite ranked-forest/path-compression execution objects and a concrete `SourceCostFamily`. The base bound `SourceBound topDownCost 0 (J 0)` is proved from explicit base-rank-accounting certificates; deriving those certificates from raw step semantics and proving the Seidel--Sharir shift remain open. |
 | Paper-facing pipeline wrapper | `PathCompressionDigestion/PaperPipeline.lean` | `paper_concrete_main_comparison`, `paper_direct_J_bound`, `paper_alphaJQ_bound`, `paper_alphaJS_bound`, `paper_finite_bound_of_source_recurrence`, `paper_finite_bound_of_source_model` | Proved conditionally for the finite cost bound and proved for structured source models | Exposes the formalized direct-proof pipeline under paper-facing names. The actual top-down path-compression model remains uninstantiated. |
 | Lean root import surface | `PathCompressionDigestion.lean` | Imports `Basic`, `JBase`, `CeilLog2`, `Diamond`, `JHierarchy`, `Ackermann`, `Threshold`, `ThresholdInverse`, `ThresholdInverseExtras`, `ConcreteThreshold`, `DiamondThreshold`, `MainComparison`, `ConcreteCore`, `PaperConsequences`, `AlphaPrelude`, `AlphaTail`, `SourceCost`, `SourceIteration`, `SourceModel`, `ConcreteSourceModel`, `PaperPipeline` | Present | This is the current public Lean lane. |
 
@@ -120,8 +120,8 @@ Any edit touching these normalizations or constants is high risk.
 - Structured source interface theorem `sourceRecurrence_of_shifting` and
   finite model-wrapper theorem `source_model_cost_bound`.
 - Concrete source-model skeleton with finite ranked forests, top-down
-  compression paths/steps/executions, and `topDownCost`; the source obligations
-  for this cost family are only named targets.
+  compression paths/steps/executions, and `topDownCost`; the base source
+  obligation `topDown_base_bound` is proved for base-accounted executions.
 - Paper-facing pipeline wrappers, including
   `paper_finite_bound_of_source_recurrence` and
   `paper_finite_bound_of_source_model`.
@@ -131,7 +131,8 @@ Any edit touching these normalizations or constants is high risk.
 The following items remain open at this checkpoint:
 
 - Concrete source/top-down path-compression model theorem, including proofs of
-  the base and shifting obligations for `ConcreteSourceModel.topDownCost`.
+  the base-rank-accounting certificate from raw step semantics and the
+  shifting obligation for `ConcreteSourceModel.topDownCost`.
 - Asymptotic Big-O packaging.
 - Unconditional full paper theorem for the actual source path-compression
   model.
@@ -152,7 +153,8 @@ Diamond complete
   -> direct paper consequence complete
   -> paper-specific alpha comparison complete
   -> source-shifting iteration bridge complete
-  -> concrete source-model skeleton present, source obligations open
+  -> concrete source-model skeleton present, base obligation complete,
+     shift obligation open
   -> conditional/structured source-cost theorem complete
   -> paper-facing wrapper complete
 
