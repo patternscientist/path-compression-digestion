@@ -6,16 +6,20 @@ Starting commit: `4d6febfe0ea9cd10cc99d73d029e3491f5b63a8a`
 
 ## Summary
 
-This branch adds the first source-dissection Lean module:
+This branch adds the first source-dissection and source-projection Lean
+modules:
 
 ```text
 PathCompressionDigestion/SourceDissection.lean
+PathCompressionDigestion/SourceProjection.lean
 ```
 
 The module formalizes concrete dissection structure around the existing
 `ConcreteSourceModel` API, including bottom/top membership, restricted
 bottom/top parent maps, local path-contiguity across a dissection, raw
 nonrootpath counting, and rank-threshold dissection facts.
+`SourceProjection.lean` then aggregates the one-step projected cost bounds
+over raw executions and proves the source nonrootpath indicator summation.
 
 It does not prove the Seidel--Sharir shift theorem:
 
@@ -72,6 +76,19 @@ In `PathCompressionDigestion/SourceDissection.lean`:
 - `RankThresholdDissection.dissection`
 - `RankThresholdDissection.topShiftedRank`
 - `RankThresholdDissection.TopPacking`
+
+In `PathCompressionDigestion/SourceProjection.lean`:
+
+- `RawCompressionStep.nonrootIndicator`
+- `RawCompressionPath.ProjectedPathSegment.lastIndex`
+- `RawCompressionPath.ProjectedPathSegment.IsRootPath`
+- `RawCompressionPath.ProjectedPathSegment.IsNonrootPath`
+- `RawCompressionPath.ProjectedPathSegment.nonrootIndicator`
+- `RawCompressionPath.ProjectedCompressionStep.IsNonrootPath`
+- `RawCompressionPath.ProjectedCompressionStep.nonrootIndicator`
+- `RawCompressionExecution.dissectionCut`
+- `RawCompressionExecution.bottomProjectedCostSum`
+- `RawCompressionExecution.topProjectedCostSum`
 
 ## Theorems Proved
 
@@ -144,6 +161,18 @@ lemma can be attacked:
 - `RankThresholdDissection.top_shifted_rank_le`
 - `RankThresholdDissection.top_card_mul_pow_le`
 - `RankThresholdDissection.top_card_le_div`
+- `RawCompressionStep.cost_le_projectedSteps_cost_add_nonrootIndicator`
+- `RawCompressionPath.ProjectedPathSegment.not_nonroot_iff_root`
+- `RawCompressionPath.ProjectedPathSegment.nonrootIndicator_le_one`
+- `RawCompressionPath.ProjectedCompressionStep.nonrootIndicator_le_one`
+- `RawCompressionPath.bottomProjectionSegment_isRootPath_of_top_nonempty`
+- `RawCompressionPath.bottomProjectionSegment_nonrootIndicator_eq_zero_of_top_nonempty`
+- `RawCompressionExecution.cost_eq_stepCostSum`
+- `RawCompressionExecution.dissectionCut_spec`
+- `RawCompressionExecution.nonrootIndicator_sum_eq_nonrootCount`
+- `RawCompressionExecution.stepCostSum_le_projectedCostSums_add_nonrootCount`
+- `RawCompressionExecution.stepCostSum_le_canonicalProjectedCostSums_add_nonrootCount`
+- `RawCompressionExecution.cost_le_canonicalProjectedCostSums_add_nonrootCount`
 
 ## Exact First Failed Theorem
 
@@ -211,7 +240,8 @@ theorem RawCompressionStep.exists_projection_segments_cost_bound
             (S.path.topProjectionSegment D hS.1.2.2.1 cut hcut).edgeCost + 1
 ```
 
-It also packages actual projected one-step objects:
+It also packages actual projected one-step objects and aggregates their costs
+over raw executions:
 
 ```lean
 structure RawCompressionPath.ProjectedCompressionStep (alpha : Type*) where
@@ -231,6 +261,40 @@ theorem RawCompressionStep.cost_le_projectedSteps_cost_add_one
     S.cost <=
       (S.bottomProjectedStep D hS cut hcut).cost +
         (S.topProjectedStep D hS cut hcut).cost + 1
+
+theorem RawCompressionStep.cost_le_projectedSteps_cost_add_nonrootIndicator
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    S.cost <=
+      (S.bottomProjectedStep D hS cut hcut).cost +
+        (S.topProjectedStep D hS cut hcut).cost + S.nonrootIndicator
+
+theorem RawCompressionExecution.stepCostSum_le_canonicalProjectedCostSums_add_nonrootCount
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) :
+    E.stepCostSum <=
+      E.bottomProjectedCostSum hsteps D (E.dissectionCut hsteps D)
+          (E.dissectionCut_spec hsteps D) +
+        E.topProjectedCostSum hsteps D (E.dissectionCut hsteps D)
+          (E.dissectionCut_spec hsteps D) + E.nonrootCount
+
+theorem RawCompressionExecution.cost_eq_stepCostSum
+    (E : RawCompressionExecution m n r) :
+    E.cost = E.stepCostSum
+
+theorem RawCompressionExecution.cost_le_canonicalProjectedCostSums_add_nonrootCount
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) :
+    E.cost <=
+      E.bottomProjectedCostSum hsteps D (E.dissectionCut hsteps D)
+          (E.dissectionCut_spec hsteps D) +
+        E.topProjectedCostSum hsteps D (E.dissectionCut hsteps D)
+          (E.dissectionCut_spec hsteps D) + E.nonrootCount
 ```
 
 Representative next statement:
@@ -250,12 +314,13 @@ theorem projected_step_commutes_with_restriction
 
 ## Blocker Classification
 
-Primary blocker: step/execution projection and restriction commutation.
+Primary blocker: execution projection and restriction commutation.
 
 Secondary blockers:
 
 - nonrootpath counting for projected executions;
-- cost accounting for cross-side parent changes;
+- replacing the current execution-level `+ E.nonrootCount` boundary term by
+  the paper's sharper `+ card Xb + nonrootCount Ct` accounting;
 - deriving the rank-forest top-cardinality packing from a concrete child or
   subtree property.
 
@@ -282,36 +347,41 @@ theorem source_main_lemma_cost :
     Cost C <= Cost Cb + Cost Ct + card Xb + nonrootCount Ct
 ```
 
-The current branch prepares the vocabulary for these theorem statements but
-does not yet define `Cb` and `Ct` as executable projected compression
-sequences over restricted forests.
+The current branch proves a raw-execution precursor:
+
+```lean
+theorem RawCompressionExecution.stepCostSum_le_canonicalProjectedCostSums_add_nonrootCount :
+    E.stepCostSum <= bottomProjectedCostSum + topProjectedCostSum + E.nonrootCount
+
+theorem RawCompressionExecution.cost_le_canonicalProjectedCostSums_add_nonrootCount :
+    E.cost <= bottomProjectedCostSum + topProjectedCostSum + E.nonrootCount
+```
+
+This is weaker than the paper cost lemma and still uses per-step projected
+objects, not projected executions `Cb` and `Ct`.
 
 ## Next Smallest Worker Theorem
 
-The next smallest useful theorem is to define restricted before/after forest
-objects for one raw step and prove the projected segments commute with the
-single-step parent update.  Recommended next target:
+The next smallest useful theorem is to define projected executions over the
+restricted bottom/top forests and prove their consecutive-state commutation.
+Recommended next target:
 
 ```lean
-theorem projected_step_commutes_with_restriction
-    {n r : Nat}
-    (S : RawCompressionStep n r)
-    (D : RawDissection S.before)
-    (hS : S.IsValid)
-    (cut : Nat)
-    (hcut : S.path.HasDissectionCut D cut) :
-    -- the bottom/top restricted projected steps are valid and preserve the
-    -- path-level accounting supplied by
-    -- `RawCompressionPath.sourceCost_le_projection_edgeCosts_add_one`.
+theorem projected_execution_commutes_with_restriction
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (hD : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).afterDissection (D i) (hE.1 i) = D j) :
+    -- the bottom/top per-step projections assemble into consecutive
+    -- restricted executions, with the cost sums from
+    -- `stepCostSum_le_canonicalProjectedCostSums_add_nonrootCount`.
     Prop
 ```
 
-After that, lift the one-step construction to `RawCompressionExecution`, prove
-the charge-unit execution cost equals the sum of step costs, and then sum the
-one-step projected-step inequalities.  A direct attempt at this summation was
-left out of the branch because it made `SourceDissection.lean` compile too
-slowly; the next worker should make that proof in a small auxiliary lemma or
-module with a performance-conscious statement.
+After that, sharpen the boundary accounting from source nonrootpath count to
+the paper's `card Xb + nonrootCount Ct` term, then connect the projected
+executions to the recurrence parameters.
 
 ## Honesty Boundary
 
