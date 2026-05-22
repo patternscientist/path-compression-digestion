@@ -86,11 +86,20 @@ In `PathCompressionDigestion/SourceProjection.lean`:
 - `RawCompressionPath.ProjectedPathSegment.nonrootIndicator`
 - `RawCompressionPath.ProjectedCompressionStep.IsNonrootPath`
 - `RawCompressionPath.ProjectedCompressionStep.nonrootIndicator`
+- `RawCompressionPath.ProjectedCompressionExecution`
+- `RawCompressionPath.ProjectedCompressionExecution.cost`
+- `RawCompressionPath.ProjectedCompressionExecution.nonrootCount`
+- `RawCompressionStep.afterDissectionTopEquiv`
+- `RawCompressionStep.afterDissectionBottomEquiv`
 - `RawCompressionExecution.dissectionCut`
 - `RawCompressionExecution.bottomProjectedCostSum`
 - `RawCompressionExecution.topProjectedCostSum`
 - `RawCompressionExecution.bottomProjectedNonrootCount`
 - `RawCompressionExecution.topProjectedNonrootCount`
+- `RawCompressionExecution.bottomProjectedExecution`
+- `RawCompressionExecution.topProjectedExecution`
+- `RawCompressionExecution.canonicalBottomProjectedExecution`
+- `RawCompressionExecution.canonicalTopProjectedExecution`
 
 ## Theorems Proved
 
@@ -178,14 +187,24 @@ lemma can be attacked:
 - `RawCompressionPath.sourceCost_le_projection_edgeCosts_add_topNonrootIndicator`
 - `RawCompressionStep.projected_nonrootIndicators_add_le_nonrootIndicator`
 - `RawCompressionStep.cost_le_projectedSteps_cost_add_topNonrootIndicator`
+- `RawCompressionStep.afterDissectionTopEquiv_afterTopParent`
+- `RawCompressionStep.afterDissectionBottomEquiv_afterBottomParent`
 - `RawCompressionExecution.cost_eq_stepCostSum`
 - `RawCompressionExecution.dissectionCut_spec`
+- `RawCompressionExecution.bottomProjectedExecution_cost`
+- `RawCompressionExecution.topProjectedExecution_cost`
+- `RawCompressionExecution.bottomProjectedExecution_nonrootCount`
+- `RawCompressionExecution.topProjectedExecution_nonrootCount`
 - `RawCompressionExecution.nonrootIndicator_sum_eq_nonrootCount`
 - `RawCompressionExecution.projectedNonrootCounts_add_le_nonrootCount`
 - `RawCompressionExecution.canonicalProjectedNonrootCounts_add_le_nonrootCount`
 - `RawCompressionExecution.stepCostSum_le_projectedCostSums_add_topProjectedNonrootCount`
 - `RawCompressionExecution.stepCostSum_le_canonicalProjectedCostSums_add_topProjectedNonrootCount`
 - `RawCompressionExecution.cost_le_canonicalProjectedCostSums_add_topProjectedNonrootCount`
+- `RawCompressionExecution.projectedExecutions_nonrootCount_add_le_nonrootCount`
+- `RawCompressionExecution.canonicalProjectedExecutions_nonrootCount_add_le_nonrootCount`
+- `RawCompressionExecution.cost_le_projectedExecutions_cost_add_topNonrootCount`
+- `RawCompressionExecution.cost_le_canonicalProjectedExecutions_cost_add_topNonrootCount`
 - `RawCompressionExecution.stepCostSum_le_projectedCostSums_add_nonrootCount`
 - `RawCompressionExecution.stepCostSum_le_canonicalProjectedCostSums_add_nonrootCount`
 - `RawCompressionExecution.cost_le_canonicalProjectedCostSums_add_nonrootCount`
@@ -343,6 +362,27 @@ theorem RawCompressionExecution.cost_le_canonicalProjectedCostSums_add_topProjec
           (E.dissectionCut_spec hsteps D) +
           E.topProjectedNonrootCount hsteps D (E.dissectionCut hsteps D)
             (E.dissectionCut_spec hsteps D)
+
+theorem RawCompressionExecution.projectedExecutions_nonrootCount_add_le_nonrootCount
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.bottomProjectedExecution hsteps D cut hcut).nonrootCount +
+        (E.topProjectedExecution hsteps D cut hcut).nonrootCount <=
+      E.nonrootCount
+
+theorem RawCompressionExecution.cost_le_projectedExecutions_cost_add_topNonrootCount
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    E.cost <=
+      (E.bottomProjectedExecution hsteps D cut hcut).cost +
+        (E.topProjectedExecution hsteps D cut hcut).cost +
+          (E.topProjectedExecution hsteps D cut hcut).nonrootCount
 ```
 
 Representative next statement:
@@ -409,16 +449,25 @@ theorem RawCompressionExecution.projectedNonrootCounts_add_le_nonrootCount :
 
 theorem RawCompressionExecution.cost_le_canonicalProjectedCostSums_add_topProjectedNonrootCount :
     E.cost <= bottomProjectedCostSum + topProjectedCostSum + topProjectedNonrootCount
+
+theorem RawCompressionExecution.projectedExecutions_nonrootCount_add_le_nonrootCount :
+    Cb.nonrootCount + Ct.nonrootCount <= E.nonrootCount
+
+theorem RawCompressionExecution.cost_le_projectedExecutions_cost_add_topNonrootCount :
+    E.cost <= Cb.cost + Ct.cost + Ct.nonrootCount
 ```
 
-This is weaker than the paper cost lemma and still uses per-step projected
-objects, not projected executions `Cb` and `Ct`.
+This is weaker than the paper cost lemma because `Cb` and `Ct` are still
+dependent projected executions rather than proven-valid restricted source
+executions for the recurrence.
 
 ## Next Smallest Worker Theorem
 
-The next smallest useful theorem is to define projected executions over the
-restricted bottom/top forests and prove their consecutive-state commutation.
-Recommended next target:
+The branch now defines dependent projected executions and proves the raw
+count/cost inequalities in terms of their `cost` and `nonrootCount`.  The next
+smallest useful theorem is to prove consecutive-state commutation strongly
+enough to replace these dependent projected executions by ordinary restricted
+source executions.  Recommended next target:
 
 ```lean
 theorem projected_execution_commutes_with_restriction

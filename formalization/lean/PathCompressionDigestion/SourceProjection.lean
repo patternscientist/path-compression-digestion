@@ -115,6 +115,29 @@ theorem nonrootIndicator_le_one (S : ProjectedCompressionStep alpha) :
 end ProjectedCompressionStep
 
 /--
+A dependent projected execution.  Each slot may use its own restricted vertex
+type; proving that these slots identify with a single restricted forest is the
+remaining execution/restriction commutation step.
+-/
+structure ProjectedCompressionExecution (m : Nat) where
+  vertex : Fin m -> Type*
+  step : forall i : Fin m, ProjectedCompressionStep (vertex i)
+
+namespace ProjectedCompressionExecution
+
+variable {m : Nat}
+
+/-- Sum of projected step costs. -/
+noncomputable def cost (E : ProjectedCompressionExecution m) : Nat :=
+  Finset.sum (Finset.univ : Finset (Fin m)) fun i => (E.step i).cost
+
+/-- Sum of projected nonrootpath indicators. -/
+noncomputable def nonrootCount (E : ProjectedCompressionExecution m) : Nat :=
+  Finset.sum (Finset.univ : Finset (Fin m)) fun i => (E.step i).nonrootIndicator
+
+end ProjectedCompressionExecution
+
+/--
 If a dissection cut has a nonempty top suffix, then the bottom projection ends
 at the cut boundary and is a rootpath in the bottom restricted forest.
 -/
@@ -476,6 +499,110 @@ theorem cost_le_projectedSteps_cost_add_topNonrootIndicator
   exact S.path.sourceCost_le_projection_edgeCosts_add_topNonrootIndicator
     D hS.1.2.2.1 hS.1.2.2.2 cut hcut
 
+/--
+Top restricted vertices are preserved by `afterDissection`, packaged as the
+identity-on-values equivalence needed for execution commutation.
+-/
+def afterDissectionTopEquiv
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid) :
+    Equiv D.TopNode ({v : Fin n // (S.afterDissection D hS).IsTop v}) := {
+  toFun := fun v => Subtype.mk v.1 (by simpa using v.2),
+  invFun := fun v => Subtype.mk v.1 (by simpa using v.2),
+  left_inv := by
+    intro v
+    cases v
+    rfl,
+  right_inv := by
+    intro v
+    cases v
+    rfl
+}
+
+/--
+Bottom restricted vertices are preserved by `afterDissection`, packaged as the
+identity-on-values equivalence needed for execution commutation.
+-/
+def afterDissectionBottomEquiv
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid) :
+    Equiv D.BottomNode ({v : Fin n // (S.afterDissection D hS).IsBottom v}) := {
+  toFun := fun v => Subtype.mk v.1 (by simpa using v.2),
+  invFun := fun v => Subtype.mk v.1 (by simpa using v.2),
+  left_inv := by
+    intro v
+    cases v
+    rfl,
+  right_inv := by
+    intro v
+    cases v
+    rfl
+}
+
+/--
+The projected top after-parent agrees, under `afterDissectionTopEquiv`, with
+the top restricted parent map of the after-dissection.
+-/
+theorem afterDissectionTopEquiv_afterTopParent
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (v : D.TopNode) :
+    S.afterDissectionTopEquiv D hS (S.afterTopParent D hS v) =
+      (S.afterDissection D hS).topParent (S.afterDissectionTopEquiv D hS v) := by
+  apply Subtype.ext
+  change (S.afterTopParent D hS v).1 =
+    ((S.afterDissection D hS).topParent (S.afterDissectionTopEquiv D hS v)).1
+  rfl
+
+/--
+The projected bottom after-parent agrees, under `afterDissectionBottomEquiv`,
+with the bottom restricted parent map of the after-dissection.
+-/
+theorem afterDissectionBottomEquiv_afterBottomParent
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (v : D.BottomNode) :
+    S.afterDissectionBottomEquiv D hS (S.afterBottomParent D hS v) =
+      (S.afterDissection D hS).bottomParent
+        (S.afterDissectionBottomEquiv D hS v) := by
+  apply Subtype.ext
+  change (S.afterBottomParent D hS v).1 =
+    ((S.afterDissection D hS).bottomParent
+      (S.afterDissectionBottomEquiv D hS v)).1
+  classical
+  by_cases hparent : D.IsBottom (S.after.parent v.1)
+  case pos =>
+    have hafter : (S.afterDissection D hS).IsBottom (S.after.parent v.1) := by
+      simpa using hparent
+    have hleft : (S.afterBottomParent D hS v).1 = S.after.parent v.1 :=
+      S.afterBottomParent_val_of_parent_bottom D hS v hparent
+    have hright :
+        ((S.afterDissection D hS).bottomParent
+          (S.afterDissectionBottomEquiv D hS v)).1 =
+          S.after.parent v.1 := by
+      exact (S.afterDissection D hS).bottomParent_val_of_parent_bottom
+        (S.afterDissectionBottomEquiv D hS v) hafter
+    rw [hleft, hright]
+  case neg =>
+    have htop : D.IsTop (S.after.parent v.1) := by
+      unfold RawDissection.IsBottom at hparent
+      exact Decidable.not_not.mp hparent
+    have hafterTop : (S.afterDissection D hS).IsTop (S.after.parent v.1) := by
+      simpa using htop
+    have hleft : (S.afterBottomParent D hS v).1 = v.1 :=
+      S.afterBottomParent_val_of_parent_top D hS v htop
+    have hright :
+        ((S.afterDissection D hS).bottomParent
+          (S.afterDissectionBottomEquiv D hS v)).1 =
+          v.1 := by
+      exact (S.afterDissection D hS).bottomParent_val_of_parent_top
+        (S.afterDissectionBottomEquiv D hS v) hafterTop
+    rw [hleft, hright]
+
 end RawCompressionStep
 
 namespace RawCompressionExecution
@@ -555,6 +682,88 @@ noncomputable def topProjectedNonrootCount
     (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) : Nat :=
   Finset.sum (Finset.univ : Finset (Fin m)) fun i =>
     ((E.step i).topProjectedStep (D i) (hsteps i) (cut i) (hcut i)).nonrootIndicator
+
+/-- Dependent bottom projected execution for a chosen family of cuts. -/
+noncomputable def bottomProjectedExecution
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    RawCompressionPath.ProjectedCompressionExecution m where
+  vertex := fun i => (D i).BottomNode
+  step := fun i => (E.step i).bottomProjectedStep (D i) (hsteps i) (cut i) (hcut i)
+
+/-- Dependent top projected execution for a chosen family of cuts. -/
+noncomputable def topProjectedExecution
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    RawCompressionPath.ProjectedCompressionExecution m where
+  vertex := fun i => (D i).TopNode
+  step := fun i => (E.step i).topProjectedStep (D i) (hsteps i) (cut i) (hcut i)
+
+/-- Canonical-cut bottom projected execution. -/
+noncomputable def canonicalBottomProjectedExecution
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) :
+    RawCompressionPath.ProjectedCompressionExecution m :=
+  E.bottomProjectedExecution hsteps D (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
+
+/-- Canonical-cut top projected execution. -/
+noncomputable def canonicalTopProjectedExecution
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) :
+    RawCompressionPath.ProjectedCompressionExecution m :=
+  E.topProjectedExecution hsteps D (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
+
+@[simp]
+theorem bottomProjectedExecution_cost
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.bottomProjectedExecution hsteps D cut hcut).cost =
+      E.bottomProjectedCostSum hsteps D cut hcut :=
+  rfl
+
+@[simp]
+theorem topProjectedExecution_cost
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.topProjectedExecution hsteps D cut hcut).cost =
+      E.topProjectedCostSum hsteps D cut hcut :=
+  rfl
+
+@[simp]
+theorem bottomProjectedExecution_nonrootCount
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.bottomProjectedExecution hsteps D cut hcut).nonrootCount =
+      E.bottomProjectedNonrootCount hsteps D cut hcut :=
+  rfl
+
+@[simp]
+theorem topProjectedExecution_nonrootCount
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.topProjectedExecution hsteps D cut hcut).nonrootCount =
+      E.topProjectedNonrootCount hsteps D cut hcut :=
+  rfl
 
 /-- The stepwise nonroot indicators sum to the execution nonroot count. -/
 theorem nonrootIndicator_sum_eq_nonrootCount
@@ -702,6 +911,63 @@ theorem cost_le_canonicalProjectedCostSums_add_topProjectedNonrootCount
             (E.dissectionCut_spec hsteps D) := by
   rw [E.cost_eq_stepCostSum]
   exact E.stepCostSum_le_canonicalProjectedCostSums_add_topProjectedNonrootCount hsteps D
+
+/--
+Main-lemma-shaped nonroot-count inequality for the dependent projected
+executions.
+-/
+theorem projectedExecutions_nonrootCount_add_le_nonrootCount
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.bottomProjectedExecution hsteps D cut hcut).nonrootCount +
+        (E.topProjectedExecution hsteps D cut hcut).nonrootCount <=
+      E.nonrootCount := by
+  exact E.projectedNonrootCounts_add_le_nonrootCount hsteps D cut hcut
+
+/-- Canonical-cut form of the projected-execution nonroot-count inequality. -/
+theorem canonicalProjectedExecutions_nonrootCount_add_le_nonrootCount
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) :
+    (E.canonicalBottomProjectedExecution hsteps D).nonrootCount +
+        (E.canonicalTopProjectedExecution hsteps D).nonrootCount <=
+      E.nonrootCount := by
+  exact E.projectedNonrootCounts_add_le_nonrootCount hsteps D
+    (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
+
+/--
+Main-lemma-shaped cost inequality for the dependent projected executions.  This
+is the closest current theorem to the paper statement before proving that the
+dependent projected executions are genuine restricted source executions.
+-/
+theorem cost_le_projectedExecutions_cost_add_topNonrootCount
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    E.cost <=
+      (E.bottomProjectedExecution hsteps D cut hcut).cost +
+        (E.topProjectedExecution hsteps D cut hcut).cost +
+          (E.topProjectedExecution hsteps D cut hcut).nonrootCount := by
+  rw [E.cost_eq_stepCostSum]
+  exact E.stepCostSum_le_projectedCostSums_add_topProjectedNonrootCount hsteps D cut hcut
+
+/-- Canonical-cut form of the projected-execution cost inequality. -/
+theorem cost_le_canonicalProjectedExecutions_cost_add_topNonrootCount
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hsteps D).cost +
+        (E.canonicalTopProjectedExecution hsteps D).cost +
+          (E.canonicalTopProjectedExecution hsteps D).nonrootCount := by
+  rw [E.cost_eq_stepCostSum]
+  exact E.stepCostSum_le_projectedCostSums_add_topProjectedNonrootCount hsteps D
+    (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
 
 /--
 Execution-level projected cost accounting for a chosen family of dissection
