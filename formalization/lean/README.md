@@ -1,9 +1,10 @@
 # Lean formalization lane
 
 This directory is a bounded Lean 4 + mathlib lane for the threshold-comparison
-core, concrete `J`/threshold infrastructure, and paper-specific alpha
-comparison of the path-compression digestion paper. It is not yet a
-formalization of the Seidel--Sharir source recurrence or cost tail.
+core, concrete `J`/threshold infrastructure, paper-specific alpha comparison,
+and conditional source-cost consequence of the path-compression digestion
+paper. It is not yet a formalization of the Seidel--Sharir source recurrence
+or path-compression model.
 
 ## Release-layer context
 
@@ -134,6 +135,22 @@ Nat-threshold encoding of `alphaJS`, plus conditional/unconditional bridge
 lemmas and the positive-domain source-faithful `alphaJS <= alphaQ + 2`
 comparison. It does not formalize the source recurrence/cost theorem.
 
+`PathCompressionDigestion/SourceCost.lean` adds a conditional source-cost
+interface and proves the finite paper-facing cost theorem from it:
+
+```lean
+theorem source_cost_bound_of_recurrence
+    {F : SourceCostFamily}
+    (HF : SourceRecurrence F)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    F m n (L n) <= (alphaQ m n + 3) * m + 4 * n
+```
+
+The source recurrence remains an explicit assumption, not a proved model
+theorem.
+
 The Lean root file `PathCompressionDigestion.lean` imports these concrete
 support modules, including `ConcreteCore.lean`, along with the Ackermann,
 threshold, and main-comparison modules.
@@ -143,16 +160,16 @@ threshold, and main-comparison modules.
 The current merged Lean lane still does not formalize:
 
 * the source Seidel--Sharir path-compression recurrence;
-* the source recurrence/cost consequences, source anchors, or release
-  packaging;
+* the path-compression model behind the conditional source recurrence
+  interface, source anchors, or release packaging;
 * the full paper-facing formalization of the final top-down compression bound.
 
 These remain outside the current merged stack. The concrete diamond transform,
 recursive concrete `J_k` hierarchy, concrete threshold inverse `R`, generic
 diamond-to-threshold recurrence, concrete threshold core assumptions for `R`,
 concrete main comparison via `Abstract.main_comparison_from_core`, generic
-alpha prelude, and paper-specific alpha comparison are in the Lean lane and
-should not be marked absent.
+alpha prelude, paper-specific alpha comparison, and conditional source-cost
+consequence are in the Lean lane and should not be marked absent.
 
 ## Proof status
 
@@ -174,7 +191,8 @@ diamond-to-threshold recurrence, concrete core bridge, direct paper
 consequence, and generic alpha prelude are present as setup for later
 paper-specific cost work. The paper-specific alpha definitions, conditional
 bridges, and source-faithful `alphaJS <= alphaQ + 2` comparison are present in
-`AlphaTail.lean`.
+`AlphaTail.lean`. The conditional finite cost theorem is present in
+`SourceCost.lean`.
 
 ## Build
 
@@ -213,6 +231,7 @@ checks and do not force a full Mathlib rebuild for every branch.
 | `J_le_of_le_R`, `direct_paper_consequence` | Direct paper-facing consequence from the concrete comparison |
 | `Abstract.alphaOf` and alpha prelude facts | Generic preparation for later alpha consequences |
 | `L`, `Q`, `alphaQ`, `alphaJQ`, `alphaJS`, and AlphaTail bridge/comparison lemmas | Paper-specific alpha-tail layer |
+| `SourceCostFamily`, `SourceRecurrence`, `source_cost_bound_of_recurrence` | Conditional source-cost consequence |
 | `Abstract.ThresholdCoreAssumptions.baseExact` | Section 4.4, exact base inverse |
 | `Abstract.ThresholdCoreAssumptions.thresholdStep` | Lemma 4.3 |
 | `Abstract.threshold_jump_from_step` | Lemma 4.4 |

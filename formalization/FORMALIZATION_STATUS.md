@@ -97,6 +97,10 @@ under `ThresholdCoreAssumptions R`.
   Nat-threshold encoding of `alphaJS`, plus conditional/unconditional bridge
   lemmas and the positive-domain source-faithful `alphaJS <= alphaQ + 2`
   comparison.
+- `formalization/lean/PathCompressionDigestion/SourceCost.lean` defines a
+  conditional `SourceRecurrence` interface and proves the finite paper-facing
+  cost theorem from that interface. It does not formalize the source
+  recurrence/model itself.
 - `formalization/lean/PathCompressionDigestion.lean` imports these concrete
   support modules along with the abstract comparison modules.
 
@@ -136,12 +140,15 @@ under `ThresholdCoreAssumptions R`.
   conditional/unconditional `alphaJQ <= alphaQ + 1` bridges, and the
   positive-domain source-faithful `alphaJS <= alphaQ + 2` comparison in
   `formalization/lean/PathCompressionDigestion/AlphaTail.lean`.
+- The conditional source-cost interface and finite cost theorem
+  `source_cost_bound_of_recurrence` in
+  `formalization/lean/PathCompressionDigestion/SourceCost.lean`.
 - The concrete base-row facts and generic infrastructure listed above.
 
 ## Not Yet Proved in Lean
 
-- The source recurrence/cost theorem, including the source Seidel--Sharir
-  recurrence itself and the finite cost consequence.
+- The source recurrence/model theorem itself, including the source
+  Seidel--Sharir recurrence outside the conditional interface.
 - The full paper-facing formalization of the final top-down compression bound.
 
 ## Build Check
