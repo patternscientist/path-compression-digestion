@@ -2,6 +2,8 @@
 
 Branch: `lean-source-recurrence-model-v1`
 
+Follow-on branch: `lean-concrete-source-model-v1`
+
 Starting checkpoint after fetching `origin/main`:
 `a742bb89c768645ae17943604c578693b3cad94a`
 
@@ -51,10 +53,45 @@ theorem paper_finite_bound_of_source_model
 The existing conditional theorem
 `paper_finite_bound_of_source_recurrence` remains unchanged.
 
+## Follow-on concrete skeleton
+
+The follow-on branch `lean-concrete-source-model-v1` adds:
+
+- `PathCompressionDigestion/ConcreteSourceModel.lean`
+
+This module defines finite raw objects for:
+
+- ranked forests over `Fin n`, with parent pointers and ranks bounded by `r`;
+- roots, leaves, ancestors, and the rank-validity discipline;
+- bounded top-down compression paths;
+- single compression steps that preserve ranks and rewire path vertices to the
+  path root;
+- finite compression executions and their summed path cost;
+- `topDownCost : SourceCostFamily`, defined as the finite supremum of valid
+  execution costs in this skeleton.
+
+It also records the next proof targets as `Prop` definitions, not assumptions:
+
+```lean
+def topDownBaseBoundTarget : Prop :=
+  SourceBound topDownCost 0 (J 0)
+
+def topDownShiftStepTarget (k : Nat) : Prop :=
+  SourceShiftStep topDownCost k (JInput k)
+
+def topDownSourceModelTarget : Prop :=
+  topDownBaseBoundTarget /\ forall k : Nat, topDownShiftStepTarget k
+```
+
+These targets are not proved in the follow-on branch.
+
 ## Not achieved
 
-This branch does not define a concrete top-down path-compression execution
-model and does not prove Seidel--Sharir Lemma 5 from such a model.
+The bridge branch does not define a concrete top-down path-compression
+execution model and does not prove Seidel--Sharir Lemma 5 from such a model.
+The follow-on concrete skeleton defines finite execution objects and
+`topDownCost`, but still does not prove the base bound or Seidel--Sharir shift
+obligation for that cost family.
 
 No unconditional theorem of the following form exists yet:
 
@@ -68,9 +105,9 @@ exists yet.
 
 ## Remaining exact gap
 
-1. Missing source-model definition: a Lean representation of the ranked forest,
-   path-compression operations, and the cost functional `f(m,n,r)` used by the
-   top-down Seidel--Sharir analysis.
+1. Source-model definition now has a first finite skeleton, but its exact
+   match to the source cost functional `f(m,n,r)` still needs audit against
+   Seidel--Sharir's path-compression model.
 2. Missing base case: a proof that the modeled cost satisfies
    `SourceBound topDownCost 0 (J 0)`, or the source-faithful adjusted base row
    if the source recurrence starts from a different indexing convention.

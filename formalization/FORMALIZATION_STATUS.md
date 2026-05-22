@@ -111,6 +111,12 @@ under `ThresholdCoreAssumptions R`.
 - `formalization/lean/PathCompressionDigestion/SourceModel.lean` packages the
   source base and shifting obligations as a structured interface and derives
   both `SourceRecurrence` and the finite cost bound for any such model.
+- `formalization/lean/PathCompressionDigestion/ConcreteSourceModel.lean`
+  defines a finite concrete source-model skeleton beneath `SourceModel`:
+  ranked forests over `Fin n`, bounded compression paths, compression steps,
+  finite executions, and `topDownCost : SourceCostFamily`. Its base and
+  shifting obligations are recorded as named `Prop` targets, not proved or
+  assumed.
 - `formalization/lean/PathCompressionDigestion/PaperPipeline.lean` exposes the
   formalized direct-proof pipeline under paper-facing wrapper names, including
   the finite bound conditional on `SourceRecurrence` and the corresponding
@@ -164,6 +170,12 @@ under `ThresholdCoreAssumptions R`.
   `sourceRecurrence_of_shifting` and finite cost theorem
   `source_model_cost_bound` in
   `formalization/lean/PathCompressionDigestion/SourceModel.lean`.
+- The concrete source-model skeleton definitions in
+  `formalization/lean/PathCompressionDigestion/ConcreteSourceModel.lean`,
+  including `topDownCost` and the named targets
+  `topDownBaseBoundTarget`, `topDownShiftStepTarget`, and
+  `topDownSourceModelTarget`. These are definitions/targets only; they do not
+  prove a concrete `SourceModel`.
 - The paper-facing pipeline wrappers, including
   `paper_finite_bound_of_source_recurrence` and
   `paper_finite_bound_of_source_model`, in
@@ -173,16 +185,19 @@ under `ThresholdCoreAssumptions R`.
 ## Not Yet Proved in Lean
 
 - A concrete source/top-down path-compression model theorem, including proofs
-  of the base and shifting obligations for that model.
+  of the base and shifting obligations for
+  `ConcreteSourceModel.topDownCost`.
 - Asymptotic Big-O packaging.
 - The unconditional full paper theorem for the actual source
   path-compression model.
 
 The finite paper-facing bound is formalized conditional on
 `SourceRecurrence`, and also for any structured source model satisfying the
-base and shifting obligations. The Lean lane does not yet instantiate those
-obligations for the actual Seidel--Sharir/top-down path-compression source
-model.
+base and shifting obligations. The Lean lane now has a finite concrete
+execution skeleton and `topDownCost`, but it does not yet prove the base or
+Seidel--Sharir shift obligations for that cost family, so it still does not
+derive an unconditional theorem for the actual top-down path-compression
+source model.
 
 ## Build Check
 
