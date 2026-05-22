@@ -151,6 +151,22 @@ theorem source_cost_bound_of_recurrence
 The source recurrence remains an explicit assumption, not a proved model
 theorem.
 
+`PathCompressionDigestion/PaperPipeline.lean` exposes the direct-proof
+pipeline under paper-facing wrapper names, including:
+
+```lean
+theorem paper_finite_bound_of_source_recurrence
+    {F : SourceCostFamily}
+    (HF : SourceRecurrence F)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    F m n (L n) <= (alphaQ m n + 3) * m + 4 * n
+```
+
+This is the final finite bound in the Lean lane, conditional on the explicit
+`SourceRecurrence` interface.
+
 The Lean root file `PathCompressionDigestion.lean` imports these concrete
 support modules, including `ConcreteCore.lean`, along with the Ackermann,
 threshold, and main-comparison modules.
@@ -162,14 +178,17 @@ The current merged Lean lane still does not formalize:
 * the source Seidel--Sharir path-compression recurrence;
 * the path-compression model behind the conditional source recurrence
   interface, source anchors, or release packaging;
-* the full paper-facing formalization of the final top-down compression bound.
+* asymptotic Big-O packaging;
+* the unconditional full paper theorem for the actual source model.
 
 These remain outside the current merged stack. The concrete diamond transform,
 recursive concrete `J_k` hierarchy, concrete threshold inverse `R`, generic
 diamond-to-threshold recurrence, concrete threshold core assumptions for `R`,
 concrete main comparison via `Abstract.main_comparison_from_core`, generic
 alpha prelude, paper-specific alpha comparison, and conditional source-cost
-consequence are in the Lean lane and should not be marked absent.
+consequence are in the Lean lane and should not be marked absent. The finite
+paper-facing bound is formalized conditionally, not as an unconditional theorem
+about the unformalized source model.
 
 ## Proof status
 
@@ -192,7 +211,8 @@ consequence, and generic alpha prelude are present as setup for later
 paper-specific cost work. The paper-specific alpha definitions, conditional
 bridges, and source-faithful `alphaJS <= alphaQ + 2` comparison are present in
 `AlphaTail.lean`. The conditional finite cost theorem is present in
-`SourceCost.lean`.
+`SourceCost.lean` and re-exposed under paper-facing names in
+`PaperPipeline.lean`.
 
 ## Build
 
@@ -232,6 +252,7 @@ checks and do not force a full Mathlib rebuild for every branch.
 | `Abstract.alphaOf` and alpha prelude facts | Generic preparation for later alpha consequences |
 | `L`, `Q`, `alphaQ`, `alphaJQ`, `alphaJS`, and AlphaTail bridge/comparison lemmas | Paper-specific alpha-tail layer |
 | `SourceCostFamily`, `SourceRecurrence`, `source_cost_bound_of_recurrence` | Conditional source-cost consequence |
+| `paper_concrete_main_comparison`, `paper_direct_J_bound`, `paper_alphaJQ_bound`, `paper_alphaJS_bound`, `paper_finite_bound_of_source_recurrence` | Paper-facing direct-proof pipeline wrappers |
 | `Abstract.ThresholdCoreAssumptions.baseExact` | Section 4.4, exact base inverse |
 | `Abstract.ThresholdCoreAssumptions.thresholdStep` | Lemma 4.3 |
 | `Abstract.threshold_jump_from_step` | Lemma 4.4 |
