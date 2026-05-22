@@ -112,6 +112,18 @@ theorem nonrootIndicator_le_one (S : ProjectedCompressionStep alpha) :
     S.nonrootIndicator <= 1 :=
   S.path.nonrootIndicator_le_one
 
+variable {beta : Type*}
+
+/--
+An equivalence between two projected step vertex types commutes with the
+after-parent of the first step and the before-parent of the second step.
+-/
+def ParentCommutesWithEquiv
+    (S : ProjectedCompressionStep alpha)
+    (T : ProjectedCompressionStep beta)
+    (e : Equiv alpha beta) : Prop :=
+  forall v : alpha, e (S.afterParent v) = T.beforeParent (e v)
+
 end ProjectedCompressionStep
 
 /--
@@ -134,6 +146,12 @@ noncomputable def cost (E : ProjectedCompressionExecution m) : Nat :=
 /-- Sum of projected nonrootpath indicators. -/
 noncomputable def nonrootCount (E : ProjectedCompressionExecution m) : Nat :=
   Finset.sum (Finset.univ : Finset (Fin m)) fun i => (E.step i).nonrootIndicator
+
+/-- Consecutive projected slots agree up to a vertex equivalence. -/
+def HasConsecutiveStates (E : ProjectedCompressionExecution m) : Prop :=
+  forall i j : Fin m, i.val + 1 = j.val ->
+    Exists fun e : Equiv (E.vertex i) (E.vertex j) =>
+      (E.step i).ParentCommutesWithEquiv (E.step j) e
 
 end ProjectedCompressionExecution
 
@@ -370,6 +388,58 @@ theorem sourceCost_le_projection_edgeCosts_add_topNonrootIndicator
 
 end RawCompressionPath
 
+namespace RawDissection
+
+variable {n r : Nat} {F G : RawRankedForest n r}
+
+/-- Identity-on-values equivalence between top restricted vertex types. -/
+def topEquivOfTopIff
+    (D : RawDissection F)
+    (D2 : RawDissection G)
+    (h : forall v : Fin n, Iff (D.IsTop v) (D2.IsTop v)) :
+    Equiv ({v : Fin n // D.IsTop v}) ({v : Fin n // D2.IsTop v}) := {
+  toFun := fun v => Subtype.mk v.1 ((h v.1).1 v.2),
+  invFun := fun v => Subtype.mk v.1 ((h v.1).2 v.2),
+  left_inv := by
+    intro v
+    cases v
+    rfl,
+  right_inv := by
+    intro v
+    cases v
+    rfl
+}
+
+/-- Identity-on-values equivalence between bottom restricted vertex types. -/
+def bottomEquivOfBottomIff
+    (D : RawDissection F)
+    (D2 : RawDissection G)
+    (h : forall v : Fin n, Iff (D.IsBottom v) (D2.IsBottom v)) :
+    Equiv ({v : Fin n // D.IsBottom v}) ({v : Fin n // D2.IsBottom v}) := {
+  toFun := fun v => Subtype.mk v.1 ((h v.1).1 v.2),
+  invFun := fun v => Subtype.mk v.1 ((h v.1).2 v.2),
+  left_inv := by
+    intro v
+    cases v
+    rfl,
+  right_inv := by
+    intro v
+    cases v
+    rfl
+}
+
+/-- Top-side stability gives bottom-side stability by complementation. -/
+theorem bottomIffOfTopIff
+    (D : RawDissection F)
+    (D2 : RawDissection G)
+    (h : forall v : Fin n, Iff (D.IsTop v) (D2.IsTop v))
+    (v : Fin n) :
+    Iff (D.IsBottom v) (D2.IsBottom v) := by
+  unfold IsBottom
+  exact not_congr (h v)
+
+end RawDissection
+
 namespace RawCompressionStep
 
 variable {n r : Nat}
@@ -603,6 +673,90 @@ theorem afterDissectionBottomEquiv_afterBottomParent
         (S.afterDissectionBottomEquiv D hS v) hafterTop
     rw [hleft, hright]
 
+/--
+Adjacent top projected steps commute under a side-preserving vertex
+equivalence when the raw after-state of the first step is the before-state of
+the second.
+-/
+theorem topProjectedStep_after_commutes_with_next_before
+    (S T : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (D2 : RawDissection T.before)
+    (hS : S.IsValid)
+    (_hT : T.IsValid)
+    (hstate : S.after = T.before)
+    (htop : forall v : Fin n, Iff (D.IsTop v) (D2.IsTop v))
+    (cutS cutT : Nat)
+    (hcutS : S.path.HasDissectionCut D cutS)
+    (hcutT : T.path.HasDissectionCut D2 cutT) :
+    (S.topProjectedStep D hS cutS hcutS).ParentCommutesWithEquiv
+      (T.topProjectedStep D2 _hT cutT hcutT)
+      (D.topEquivOfTopIff D2 htop) := by
+  intro v
+  apply Subtype.ext
+  change (S.afterTopParent D hS v).1 =
+    (D2.topParent ((D.topEquivOfTopIff D2 htop) v)).1
+  simp [RawDissection.topParent, afterTopParent, RawDissection.topEquivOfTopIff, hstate]
+
+/--
+Adjacent bottom projected steps commute under a side-preserving vertex
+equivalence when the raw after-state of the first step is the before-state of
+the second.
+-/
+theorem bottomProjectedStep_after_commutes_with_next_before
+    (S T : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (D2 : RawDissection T.before)
+    (hS : S.IsValid)
+    (_hT : T.IsValid)
+    (hstate : S.after = T.before)
+    (hbottom : forall v : Fin n, Iff (D.IsBottom v) (D2.IsBottom v))
+    (cutS cutT : Nat)
+    (hcutS : S.path.HasDissectionCut D cutS)
+    (hcutT : T.path.HasDissectionCut D2 cutT) :
+    (S.bottomProjectedStep D hS cutS hcutS).ParentCommutesWithEquiv
+      (T.bottomProjectedStep D2 _hT cutT hcutT)
+      (D.bottomEquivOfBottomIff D2 hbottom) := by
+  intro v
+  apply Subtype.ext
+  change (S.afterBottomParent D hS v).1 =
+    (D2.bottomParent ((D.bottomEquivOfBottomIff D2 hbottom) v)).1
+  classical
+  by_cases hb : D.IsBottom (S.after.parent v.1)
+  case pos =>
+    have hb2 : D2.IsBottom (T.before.parent v.1) := by
+      have hb2raw : D2.IsBottom (S.after.parent v.1) :=
+        (hbottom (S.after.parent v.1)).1 hb
+      simpa [hstate] using hb2raw
+    have hleft : (S.afterBottomParent D hS v).1 = S.after.parent v.1 :=
+      S.afterBottomParent_val_of_parent_bottom D hS v hb
+    have hright :
+        (D2.bottomParent ((D.bottomEquivOfBottomIff D2 hbottom) v)).1 =
+          T.before.parent v.1 := by
+      exact D2.bottomParent_val_of_parent_bottom
+        ((D.bottomEquivOfBottomIff D2 hbottom) v) hb2
+    rw [hleft, hright, hstate]
+  case neg =>
+    have ht : D.IsTop (S.after.parent v.1) := by
+      unfold RawDissection.IsBottom at hb
+      exact Decidable.not_not.mp hb
+    have hb2not : Not (D2.IsBottom (T.before.parent v.1)) := by
+      intro hb2
+      have hb2' : D2.IsBottom (S.after.parent v.1) := by
+        simpa [hstate] using hb2
+      exact hb ((hbottom (S.after.parent v.1)).2 hb2')
+    have ht2 : D2.IsTop (T.before.parent v.1) := by
+      unfold RawDissection.IsBottom at hb2not
+      exact Decidable.not_not.mp hb2not
+    have hleft : (S.afterBottomParent D hS v).1 = v.1 :=
+      S.afterBottomParent_val_of_parent_top D hS v ht
+    have hright :
+        (D2.bottomParent ((D.bottomEquivOfBottomIff D2 hbottom) v)).1 =
+          v.1 := by
+      exact D2.bottomParent_val_of_parent_top
+        ((D.bottomEquivOfBottomIff D2 hbottom) v) ht2
+    rw [hleft, hright]
+
 end RawCompressionStep
 
 namespace RawCompressionExecution
@@ -764,6 +918,156 @@ theorem topProjectedExecution_nonrootCount
     (E.topProjectedExecution hsteps D cut hcut).nonrootCount =
       E.topProjectedNonrootCount hsteps D cut hcut :=
   rfl
+
+/-- Bottom-side stability for adjacent dissections, derived from top stability. -/
+theorem bottomSideStable_of_topSideStable
+    (E : RawCompressionExecution m n r)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (htop : forall i j : Fin m, i.val + 1 = j.val ->
+      forall v : Fin n, Iff ((D i).IsTop v) ((D j).IsTop v))
+    (i j : Fin m)
+    (hij : i.val + 1 = j.val)
+    (v : Fin n) :
+    Iff ((D i).IsBottom v) ((D j).IsBottom v) :=
+  (D i).bottomIffOfTopIff (D j) (htop i j hij) v
+
+/--
+The bottom dependent projected execution has consecutive states up to
+side-preserving equivalences.
+-/
+theorem bottomProjectedExecution_hasConsecutiveStates
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (hbottom : forall i j : Fin m, i.val + 1 = j.val ->
+      forall v : Fin n, Iff ((D i).IsBottom v) ((D j).IsBottom v))
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.bottomProjectedExecution hsteps D cut hcut).HasConsecutiveStates := by
+  intro i j hij
+  refine Exists.intro ((D i).bottomEquivOfBottomIff (D j) (hbottom i j hij)) ?_
+  exact (E.step i).bottomProjectedStep_after_commutes_with_next_before
+    (E.step j) (D i) (D j) (hsteps i) (hsteps j) (hstate i j hij)
+    (hbottom i j hij) (cut i) (cut j) (hcut i) (hcut j)
+
+/--
+The top dependent projected execution has consecutive states up to
+side-preserving equivalences.
+-/
+theorem topProjectedExecution_hasConsecutiveStates
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (htop : forall i j : Fin m, i.val + 1 = j.val ->
+      forall v : Fin n, Iff ((D i).IsTop v) ((D j).IsTop v))
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.topProjectedExecution hsteps D cut hcut).HasConsecutiveStates := by
+  intro i j hij
+  refine Exists.intro ((D i).topEquivOfTopIff (D j) (htop i j hij)) ?_
+  exact (E.step i).topProjectedStep_after_commutes_with_next_before
+    (E.step j) (D i) (D j) (hsteps i) (hsteps j) (hstate i j hij)
+    (htop i j hij) (cut i) (cut j) (hcut i) (hcut j)
+
+/-- Canonical-cut bottom projected execution consecutive-state theorem. -/
+theorem canonicalBottomProjectedExecution_hasConsecutiveStates
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (hbottom : forall i j : Fin m, i.val + 1 = j.val ->
+      forall v : Fin n, Iff ((D i).IsBottom v) ((D j).IsBottom v)) :
+    (E.canonicalBottomProjectedExecution hE.1 D).HasConsecutiveStates := by
+  exact E.bottomProjectedExecution_hasConsecutiveStates hE.1 hE.2.1 D hbottom
+    (E.dissectionCut hE.1 D) (E.dissectionCut_spec hE.1 D)
+
+/-- Canonical-cut top projected execution consecutive-state theorem. -/
+theorem canonicalTopProjectedExecution_hasConsecutiveStates
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (htop : forall i j : Fin m, i.val + 1 = j.val ->
+      forall v : Fin n, Iff ((D i).IsTop v) ((D j).IsTop v)) :
+    (E.canonicalTopProjectedExecution hE.1 D).HasConsecutiveStates := by
+  exact E.topProjectedExecution_hasConsecutiveStates hE.1 hE.2.1 D htop
+    (E.dissectionCut hE.1 D) (E.dissectionCut_spec hE.1 D)
+
+/-- Rank-threshold dissection attached to each raw execution slot. -/
+def rankThresholdDissectionFamily
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (s : Nat)
+    (i : Fin m) : RawDissection (E.step i).before :=
+  RankThresholdDissection.dissection (E.step i).before (hsteps i).1.1 s
+
+/--
+Ranks are stable across adjacent raw execution slots, because a valid step
+preserves ranks and the raw execution connects after-state to next before-state.
+-/
+theorem rankThresholdDissectionFamily_rankNat_eq_of_adjacent
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (i j : Fin m)
+    (hij : i.val + 1 = j.val)
+    (v : Fin n) :
+    RawRankedForest.rankNat (E.step i).before v =
+      RawRankedForest.rankNat (E.step j).before v := by
+  unfold RawRankedForest.rankNat
+  have hrank : (E.step i).after.rank v = (E.step i).before.rank v :=
+    (hsteps i).2.2.1 v
+  rw [hrank.symm]
+  rw [hstate i j hij]
+
+/-- Rank-threshold top sides are stable across adjacent execution slots. -/
+theorem rankThresholdDissectionFamily_topStable
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (s : Nat)
+    (i j : Fin m)
+    (hij : i.val + 1 = j.val)
+    (v : Fin n) :
+    Iff ((E.rankThresholdDissectionFamily hsteps s i).IsTop v)
+      ((E.rankThresholdDissectionFamily hsteps s j).IsTop v) := by
+  unfold rankThresholdDissectionFamily
+  simp only [RankThresholdDissection.dissection_isTop]
+  rw [E.rankThresholdDissectionFamily_rankNat_eq_of_adjacent hsteps hstate i j hij v]
+
+/--
+The canonical top projected execution for a rank-threshold dissection has
+consecutive states up to the projected equivalences.
+-/
+theorem rankThresholdTopProjectedExecution_hasConsecutiveStates
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).HasConsecutiveStates := by
+  exact E.canonicalTopProjectedExecution_hasConsecutiveStates hE
+    (E.rankThresholdDissectionFamily hE.1 s)
+    (E.rankThresholdDissectionFamily_topStable hE.1 hE.2.1 s)
+
+/--
+The canonical bottom projected execution for a rank-threshold dissection has
+consecutive states up to the projected equivalences.
+-/
+theorem rankThresholdBottomProjectedExecution_hasConsecutiveStates
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).HasConsecutiveStates := by
+  exact E.canonicalBottomProjectedExecution_hasConsecutiveStates hE
+    (E.rankThresholdDissectionFamily hE.1 s)
+    (fun i j hij v => E.bottomSideStable_of_topSideStable
+      (E.rankThresholdDissectionFamily hE.1 s)
+      (E.rankThresholdDissectionFamily_topStable hE.1 hE.2.1 s) i j hij v)
 
 /-- The stepwise nonroot indicators sum to the execution nonroot count. -/
 theorem nonrootIndicator_sum_eq_nonrootCount
