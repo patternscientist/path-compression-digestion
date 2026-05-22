@@ -226,6 +226,19 @@ theorem isAncestor_of_parent_eq
     F.IsAncestor v b := by
   simpa [hparent] using F.isAncestor_parent h
 
+/--
+If a predicate is closed under one parent step, then it is closed under every
+iterated parent step.
+-/
+theorem top_of_parentIter_of_parent_top
+    (F : RawRankedForest n r)
+    {top : Fin n -> Prop}
+    (hparent : forall v : Fin n, top v -> top (F.parent v)) :
+    forall t : Nat, forall v : Fin n, top v -> top (F.parentIter t v)
+  | 0, _v, hv => hv
+  | t + 1, v, hv =>
+      top_of_parentIter_of_parent_top F hparent t (F.parent v) (hparent v hv)
+
 end RawRankedForest
 
 namespace RawCompressionPath
@@ -441,6 +454,62 @@ theorem bottom_prefix_of_le
     D.IsBottom (P.node i) := by
   intro hitop
   exact hjbottom (P.top_suffix_of_le D hchain hij hj hitop)
+
+/-- Last active slot of a nonempty raw path. -/
+def lastIndex
+    (P : RawCompressionPath n)
+    (hlen : 1 <= P.len.val) :
+    Fin (n + 1) :=
+  ⟨P.len.val - 1, by
+    have hlen_bound : P.len.val < n + 2 := P.len.isLt
+    omega⟩
+
+@[simp]
+theorem lastIndex_val
+    (P : RawCompressionPath n)
+    (hlen : 1 <= P.len.val) :
+    (P.lastIndex hlen).val = P.len.val - 1 :=
+  rfl
+
+theorem lastIndex_active
+    (P : RawCompressionPath n)
+    (hlen : 1 <= P.len.val) :
+    (P.lastIndex hlen).val < P.len.val := by
+  change P.len.val - 1 < P.len.val
+  omega
+
+theorem lastIndex_succ
+    (P : RawCompressionPath n)
+    (hlen : 1 <= P.len.val) :
+    (P.lastIndex hlen).val + 1 = P.len.val := by
+  simp [lastIndex]
+  omega
+
+/--
+Every compressed vertex lies below the path target.  This is the source-model
+fact needed when a nonroot compression rewires a vertex to the target's old
+parent.
+-/
+theorem target_ancestor_of_compressedVertex
+    (P : RawCompressionPath n)
+    (hvalid : P.IsValidFor F)
+    {v : Fin n}
+    (hcomp : P.IsCompressedVertex v) :
+    F.IsAncestor v P.target := by
+  rcases hvalid with ⟨_hRank, hlen_two, hchain, hlast⟩
+  rcases hcomp with ⟨i, hi_before_target, hnode⟩
+  have hlen_one : 1 <= P.len.val := by
+    omega
+  let j := P.lastIndex hlen_one
+  have hj_active : j.val < P.len.val := P.lastIndex_active hlen_one
+  have hij : i.val <= j.val := by
+    simp [j, lastIndex]
+    omega
+  have hanc : F.IsAncestor (P.node i) (P.node j) :=
+    P.ancestor_of_le_active hchain hij hj_active
+  have htarget : P.node j = P.target :=
+    hlast j (P.lastIndex_succ hlen_one)
+  simpa [hnode, htarget] using hanc
 
 /-- Cut predicate for the bottom-prefix/top-suffix split of one raw path. -/
 def HasDissectionCut
@@ -841,6 +910,148 @@ theorem sourceCost_le_projection_edgeCosts_add_one
     exact P.cost_le_projection_edgeCosts_add_one D hchain cut hcut
 
 end RawCompressionPath
+
+namespace RawCompressionStep
+
+variable {n r : Nat}
+
+/--
+A top vertex remains top after one valid compression step when the same
+dissection predicate is read on the after-forest.
+-/
+theorem after_parent_top
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    {v : Fin n}
+    (hv : D.IsTop v) :
+    D.IsTop (S.after.parent v) := by
+  rcases hS with
+    ⟨hpath, _hafterRank, _hrank, hroot_step, hnonroot_step, hunchanged⟩
+  by_cases hroot : S.path.IsRootPath S.before
+  · have hparent_eq : S.after.parent = S.before.parent := hroot_step hroot
+    rw [hparent_eq]
+    exact D.parent_top hv
+  · have hnonroot : S.path.IsNonrootPath S.before := by
+      simpa [RawCompressionPath.IsRootPath, RawCompressionPath.IsNonrootPath,
+        RawRankedForest.IsRoot] using hroot
+    by_cases hcomp : S.path.IsCompressedVertex v
+    · have hrewire :
+          S.after.parent v = S.before.parent S.path.target :=
+        hnonroot_step hnonroot v hcomp
+      rw [hrewire]
+      have htarget_ancestor : S.before.IsAncestor v S.path.target :=
+        S.path.target_ancestor_of_compressedVertex hpath hcomp
+      have htarget_top : D.IsTop S.path.target :=
+        D.top_of_ancestor hv htarget_ancestor
+      exact D.parent_top htarget_top
+    · have hsame : S.after.parent v = S.before.parent v :=
+        hunchanged v hcomp
+      rw [hsame]
+      exact D.parent_top hv
+
+/--
+The same top set is still upward closed after a valid raw compression step.
+This is the one-step dissection-preservation bridge needed before projected
+steps can be assembled.
+-/
+def afterDissection
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid) :
+    RawDissection S.after where
+  top := D.top
+  upward_closed := by
+    intro x a hx hxa
+    rcases hxa with ⟨t, ht⟩
+    have hiter :
+        D.IsTop (S.after.parentIter t x) :=
+      S.after.top_of_parentIter_of_parent_top
+        (top := D.top)
+        (fun v hv => S.after_parent_top D hS hv)
+        t x hx
+    simpa [RawDissection.IsTop, ht] using hiter
+
+@[simp]
+theorem afterDissection_isTop
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (v : Fin n) :
+    (S.afterDissection D hS).IsTop v ↔ D.IsTop v :=
+  Iff.rfl
+
+@[simp]
+theorem afterDissection_isBottom
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (v : Fin n) :
+    (S.afterDissection D hS).IsBottom v ↔ D.IsBottom v :=
+  Iff.rfl
+
+@[simp]
+theorem afterDissection_topFinset
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid) :
+    (S.afterDissection D hS).topFinset = D.topFinset := by
+  classical
+  ext v
+  simp
+
+@[simp]
+theorem afterDissection_bottomFinset
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid) :
+    (S.afterDissection D hS).bottomFinset = D.bottomFinset := by
+  classical
+  ext v
+  simp
+
+theorem afterDissection_top_card
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid) :
+    (S.afterDissection D hS).topFinset.card = D.topFinset.card := by
+  simp
+
+theorem afterDissection_bottom_card
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid) :
+    (S.afterDissection D hS).bottomFinset.card = D.bottomFinset.card := by
+  simp
+
+/-- A valid raw step's path admits a dissection cut. -/
+theorem exists_path_dissection_cut
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid) :
+    Exists (S.path.HasDissectionCut D) := by
+  exact S.path.exists_dissection_cut D hS.1.2.2.1
+
+/--
+One-step path accounting, packaged at `RawCompressionStep` level.  This is not
+yet the projected-step commutation theorem, but it supplies the local cost
+inequality that projected executions must sum.
+-/
+theorem exists_projection_segments_cost_bound
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid) :
+    Exists fun cut : Nat =>
+      Exists fun hcut : S.path.HasDissectionCut D cut =>
+        S.cost <=
+          (S.path.bottomProjectionSegment D hS.1.2.2.1 cut hcut).edgeCost +
+            (S.path.topProjectionSegment D hS.1.2.2.1 cut hcut).edgeCost + 1 := by
+  rcases S.exists_path_dissection_cut D hS with ⟨cut, hcut⟩
+  refine ⟨cut, hcut, ?_⟩
+  unfold cost
+  exact S.path.sourceCost_le_projection_edgeCosts_add_one D hS.1.2.2.1 cut hcut
+
+end RawCompressionStep
 
 namespace RawCompressionExecution
 

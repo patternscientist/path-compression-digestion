@@ -59,6 +59,7 @@ In `PathCompressionDigestion/SourceDissection.lean`:
 - `RawCompressionPath.topProjectionNode`
 - `RawCompressionPath.bottomProjectionSegment`
 - `RawCompressionPath.topProjectionSegment`
+- `RawCompressionStep.afterDissection`
 - `RawCompressionExecution.nonrootCount`
 - `RankThresholdDissection.topPred`
 - `RankThresholdDissection.dissection`
@@ -113,6 +114,15 @@ lemma can be attacked:
 - `RawCompressionPath.topProjectionSegment_len`
 - `RawCompressionPath.cost_le_projection_edgeCosts_add_one`
 - `RawCompressionPath.sourceCost_le_projection_edgeCosts_add_one`
+- `RawCompressionStep.after_parent_top`
+- `RawCompressionStep.afterDissection_isTop`
+- `RawCompressionStep.afterDissection_isBottom`
+- `RawCompressionStep.afterDissection_topFinset`
+- `RawCompressionStep.afterDissection_bottomFinset`
+- `RawCompressionStep.afterDissection_top_card`
+- `RawCompressionStep.afterDissection_bottom_card`
+- `RawCompressionStep.exists_path_dissection_cut`
+- `RawCompressionStep.exists_projection_segments_cost_bound`
 - `RawCompressionExecution.nonrootCount_le_length`
 - `RankThresholdDissection.dissection_isTop`
 - `RankThresholdDissection.dissection_isBottom`
@@ -159,6 +169,34 @@ The first theorem not yet closed is now the step-level projection theorem:
 given a valid raw compression step and a dissection cut for its path, construct
 bottom/top projected compression steps over the restricted forests and prove
 the restricted before/after parent maps commute with the raw step.
+
+This branch now proves the prerequisite one-step dissection preservation:
+
+```lean
+def RawCompressionStep.afterDissection
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid) :
+    RawDissection S.after
+
+theorem RawCompressionStep.after_parent_top
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    {v : Fin n}
+    (hv : D.IsTop v) :
+    D.IsTop (S.after.parent v)
+
+theorem RawCompressionStep.exists_projection_segments_cost_bound
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid) :
+    Exists fun cut : Nat =>
+      Exists fun hcut : S.path.HasDissectionCut D cut =>
+        S.cost <=
+          (S.path.bottomProjectionSegment D hS.1.2.2.1 cut hcut).edgeCost +
+            (S.path.topProjectionSegment D hS.1.2.2.1 cut hcut).edgeCost + 1
+```
 
 Representative next statement:
 
