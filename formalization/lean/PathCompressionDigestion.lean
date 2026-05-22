@@ -18,4 +18,5 @@ import PathCompressionDigestion.SourceCost
 import PathCompressionDigestion.SourceIteration
 import PathCompressionDigestion.SourceModel
 import PathCompressionDigestion.ConcreteSourceModel
+import PathCompressionDigestion.SourceDissection
 import PathCompressionDigestion.PaperPipeline
