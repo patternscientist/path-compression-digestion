@@ -44,11 +44,21 @@ In `PathCompressionDigestion/SourceDissection.lean`:
 - `RawDissection.bottomParent`
 - `RawDissection.topRankNat`
 - `RawDissection.bottomRankNat`
+- `RawCompressionPath.ProjectedPathSegment`
+- `ProjectedPathSegment.edgeCost`
 - `RawCompressionPath.activeFinset`
 - `RawCompressionPath.properFinset`
 - `RawCompressionPath.projectedActiveFinset`
 - `RawCompressionPath.projectedProperFinset`
 - `RawCompressionPath.HasDissectionCut`
+- `RawCompressionPath.bottomProjectionLength`
+- `RawCompressionPath.topProjectionLength`
+- `RawCompressionPath.bottomProjectionIndex`
+- `RawCompressionPath.topProjectionIndex`
+- `RawCompressionPath.bottomProjectionNode`
+- `RawCompressionPath.topProjectionNode`
+- `RawCompressionPath.bottomProjectionSegment`
+- `RawCompressionPath.topProjectionSegment`
 - `RawCompressionExecution.nonrootCount`
 - `RankThresholdDissection.topPred`
 - `RankThresholdDissection.dissection`
@@ -70,6 +80,7 @@ lemma can be attacked:
 - `RawDissection.topParent_val`
 - `RawDissection.bottomParent_val_of_parent_bottom`
 - `RawDissection.bottomParent_val_of_parent_top`
+- `ProjectedPathSegment.edgeCost_le_len`
 - `RawRankedForest.rankNat_le_parent`
 - `RawRankedForest.rankNat_le_parentIter`
 - `RawRankedForest.parentIter_succ_eq_parent_parentIter`
@@ -85,6 +96,23 @@ lemma can be attacked:
 - `RawCompressionPath.top_suffix_of_le`
 - `RawCompressionPath.bottom_prefix_of_le`
 - `RawCompressionPath.exists_dissection_cut`
+- `RawCompressionPath.bottomProjectionLength_le_len`
+- `RawCompressionPath.topProjectionLength_le_len`
+- `RawCompressionPath.projectionLength_add`
+- `RawCompressionPath.bottomProjectionIndex_val`
+- `RawCompressionPath.topProjectionIndex_val`
+- `RawCompressionPath.bottomProjectionIndex_lt_cut`
+- `RawCompressionPath.topProjectionIndex_ge_cut`
+- `RawCompressionPath.bottomProjectionIndex_active`
+- `RawCompressionPath.topProjectionIndex_active`
+- `RawCompressionPath.bottomProjectionNode_val`
+- `RawCompressionPath.topProjectionNode_val`
+- `RawCompressionPath.bottomProjection_parent_chain`
+- `RawCompressionPath.topProjection_parent_chain`
+- `RawCompressionPath.bottomProjectionSegment_len`
+- `RawCompressionPath.topProjectionSegment_len`
+- `RawCompressionPath.cost_le_projection_edgeCosts_add_one`
+- `RawCompressionPath.sourceCost_le_projection_edgeCosts_add_one`
 - `RawCompressionExecution.nonrootCount_le_length`
 - `RankThresholdDissection.dissection_isTop`
 - `RankThresholdDissection.dissection_isBottom`
@@ -106,47 +134,53 @@ theorem RawCompressionPath.exists_dissection_cut
     Exists (P.HasDissectionCut D)
 ```
 
-The first theorem not yet closed is the construction of actual bottom/top
-projected path objects over restricted forests, with parent-chain proofs:
+The bottom/top projected path-segment objects over restricted forests are now
+constructed, with parent-chain proofs:
 
 ```lean
-theorem bottom_projected_path_is_valid
-    {n r : Nat}
-    {F : RawRankedForest n r}
+def RawCompressionPath.bottomProjectionSegment
     (D : RawDissection F)
     (P : RawCompressionPath n)
-    (hvalid : P.IsValidFor F)
+    (hchain : P.IsParentChain F)
     (cut : Nat)
     (hcut : P.HasDissectionCut D cut) :
-    -- the bottom projection is a valid path in the restricted bottom forest.
-    Prop
+    ProjectedPathSegment D.BottomNode D.bottomParent
 
-theorem top_projected_path_is_valid
-    {n r : Nat}
-    {F : RawRankedForest n r}
+def RawCompressionPath.topProjectionSegment
     (D : RawDissection F)
     (P : RawCompressionPath n)
-    (hvalid : P.IsValidFor F)
+    (hchain : P.IsParentChain F)
     (cut : Nat)
     (hcut : P.HasDissectionCut D cut) :
-    -- the top projection is a valid path in the restricted top forest.
+    ProjectedPathSegment D.TopNode D.topParent
+```
+
+The first theorem not yet closed is now the step-level projection theorem:
+given a valid raw compression step and a dissection cut for its path, construct
+bottom/top projected compression steps over the restricted forests and prove
+the restricted before/after parent maps commute with the raw step.
+
+Representative next statement:
+
+```lean
+theorem projected_step_commutes_with_restriction
+    {n r : Nat}
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    -- bottom/top restricted before/after states and projected paths form
+    -- valid projected steps, with cost/count accounting for this step.
     Prop
 ```
 
-These statements are not in Lean yet because the existing `RawCompressionPath`
-type stores paths in fixed `Fin n` arrays, while the natural projected paths
-live over restricted bottom/top vertex types.  This branch defines projected
-active/proper index sets and proves the existence of the dissection cut; it
-does not yet define projected path objects carrying their own targets,
-rootpath/nonrootpath classification, and restricted parent-chain proofs.
-
 ## Blocker Classification
 
-Primary blocker: projected path object construction.
+Primary blocker: step/execution projection and restriction commutation.
 
 Secondary blockers:
 
-- execution/restriction commutation;
 - nonrootpath counting for projected executions;
 - cost accounting for cross-side parent changes;
 - deriving the rank-forest top-cardinality packing from a concrete child or
@@ -181,26 +215,26 @@ sequences over restricted forests.
 
 ## Next Smallest Worker Theorem
 
-The next smallest useful theorem is to define the projected path objects
-associated to a cut and prove their parent-chain facts.  Recommended next
-target:
+The next smallest useful theorem is to define restricted before/after forest
+objects for one raw step and prove the projected segments commute with the
+single-step parent update.  Recommended next target:
 
 ```lean
-theorem bottom_projected_path_parent_chain
+theorem projected_step_commutes_with_restriction
     {n r : Nat}
-    {F : RawRankedForest n r}
-    (D : RawDissection F)
-    (P : RawCompressionPath n)
-    (hchain : P.IsParentChain F)
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
     (cut : Nat)
-    (hcut : P.HasDissectionCut D cut) :
-    -- adjacent active bottom-projection slots follow `RawDissection.bottomParent`.
+    (hcut : S.path.HasDissectionCut D cut) :
+    -- the bottom/top restricted projected steps are valid and preserve the
+    -- path-level accounting supplied by
+    -- `RawCompressionPath.sourceCost_le_projection_edgeCosts_add_one`.
     Prop
 ```
 
-The analogous top parent-chain theorem should follow from upward closure and
-`RawDissection.topParent`.  After those two path-level facts, prove
-execution/restriction commutation for one step before lifting to sequences.
+After that, lift the one-step construction to `RawCompressionExecution` and
+prove the nonrootpath-count and cost inequalities for projected executions.
 
 ## Honesty Boundary
 

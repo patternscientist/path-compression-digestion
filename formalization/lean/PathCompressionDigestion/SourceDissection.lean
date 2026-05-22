@@ -232,6 +232,28 @@ namespace RawCompressionPath
 
 variable {n r : Nat} {F : RawRankedForest n r}
 
+/-- A path segment inside a restricted forest with its own parent map. -/
+structure ProjectedPathSegment (α : Type*) (parent : α -> α) where
+  len : Nat
+  node : Fin len -> α
+  parent_chain :
+    forall {i j : Fin len}, i.val + 1 = j.val -> parent (node i) = node j
+
+namespace ProjectedPathSegment
+
+variable {α : Type*} {parent : α -> α}
+
+/-- Edge-style cost of a projected path segment. -/
+def edgeCost (S : ProjectedPathSegment α parent) : Nat :=
+  S.len - 1
+
+theorem edgeCost_le_len (S : ProjectedPathSegment α parent) :
+    S.edgeCost <= S.len := by
+  unfold edgeCost
+  omega
+
+end ProjectedPathSegment
+
 /-- Active path slots. -/
 noncomputable def activeFinset (P : RawCompressionPath n) :
     Finset (Fin (n + 1)) := by
@@ -469,6 +491,354 @@ theorem exists_dissection_cut
       exact htops ⟨i, hi_mem⟩
     · intro i hia hcut
       omega
+
+/-- The length of the bottom projected path segment associated to a cut. -/
+def bottomProjectionLength
+    (P : RawCompressionPath n)
+    (_D : RawDissection F)
+    (cut : Nat)
+    (_hcut : P.HasDissectionCut _D cut) : Nat :=
+  cut
+
+/-- The length of the top projected path segment associated to a cut. -/
+def topProjectionLength
+    (P : RawCompressionPath n)
+    (_D : RawDissection F)
+    (cut : Nat)
+    (_hcut : P.HasDissectionCut _D cut) : Nat :=
+  P.len.val - cut
+
+theorem bottomProjectionLength_le_len
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut) :
+    P.bottomProjectionLength D cut hcut <= P.len.val := by
+  simpa [bottomProjectionLength] using hcut.1
+
+theorem topProjectionLength_le_len
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut) :
+    P.topProjectionLength D cut hcut <= P.len.val := by
+  simp [topProjectionLength]
+
+/-- The bottom and top segment lengths add back to the original active length. -/
+theorem projectionLength_add
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut) :
+    P.bottomProjectionLength D cut hcut +
+        P.topProjectionLength D cut hcut =
+      P.len.val := by
+  have hcut_len : cut <= P.len.val := hcut.1
+  simp [bottomProjectionLength, topProjectionLength]
+  omega
+
+/-- Original active slot corresponding to a bottom-projection slot. -/
+def bottomProjectionIndex
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    (i : Fin (P.bottomProjectionLength D cut hcut)) :
+    Fin (n + 1) :=
+  ⟨i.val, by
+    have hlen_le : P.len.val <= n + 1 := Nat.le_of_lt_succ P.len.isLt
+    have hcut_len : cut <= P.len.val := hcut.1
+    have hi_cut : i.val < cut := by
+      simp [bottomProjectionLength] at i
+      exact i.isLt
+    omega⟩
+
+@[simp]
+theorem bottomProjectionIndex_val
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    (i : Fin (P.bottomProjectionLength D cut hcut)) :
+    (P.bottomProjectionIndex D cut hcut i).val = i.val :=
+  rfl
+
+/-- Original active slot corresponding to a top-projection slot. -/
+def topProjectionIndex
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    (i : Fin (P.topProjectionLength D cut hcut)) :
+    Fin (n + 1) :=
+  ⟨cut + i.val, by
+    have hlen_le : P.len.val <= n + 1 := Nat.le_of_lt_succ P.len.isLt
+    have hcut_len : cut <= P.len.val := hcut.1
+    have hi_len : i.val < P.len.val - cut := by
+      simp [topProjectionLength] at i
+      exact i.isLt
+    omega⟩
+
+@[simp]
+theorem topProjectionIndex_val
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    (i : Fin (P.topProjectionLength D cut hcut)) :
+    (P.topProjectionIndex D cut hcut i).val = cut + i.val :=
+  rfl
+
+theorem bottomProjectionIndex_lt_cut
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    (i : Fin (P.bottomProjectionLength D cut hcut)) :
+    (P.bottomProjectionIndex D cut hcut i).val < cut := by
+  simp [bottomProjectionIndex, bottomProjectionLength]
+
+theorem topProjectionIndex_ge_cut
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    (i : Fin (P.topProjectionLength D cut hcut)) :
+    cut <= (P.topProjectionIndex D cut hcut i).val := by
+  simp [topProjectionIndex]
+
+theorem bottomProjectionIndex_active
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    (i : Fin (P.bottomProjectionLength D cut hcut)) :
+    (P.bottomProjectionIndex D cut hcut i).val < P.len.val := by
+  have hcut_len : cut <= P.len.val := hcut.1
+  have hi_cut : i.val < cut := by
+    simp [bottomProjectionLength] at i
+    exact i.isLt
+  simp [bottomProjectionIndex]
+  omega
+
+theorem topProjectionIndex_active
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    (i : Fin (P.topProjectionLength D cut hcut)) :
+    (P.topProjectionIndex D cut hcut i).val < P.len.val := by
+  have hcut_len : cut <= P.len.val := hcut.1
+  have hi_len : i.val < P.len.val - cut := by
+    simp [topProjectionLength] at i
+    exact i.isLt
+  simp [topProjectionIndex]
+  omega
+
+/-- Vertex of the bottom restricted forest at a bottom-projection slot. -/
+def bottomProjectionNode
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    (i : Fin (P.bottomProjectionLength D cut hcut)) :
+    D.BottomNode :=
+  ⟨P.node (P.bottomProjectionIndex D cut hcut i),
+    hcut.2.1 (P.bottomProjectionIndex D cut hcut i)
+      (P.bottomProjectionIndex_active D cut hcut i)
+      (by
+        simp [bottomProjectionLength] at i
+        exact i.isLt)⟩
+
+@[simp]
+theorem bottomProjectionNode_val
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    (i : Fin (P.bottomProjectionLength D cut hcut)) :
+    (P.bottomProjectionNode D cut hcut i).1 =
+      P.node (P.bottomProjectionIndex D cut hcut i) :=
+  rfl
+
+/-- Vertex of the top restricted forest at a top-projection slot. -/
+def topProjectionNode
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    (i : Fin (P.topProjectionLength D cut hcut)) :
+    D.TopNode :=
+  ⟨P.node (P.topProjectionIndex D cut hcut i),
+    hcut.2.2 (P.topProjectionIndex D cut hcut i)
+      (P.topProjectionIndex_active D cut hcut i)
+      (by simp [topProjectionIndex])⟩
+
+@[simp]
+theorem topProjectionNode_val
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    (i : Fin (P.topProjectionLength D cut hcut)) :
+    (P.topProjectionNode D cut hcut i).1 =
+      P.node (P.topProjectionIndex D cut hcut i) :=
+  rfl
+
+/--
+Adjacent slots in the bottom projection follow the restricted bottom parent
+map.
+-/
+theorem bottomProjection_parent_chain
+    (D : RawDissection F)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    {i j : Fin (P.bottomProjectionLength D cut hcut)}
+    (hij : i.val + 1 = j.val) :
+    D.bottomParent (P.bottomProjectionNode D cut hcut i) =
+      P.bottomProjectionNode D cut hcut j := by
+  apply Subtype.ext
+  have hj_active :
+      (P.bottomProjectionIndex D cut hcut j).val < P.len.val :=
+    P.bottomProjectionIndex_active D cut hcut j
+  have hstep :
+      (P.bottomProjectionIndex D cut hcut i).val + 1 =
+        (P.bottomProjectionIndex D cut hcut j).val := by
+    simpa using hij
+  have hparent :
+      F.parent (P.node (P.bottomProjectionIndex D cut hcut i)) =
+        P.node (P.bottomProjectionIndex D cut hcut j) :=
+    hchain (P.bottomProjectionIndex D cut hcut i)
+      (P.bottomProjectionIndex D cut hcut j) hstep hj_active
+  have hj_bottom :
+      D.IsBottom (P.node (P.bottomProjectionIndex D cut hcut j)) :=
+    (P.bottomProjectionNode D cut hcut j).2
+  have hparent_bottom :
+      D.IsBottom (F.parent (P.node (P.bottomProjectionIndex D cut hcut i))) := by
+    simpa [hparent] using hj_bottom
+  have hbottom_val :
+      (D.bottomParent (P.bottomProjectionNode D cut hcut i)).1 =
+        F.parent (P.node (P.bottomProjectionIndex D cut hcut i)) :=
+    D.bottomParent_val_of_parent_bottom
+      (P.bottomProjectionNode D cut hcut i) hparent_bottom
+  exact hbottom_val.trans hparent
+
+/--
+Adjacent slots in the top projection follow the restricted top parent map.
+-/
+theorem topProjection_parent_chain
+    (D : RawDissection F)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut)
+    {i j : Fin (P.topProjectionLength D cut hcut)}
+    (hij : i.val + 1 = j.val) :
+    D.topParent (P.topProjectionNode D cut hcut i) =
+      P.topProjectionNode D cut hcut j := by
+  apply Subtype.ext
+  have hj_active :
+      (P.topProjectionIndex D cut hcut j).val < P.len.val :=
+    P.topProjectionIndex_active D cut hcut j
+  have hstep :
+      (P.topProjectionIndex D cut hcut i).val + 1 =
+        (P.topProjectionIndex D cut hcut j).val := by
+    simp [topProjectionIndex]
+    omega
+  have hparent :
+      F.parent (P.node (P.topProjectionIndex D cut hcut i)) =
+        P.node (P.topProjectionIndex D cut hcut j) :=
+    hchain (P.topProjectionIndex D cut hcut i)
+      (P.topProjectionIndex D cut hcut j) hstep hj_active
+  simpa [RawDissection.topParent] using hparent
+
+/-- Packaged bottom projected path segment for a dissection cut. -/
+def bottomProjectionSegment
+    (D : RawDissection F)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut) :
+    ProjectedPathSegment D.BottomNode D.bottomParent where
+  len := P.bottomProjectionLength D cut hcut
+  node := P.bottomProjectionNode D cut hcut
+  parent_chain := by
+    intro i j hij
+    exact P.bottomProjection_parent_chain D hchain cut hcut hij
+
+@[simp]
+theorem bottomProjectionSegment_len
+    (D : RawDissection F)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut) :
+    (P.bottomProjectionSegment D hchain cut hcut).len =
+      P.bottomProjectionLength D cut hcut :=
+  rfl
+
+/-- Packaged top projected path segment for a dissection cut. -/
+def topProjectionSegment
+    (D : RawDissection F)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut) :
+    ProjectedPathSegment D.TopNode D.topParent where
+  len := P.topProjectionLength D cut hcut
+  node := P.topProjectionNode D cut hcut
+  parent_chain := by
+    intro i j hij
+    exact P.topProjection_parent_chain D hchain cut hcut hij
+
+@[simp]
+theorem topProjectionSegment_len
+    (D : RawDissection F)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut) :
+    (P.topProjectionSegment D hchain cut hcut).len =
+      P.topProjectionLength D cut hcut :=
+  rfl
+
+/--
+Path-level cost accounting for a dissection cut: splitting a path into bottom
+and top contiguous segments loses at most the one cross-dissection edge.
+-/
+theorem cost_le_projection_edgeCosts_add_one
+    (D : RawDissection F)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut) :
+    P.cost <=
+      (P.bottomProjectionSegment D hchain cut hcut).edgeCost +
+        (P.topProjectionSegment D hchain cut hcut).edgeCost + 1 := by
+  unfold cost ProjectedPathSegment.edgeCost
+  have hsum := P.projectionLength_add D cut hcut
+  simp [bottomProjectionSegment, topProjectionSegment]
+  omega
+
+/-- Source path cost is bounded by the same projected edge-cost accounting. -/
+theorem sourceCost_le_projection_edgeCosts_add_one
+    (D : RawDissection F)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut) :
+    P.sourceCost F <=
+      (P.bottomProjectionSegment D hchain cut hcut).edgeCost +
+        (P.topProjectionSegment D hchain cut hcut).edgeCost + 1 := by
+  classical
+  unfold sourceCost
+  by_cases hroot : P.IsRootPath F
+  · rw [if_pos hroot]
+    omega
+  · rw [if_neg hroot]
+    exact P.cost_le_projection_edgeCosts_add_one D hchain cut hcut
 
 end RawCompressionPath
 
