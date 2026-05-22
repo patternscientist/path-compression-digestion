@@ -188,6 +188,9 @@ It proves the concrete base obligation for the base-accounted cost family:
 ```lean
 theorem topDown_base_bound :
     topDownBaseBoundTarget
+
+theorem topDown_base_sourceBound :
+    SourceBound topDownCost 0 (J 0)
 ```
 
 It records the remaining Seidel--Sharir shift obligation as a named `Prop`
@@ -200,6 +203,26 @@ def topDownSourceModelTarget : Prop
 ```
 
 The shift target is not proved or assumed.
+
+With that single shift theorem as a parameter, the concrete skeleton now
+packages the full downstream pipeline:
+
+```lean
+def topDown_sourceModel_of_shift
+    (hshift : forall k : Nat, topDownShiftStepTarget k) :
+    SourceModel
+
+theorem sourceRecurrence_topDownCost_of_shift
+    (hshift : forall k : Nat, topDownShiftStepTarget k) :
+    SourceRecurrence topDownCost
+
+theorem paper_finite_bound_topDownCost_of_shift
+    (hshift : forall k : Nat, topDownShiftStepTarget k)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    topDownCost m n (L n) <= (alphaQ m n + 3) * m + 4 * n
+```
 
 `PathCompressionDigestion/PaperPipeline.lean` exposes the direct-proof
 pipeline under paper-facing wrapper names, including:
@@ -323,7 +346,7 @@ checks and do not force a full Mathlib rebuild for every branch.
 | `SourceCostFamily`, `SourceRecurrence`, `source_cost_bound_of_recurrence` | Conditional source-cost consequence |
 | `SourceBound`, `SourceShiftStep`, `sourceBound_J_of_iterated_shifting`, `sourceRecurrence_of_iterated_shifting` | Iteration from source base/shift obligations to `SourceRecurrence` |
 | `SourceModel`, `sourceRecurrence_of_shifting`, `source_model_cost_bound` | Structured source-shifting interface and finite cost consequence |
-| `RawRankedForest`, `RawCompressionPath`, `RawCompressionStep`, `RawCompressionExecution`, `topDownCost`, `topDown_base_bound`, `topDownShiftStepTarget` | Concrete source-model skeleton, proved base bound for base-accounted executions, and unproved shift target |
+| `RawRankedForest`, `RawCompressionPath`, `RawCompressionStep`, `RawCompressionExecution`, `topDownCost`, `topDown_base_sourceBound`, `topDownShiftStepTarget`, `sourceRecurrence_topDownCost_of_shift` | Concrete source-model skeleton, proved base bound for base-accounted executions, conditional recurrence wrapper, and unproved shift target |
 | `paper_concrete_main_comparison`, `paper_direct_J_bound`, `paper_alphaJQ_bound`, `paper_alphaJS_bound`, `paper_finite_bound_of_source_recurrence`, `paper_finite_bound_of_source_model` | Paper-facing direct-proof pipeline wrappers |
 | `Abstract.ThresholdCoreAssumptions.baseExact` | Section 4.4, exact base inverse |
 | `Abstract.ThresholdCoreAssumptions.thresholdStep` | Lemma 4.3 |

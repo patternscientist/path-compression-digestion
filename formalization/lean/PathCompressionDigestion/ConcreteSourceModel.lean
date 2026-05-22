@@ -263,6 +263,16 @@ theorem topDown_base_bound :
         ring
   exact hbudget.trans htarget
 
+/--
+Direct form of the base source obligation for the concrete cost family.
+
+This is the Ambition-B theorem: the base `J_0` source bound is now a theorem
+for `topDownCost`, not a field supplied by `SourceModel`.
+-/
+theorem topDown_base_sourceBound :
+    SourceBound topDownCost 0 (J 0) :=
+  topDown_base_bound
+
 /-- The concrete Seidel--Sharir shift target over this finite execution model. -/
 def topDownShiftStepTarget (k : Nat) : Prop :=
   SourceShiftStep topDownCost k (JInput k)
@@ -281,6 +291,40 @@ noncomputable def topDownSourceModelCandidate
   Cost := topDownCost
   base_bound := topDown_base_bound
   shifting_step := hshift
+
+/--
+Conditional packaging theorem: once the concrete shift theorem is proved, the
+base theorem above supplies the remaining `SourceModel` field.
+-/
+noncomputable def topDown_sourceModel_of_shift
+    (hshift : forall k : Nat, topDownShiftStepTarget k) :
+    SourceModel :=
+  topDownSourceModelCandidate hshift
+
+/--
+Conditional source recurrence for `topDownCost`, with the only remaining
+assumption being the concrete Seidel--Sharir shift theorem.
+-/
+theorem sourceRecurrence_topDownCost_of_shift
+    (hshift : forall k : Nat, topDownShiftStepTarget k) :
+    SourceRecurrence topDownCost :=
+  by
+    simpa [topDown_sourceModel_of_shift, topDownSourceModelCandidate] using
+      sourceRecurrence_of_shifting (topDown_sourceModel_of_shift hshift)
+
+/--
+Conditional paper-facing finite bound for `topDownCost`, again isolated to the
+single missing shift theorem.
+-/
+theorem paper_finite_bound_topDownCost_of_shift
+    (hshift : forall k : Nat, topDownShiftStepTarget k)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    topDownCost m n (L n) <= (alphaQ m n + 3) * m + 4 * n :=
+  source_cost_bound_of_recurrence
+    (sourceRecurrence_topDownCost_of_shift hshift)
+    hm hn
 
 end ConcreteSourceModel
 

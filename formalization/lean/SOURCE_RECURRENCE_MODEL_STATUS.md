@@ -76,6 +76,9 @@ It proves the source base obligation for that base-accounted concrete cost:
 ```lean
 theorem topDown_base_bound :
     topDownBaseBoundTarget
+
+theorem topDown_base_sourceBound :
+    SourceBound topDownCost 0 (J 0)
 ```
 
 It also records the remaining shift proof target as a `Prop` definition, not
@@ -94,6 +97,27 @@ def topDownSourceModelTarget : Prop :=
 
 The shift target is not proved in the follow-on branch.
 
+Because the base field is now proved, the module also provides conditional
+wrappers showing that the only missing ingredient for the full source-model
+pipeline is the concrete shift theorem:
+
+```lean
+def topDown_sourceModel_of_shift
+    (hshift : forall k : Nat, topDownShiftStepTarget k) :
+    SourceModel
+
+theorem sourceRecurrence_topDownCost_of_shift
+    (hshift : forall k : Nat, topDownShiftStepTarget k) :
+    SourceRecurrence topDownCost
+
+theorem paper_finite_bound_topDownCost_of_shift
+    (hshift : forall k : Nat, topDownShiftStepTarget k)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    topDownCost m n (L n) <= (alphaQ m n + 3) * m + 4 * n
+```
+
 ## Not achieved
 
 The bridge branch does not define a concrete top-down path-compression
@@ -111,8 +135,7 @@ theorem sourceRecurrence_of_topDownModel :
     SourceRecurrence topDownCost
 ```
 
-and therefore no unconditional finite theorem for an actual `topDownCost`
-exists yet.
+and therefore no unconditional finite theorem for `topDownCost` exists yet.
 
 ## Remaining exact gap
 

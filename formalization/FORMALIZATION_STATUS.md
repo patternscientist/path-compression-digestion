@@ -118,7 +118,9 @@ under `ThresholdCoreAssumptions R`.
   base-rank-accounting certificates, and `topDownCost : SourceCostFamily`. It
   proves the base obligation for this base-accounted cost family; the
   certificate derivation from raw step semantics and the shifting obligation
-  remain open.
+  remain open. It also provides conditional wrappers showing that
+  `SourceModel`, `SourceRecurrence topDownCost`, and the finite paper-facing
+  bound follow from the remaining shift theorem.
 - `formalization/lean/PathCompressionDigestion/PaperPipeline.lean` exposes the
   formalized direct-proof pipeline under paper-facing wrapper names, including
   the finite bound conditional on `SourceRecurrence` and the corresponding
@@ -175,10 +177,13 @@ under `ThresholdCoreAssumptions R`.
 - The concrete source-model skeleton definitions in
   `formalization/lean/PathCompressionDigestion/ConcreteSourceModel.lean`,
   including `topDownCost`, `topDownCost_le_base_budget`,
-  `topDown_base_bound`, and the named remaining target
-  `topDownShiftStepTarget`. This proves the base field needed by
-  `SourceModel` for base-accounted executions, but does not prove the shift
-  field or a concrete `SourceModel`.
+  `topDown_base_bound`, `topDown_base_sourceBound`, and the named remaining
+  target `topDownShiftStepTarget`. This proves the base field needed by
+  `SourceModel` for base-accounted executions, and includes conditional
+  wrappers `topDown_sourceModel_of_shift`,
+  `sourceRecurrence_topDownCost_of_shift`, and
+  `paper_finite_bound_topDownCost_of_shift`. It does not prove the shift field
+  or an unconditional concrete `SourceModel`.
 - The paper-facing pipeline wrappers, including
   `paper_finite_bound_of_source_recurrence` and
   `paper_finite_bound_of_source_model`, in

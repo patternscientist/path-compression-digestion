@@ -2,7 +2,8 @@
 
 Branch: `lean-concrete-source-model-v1`
 
-Current checkpoint: `525396e32cd58a439692e8e8347f47b212adfb44`
+Current status: Ambition B is complete for the base-accounted concrete cost
+family.  Ambition A remains open on the concrete shift theorem.
 
 ## Summary
 
@@ -14,6 +15,33 @@ explicit base-rank-accounting certificate:
 ```lean
 theorem ConcreteSourceModel.topDown_base_bound :
     ConcreteSourceModel.topDownBaseBoundTarget
+
+theorem ConcreteSourceModel.topDown_base_sourceBound :
+    SourceBound ConcreteSourceModel.topDownCost 0 (J 0)
+```
+
+It also provides conditional wrappers showing that the full downstream
+pipeline follows from the single remaining shift theorem:
+
+```lean
+def ConcreteSourceModel.topDown_sourceModel_of_shift
+    (hshift : forall k : Nat,
+      ConcreteSourceModel.topDownShiftStepTarget k) :
+    SourceModel
+
+theorem ConcreteSourceModel.sourceRecurrence_topDownCost_of_shift
+    (hshift : forall k : Nat,
+      ConcreteSourceModel.topDownShiftStepTarget k) :
+    SourceRecurrence ConcreteSourceModel.topDownCost
+
+theorem ConcreteSourceModel.paper_finite_bound_topDownCost_of_shift
+    (hshift : forall k : Nat,
+      ConcreteSourceModel.topDownShiftStepTarget k)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    ConcreteSourceModel.topDownCost m n (L n) <=
+      (alphaQ m n + 3) * m + 4 * n
 ```
 
 However, it does not yet formalize the Seidel--Sharir dissection machinery
@@ -122,6 +150,9 @@ field for base-accounted executions:
 Cost := ConcreteSourceModel.topDownCost
 base_bound := ConcreteSourceModel.topDown_base_bound
 ```
+
+Thus the original Ambition-B base obligation is now represented directly as a
+Lean theorem, not merely as a target Prop.
 
 The missing field is:
 
