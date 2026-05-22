@@ -1,11 +1,11 @@
-import PathCompressionDigestion.SourceCost
+import PathCompressionDigestion.SourceModel
 
 /-!
 # Paper-facing pipeline wrappers
 
 This file exposes the formalized direct-proof pipeline under paper-facing
 names. The finite cost bound remains conditional on `SourceRecurrence`; this
-module does not formalize the Seidel--Sharir source recurrence/model.
+module also exposes the bound for the structured source shifting interface.
 -/
 
 namespace PathCompressionDigestion
@@ -49,5 +49,19 @@ theorem paper_finite_bound_of_source_recurrence
     (hn : 1 <= n) :
     F m n (L n) <= (alphaQ m n + 3) * m + 4 * n :=
   source_cost_bound_of_recurrence HF hm hn
+
+/--
+Paper-facing finite cost bound for a structured source model with base and
+shifting obligations. This removes the direct `SourceRecurrence` assumption,
+but still does not instantiate the obligations with a concrete top-down
+path-compression model.
+-/
+theorem paper_finite_bound_of_source_model
+    (M : SourceModel)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    M.Cost m n (L n) <= (alphaQ m n + 3) * m + 4 * n :=
+  source_model_cost_bound M hm hn
 
 end PathCompressionDigestion

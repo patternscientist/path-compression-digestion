@@ -15,4 +15,7 @@ import PathCompressionDigestion.PaperConsequences
 import PathCompressionDigestion.AlphaPrelude
 import PathCompressionDigestion.AlphaTail
 import PathCompressionDigestion.SourceCost
+import PathCompressionDigestion.SourceIteration
+import PathCompressionDigestion.SourceModel
+import PathCompressionDigestion.ConcreteSourceModel
 import PathCompressionDigestion.PaperPipeline

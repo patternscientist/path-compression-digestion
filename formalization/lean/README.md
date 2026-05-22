@@ -2,9 +2,9 @@
 
 This directory is a bounded Lean 4 + mathlib lane for the threshold-comparison
 core, concrete `J`/threshold infrastructure, paper-specific alpha comparison,
-and conditional source-cost consequence of the path-compression digestion
-paper. It is not yet a formalization of the Seidel--Sharir source recurrence
-or path-compression model.
+conditional source-cost consequence, and source-shifting iteration bridge of
+the path-compression digestion paper. It is not yet a formalization of the
+Seidel--Sharir path-compression model.
 
 ## Release-layer context
 
@@ -151,6 +151,79 @@ theorem source_cost_bound_of_recurrence
 The source recurrence remains an explicit assumption, not a proved model
 theorem.
 
+`PathCompressionDigestion/SourceIteration.lean` adds the pure iteration bridge
+from a base source bound and one shifting step per concrete `J` row:
+
+```lean
+theorem sourceRecurrence_of_iterated_shifting
+    {F : SourceCostFamily}
+    (hbase : SourceBound F 0 (J 0))
+    (hshift : forall k : Nat, SourceShiftStep F k (JInput k)) :
+    SourceRecurrence F
+```
+
+`PathCompressionDigestion/SourceModel.lean` packages these obligations in a
+structured source interface and derives:
+
+```lean
+theorem sourceRecurrence_of_shifting
+    (M : SourceModel) :
+    SourceRecurrence M.Cost
+```
+
+This is not a concrete top-down path-compression model theorem; it identifies
+the base and shifting obligations that remain to be instantiated.
+
+`PathCompressionDigestion/ConcreteSourceModel.lean` adds a finite concrete
+source-model skeleton beneath that interface. It defines raw ranked forests,
+bounded top-down compression paths, compression steps, finite executions,
+source-style rootpath/nonrootpath cost, base-rank-accounting certificates, and:
+
+```lean
+noncomputable def topDownCost : SourceCostFamily
+```
+
+It proves the concrete base obligation for the base-accounted cost family:
+
+```lean
+theorem topDown_base_bound :
+    topDownBaseBoundTarget
+
+theorem topDown_base_sourceBound :
+    SourceBound topDownCost 0 (J 0)
+```
+
+It records the remaining Seidel--Sharir shift obligation as a named `Prop`
+target:
+
+```lean
+def topDownBaseBoundTarget : Prop
+def topDownShiftStepTarget (k : Nat) : Prop
+def topDownSourceModelTarget : Prop
+```
+
+The shift target is not proved or assumed.
+
+With that single shift theorem as a parameter, the concrete skeleton now
+packages the full downstream pipeline:
+
+```lean
+def topDown_sourceModel_of_shift
+    (hshift : forall k : Nat, topDownShiftStepTarget k) :
+    SourceModel
+
+theorem sourceRecurrence_topDownCost_of_shift
+    (hshift : forall k : Nat, topDownShiftStepTarget k) :
+    SourceRecurrence topDownCost
+
+theorem paper_finite_bound_topDownCost_of_shift
+    (hshift : forall k : Nat, topDownShiftStepTarget k)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    topDownCost m n (L n) <= (alphaQ m n + 3) * m + 4 * n
+```
+
 `PathCompressionDigestion/PaperPipeline.lean` exposes the direct-proof
 pipeline under paper-facing wrapper names, including:
 
@@ -167,28 +240,44 @@ theorem paper_finite_bound_of_source_recurrence
 This is the final finite bound in the Lean lane, conditional on the explicit
 `SourceRecurrence` interface.
 
+It also exposes the corresponding bound for the structured source-shifting
+interface:
+
+```lean
+theorem paper_finite_bound_of_source_model
+    (M : SourceModel)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    M.Cost m n (L n) <= (alphaQ m n + 3) * m + 4 * n
+```
+
 The Lean root file `PathCompressionDigestion.lean` imports these concrete
-support modules, including `ConcreteCore.lean`, along with the Ackermann,
-threshold, and main-comparison modules.
+support modules, including `ConcreteCore.lean` and
+`ConcreteSourceModel.lean`, along with the Ackermann, threshold, and
+main-comparison modules.
 
 ## What is intentionally not formalized
 
-The current merged Lean lane still does not formalize:
+The current merged Lean lane still does not prove:
 
-* the source Seidel--Sharir path-compression recurrence;
-* the path-compression model behind the conditional source recurrence
-  interface, source anchors, or release packaging;
+* the derivation of base-rank-accounting certificates from raw source
+  executions and the shifting obligation for `ConcreteSourceModel.topDownCost`;
+* source anchors or release packaging;
 * asymptotic Big-O packaging;
 * the unconditional full paper theorem for the actual source model.
 
-These remain outside the current merged stack. The concrete diamond transform,
-recursive concrete `J_k` hierarchy, concrete threshold inverse `R`, generic
-diamond-to-threshold recurrence, concrete threshold core assumptions for `R`,
-concrete main comparison via `Abstract.main_comparison_from_core`, generic
-alpha prelude, paper-specific alpha comparison, and conditional source-cost
-consequence are in the Lean lane and should not be marked absent. The finite
-paper-facing bound is formalized conditionally, not as an unconditional theorem
-about the unformalized source model.
+The finite object skeleton is present and the base bound is proved for
+executions carrying an explicit base-rank-accounting certificate. The match to
+the source cost functional, the derivation of that certificate from raw step
+semantics, and the combinatorial shift proof remain open. The concrete diamond
+transform, recursive concrete `J_k` hierarchy, concrete threshold inverse `R`,
+generic diamond-to-threshold recurrence, concrete threshold core assumptions
+for `R`, concrete main comparison via `Abstract.main_comparison_from_core`,
+generic alpha prelude, paper-specific alpha comparison, and conditional
+source-cost consequence are in the Lean lane and should not be marked absent.
+The finite paper-facing bound is formalized conditionally, not as an
+unconditional theorem about the unproved source model.
 
 ## Proof status
 
@@ -211,8 +300,11 @@ consequence, and generic alpha prelude are present as setup for later
 paper-specific cost work. The paper-specific alpha definitions, conditional
 bridges, and source-faithful `alphaJS <= alphaQ + 2` comparison are present in
 `AlphaTail.lean`. The conditional finite cost theorem is present in
-`SourceCost.lean` and re-exposed under paper-facing names in
-`PaperPipeline.lean`.
+`SourceCost.lean`; the source-shifting iteration bridge is present in
+`SourceIteration.lean` and `SourceModel.lean`; the concrete finite execution
+skeleton, `topDownCost`, and base theorem `topDown_base_bound` are present in
+`ConcreteSourceModel.lean`; and the proved bridge results are re-exposed under
+paper-facing names in `PaperPipeline.lean`.
 
 ## Build
 
@@ -252,7 +344,10 @@ checks and do not force a full Mathlib rebuild for every branch.
 | `Abstract.alphaOf` and alpha prelude facts | Generic preparation for later alpha consequences |
 | `L`, `Q`, `alphaQ`, `alphaJQ`, `alphaJS`, and AlphaTail bridge/comparison lemmas | Paper-specific alpha-tail layer |
 | `SourceCostFamily`, `SourceRecurrence`, `source_cost_bound_of_recurrence` | Conditional source-cost consequence |
-| `paper_concrete_main_comparison`, `paper_direct_J_bound`, `paper_alphaJQ_bound`, `paper_alphaJS_bound`, `paper_finite_bound_of_source_recurrence` | Paper-facing direct-proof pipeline wrappers |
+| `SourceBound`, `SourceShiftStep`, `sourceBound_J_of_iterated_shifting`, `sourceRecurrence_of_iterated_shifting` | Iteration from source base/shift obligations to `SourceRecurrence` |
+| `SourceModel`, `sourceRecurrence_of_shifting`, `source_model_cost_bound` | Structured source-shifting interface and finite cost consequence |
+| `RawRankedForest`, `RawCompressionPath`, `RawCompressionStep`, `RawCompressionExecution`, `topDownCost`, `topDown_base_sourceBound`, `topDownShiftStepTarget`, `sourceRecurrence_topDownCost_of_shift` | Concrete source-model skeleton, proved base bound for base-accounted executions, conditional recurrence wrapper, and unproved shift target |
+| `paper_concrete_main_comparison`, `paper_direct_J_bound`, `paper_alphaJQ_bound`, `paper_alphaJS_bound`, `paper_finite_bound_of_source_recurrence`, `paper_finite_bound_of_source_model` | Paper-facing direct-proof pipeline wrappers |
 | `Abstract.ThresholdCoreAssumptions.baseExact` | Section 4.4, exact base inverse |
 | `Abstract.ThresholdCoreAssumptions.thresholdStep` | Lemma 4.3 |
 | `Abstract.threshold_jump_from_step` | Lemma 4.4 |
