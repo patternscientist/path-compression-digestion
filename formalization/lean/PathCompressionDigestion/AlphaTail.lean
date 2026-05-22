@@ -70,6 +70,57 @@ theorem one_le_L (n : Nat) : 1 <= L n := by
 @[simp] theorem one_le_alphaQ (m n : Nat) : 1 <= alphaQ m n := by
   simp [alphaQ]
 
+private theorem two_mul_le_A (i x : Nat) : 2 * x <= A i x := by
+  cases i with
+  | zero =>
+      simp
+  | succ i =>
+      exact Ackermann.ge_two_mul_succ i x
+
+private theorem one_le_A_four (i : Nat) : 1 <= A i 4 := by
+  have h : 4 <= A i 4 := Ackermann.self_le i 4
+  omega
+
+private theorem ackermann_succ_four (i : Nat) :
+    A (i + 1) 4 = A i (A i 4) := by
+  calc
+    A (i + 1) 4 = A i (A (i + 1) 3) := by
+      rw [show 4 = 2 + 2 by norm_num, A_succ_succ]
+    _ = A i (A i 4) := by
+      have hthree : A (i + 1) 3 = A i 4 := by
+        rw [show 3 = 1 + 2 by norm_num, A_succ_succ]
+        simp [Ackermann.eval_two]
+      rw [hthree]
+
+private theorem ackermann_four_column_strict_step (i : Nat) :
+    A i 4 + 1 <= A (i + 1) 4 := by
+  rw [ackermann_succ_four]
+  have htwo : 2 * A i 4 <= A i (A i 4) := two_mul_le_A i (A i 4)
+  have hpos : 1 <= A i 4 := one_le_A_four i
+  omega
+
+private theorem ackermann_four_column_linear (t : Nat) :
+    t <= A t 4 := by
+  induction t with
+  | zero =>
+      simp
+  | succ t ih =>
+      exact (Nat.succ_le_succ ih).trans (ackermann_four_column_strict_step t)
+
+theorem alphaQ_exists (m n : Nat) :
+    alphaQExists m n := by
+  refine ⟨L n, ?_⟩
+  have hlinear : L n + 1 <= A (L n + 1) 4 :=
+    ackermann_four_column_linear (L n + 1)
+  have hmono : A (L n + 1) 4 <= A (L n + 1) (4 * Q m n) := by
+    simpa using
+      (Ackermann.four_mul_column_mono
+        (z := L n + 1)
+        (Q := 1)
+        (Q' := Q m n)
+        (one_le_Q m n))
+  simpa [ackermannAlphaFamily] using hlinear.trans hmono
+
 theorem sourceThreshold_le_Q {m n : Nat} (hn : 1 <= n) :
     sourceThreshold m n <= Q m n := by
   have hm_le : m <= m + n - 1 := by
@@ -123,6 +174,11 @@ theorem alphaJQ_le_alphaQ_add_one {m n : Nat} (h : alphaQExists m n) :
     (z := alphaQ m n)
     (one_le_alphaQ m n)
     (alphaQ_spec h)
+
+/-- Unconditional packet alpha comparison, using existence of `alphaQ`. -/
+theorem alphaJQ_le_alphaQ_add_one_unconditional (m n : Nat) :
+    alphaJQ m n <= alphaQ m n + 1 := by
+  exact alphaJQ_le_alphaQ_add_one (m := m) (n := n) (alphaQ_exists m n)
 
 /-- If the source threshold equals the packet threshold, the two `J` alphas coincide. -/
 theorem alphaJS_eq_alphaJQ_of_sourceThreshold_eq_Q {m n : Nat}
