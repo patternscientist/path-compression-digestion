@@ -19,6 +19,10 @@ For the current file-by-file Lean theorem map and worker audit guide, see:
 
 - `formalization/lean/THEOREM_MAP.md`
 
+For the current source-recurrence/model boundary, see:
+
+- `formalization/lean/SOURCE_RECURRENCE_MODEL_STATUS.md`
+
 At the paper/proof-note layer, the target comparison remains
 
 ```text
@@ -101,9 +105,16 @@ under `ThresholdCoreAssumptions R`.
   conditional `SourceRecurrence` interface and proves the finite paper-facing
   cost theorem from that interface. It does not formalize the source
   recurrence/model itself.
+- `formalization/lean/PathCompressionDigestion/SourceIteration.lean` proves
+  that a source base bound at `J_0` plus one source shifting step for each
+  concrete `J_k` row implies the existing `SourceRecurrence` interface.
+- `formalization/lean/PathCompressionDigestion/SourceModel.lean` packages the
+  source base and shifting obligations as a structured interface and derives
+  both `SourceRecurrence` and the finite cost bound for any such model.
 - `formalization/lean/PathCompressionDigestion/PaperPipeline.lean` exposes the
   formalized direct-proof pipeline under paper-facing wrapper names, including
-  the finite bound conditional on `SourceRecurrence`.
+  the finite bound conditional on `SourceRecurrence` and the corresponding
+  finite bound for a structured source-shifting model.
 - `formalization/lean/PathCompressionDigestion.lean` imports these concrete
   support modules along with the abstract comparison modules.
 
@@ -146,22 +157,32 @@ under `ThresholdCoreAssumptions R`.
 - The conditional source-cost interface and finite cost theorem
   `source_cost_bound_of_recurrence` in
   `formalization/lean/PathCompressionDigestion/SourceCost.lean`.
+- The source-shifting iteration bridge
+  `sourceRecurrence_of_iterated_shifting` in
+  `formalization/lean/PathCompressionDigestion/SourceIteration.lean`.
+- The structured source-shifting interface theorem
+  `sourceRecurrence_of_shifting` and finite cost theorem
+  `source_model_cost_bound` in
+  `formalization/lean/PathCompressionDigestion/SourceModel.lean`.
 - The paper-facing pipeline wrappers, including
-  `paper_finite_bound_of_source_recurrence`, in
+  `paper_finite_bound_of_source_recurrence` and
+  `paper_finite_bound_of_source_model`, in
   `formalization/lean/PathCompressionDigestion/PaperPipeline.lean`.
 - The concrete base-row facts and generic infrastructure listed above.
 
 ## Not Yet Proved in Lean
 
-- The source recurrence/model theorem itself, including the source
-  Seidel--Sharir recurrence outside the conditional interface.
+- A concrete source/top-down path-compression model theorem, including proofs
+  of the base and shifting obligations for that model.
 - Asymptotic Big-O packaging.
 - The unconditional full paper theorem for the actual source
   path-compression model.
 
 The finite paper-facing bound is formalized conditional on
-`SourceRecurrence`; the Lean lane does not yet prove that interface for the
-actual Seidel--Sharir/top-down path-compression source model.
+`SourceRecurrence`, and also for any structured source model satisfying the
+base and shifting obligations. The Lean lane does not yet instantiate those
+obligations for the actual Seidel--Sharir/top-down path-compression source
+model.
 
 ## Build Check
 
