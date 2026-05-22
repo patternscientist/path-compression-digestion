@@ -198,6 +198,34 @@ theorem rankNat_le_parentIter
   | succ t ih =>
       exact (F.rankNat_le_parent hF v).trans (ih (F.parent v))
 
+/-- Iterating one more parent step is the same as parenting the iterated vertex. -/
+theorem parentIter_succ_eq_parent_parentIter
+    (F : RawRankedForest n r)
+    (t : Nat)
+    (v : Fin n) :
+    F.parentIter (t + 1) v = F.parent (F.parentIter t v) := by
+  induction t generalizing v with
+  | zero =>
+      rfl
+  | succ t ih =>
+      simpa [parentIter] using ih (F.parent v)
+
+/-- An ancestor relation may be extended by one parent step on the right. -/
+theorem isAncestor_parent
+    {v a : Fin n}
+    (h : F.IsAncestor v a) :
+    F.IsAncestor v (F.parent a) := by
+  rcases h with ⟨t, ht⟩
+  exact ⟨t + 1, by rw [F.parentIter_succ_eq_parent_parentIter, ht]⟩
+
+/-- An ancestor relation may be extended across a known parent edge. -/
+theorem isAncestor_of_parent_eq
+    {v a b : Fin n}
+    (h : F.IsAncestor v a)
+    (hparent : F.parent a = b) :
+    F.IsAncestor v b := by
+  simpa [hparent] using F.isAncestor_parent h
+
 end RawRankedForest
 
 namespace RawCompressionPath
@@ -246,6 +274,56 @@ noncomputable def projectedProperFinset
   classical
   exact P.properFinset.filter fun i => D.sidePred side (P.node i)
 
+/-- Bottom and top active projections partition the active slots. -/
+theorem projectedActive_card_bottom_add_top
+    (D : RawDissection F)
+    (P : RawCompressionPath n) :
+    (P.projectedActiveFinset D DissectionSide.bottom).card +
+        (P.projectedActiveFinset D DissectionSide.top).card =
+      P.activeFinset.card := by
+  classical
+  have h :=
+    Finset.card_filter_add_card_filter_not
+      (s := P.activeFinset)
+      (p := fun i : Fin (n + 1) => D.IsTop (P.node i))
+  change
+    (P.activeFinset.filter (fun i => D.IsBottom (P.node i))).card +
+        (P.activeFinset.filter (fun i => D.IsTop (P.node i))).card =
+      P.activeFinset.card
+  have hbottom :
+      P.activeFinset.filter (fun i => D.IsBottom (P.node i)) =
+        P.activeFinset.filter (fun i => Not (D.IsTop (P.node i))) := by
+    ext i
+    simp [RawDissection.IsBottom]
+  rw [hbottom]
+  rw [Nat.add_comm]
+  exact h
+
+/-- Bottom and top charged-slot projections partition the charged slots. -/
+theorem projectedProper_card_bottom_add_top
+    (D : RawDissection F)
+    (P : RawCompressionPath n) :
+    (P.projectedProperFinset D DissectionSide.bottom).card +
+        (P.projectedProperFinset D DissectionSide.top).card =
+      P.properFinset.card := by
+  classical
+  have h :=
+    Finset.card_filter_add_card_filter_not
+      (s := P.properFinset)
+      (p := fun i : Fin (n + 1) => D.IsTop (P.node i))
+  change
+    (P.properFinset.filter (fun i => D.IsBottom (P.node i))).card +
+        (P.properFinset.filter (fun i => D.IsTop (P.node i))).card =
+      P.properFinset.card
+  have hbottom :
+      P.properFinset.filter (fun i => D.IsBottom (P.node i)) =
+        P.properFinset.filter (fun i => Not (D.IsTop (P.node i))) := by
+    ext i
+    simp [RawDissection.IsBottom]
+  rw [hbottom]
+  rw [Nat.add_comm]
+  exact h
+
 /--
 Local path-contiguity: along a valid adjacent parent step, once the path is in
 the top side, the next vertex is also in the top side.
@@ -277,6 +355,120 @@ theorem bottom_of_adjacent
     D.IsBottom (P.node i) := by
   intro hitop
   exact hjbottom (P.top_of_adjacent D hchain hij hj hitop)
+
+/--
+Along active path slots, later indices are ancestors of earlier indices.  This
+is the global path fact needed to turn local dissection preservation into a
+bottom-prefix/top-suffix statement.
+-/
+theorem ancestor_of_le_active
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F)
+    {i j : Fin (n + 1)}
+    (hij : i.val <= j.val)
+    (hj : j.val < P.len.val) :
+    F.IsAncestor (P.node i) (P.node j) := by
+  rcases Nat.exists_eq_add_of_le hij with ⟨d, hd⟩
+  revert i j
+  induction d with
+  | zero =>
+      intro i j hij hj hd
+      have hvals : i.val = j.val := by omega
+      have hfin : i = j := Fin.ext hvals
+      subst j
+      exact ⟨0, rfl⟩
+  | succ d ih =>
+      intro i j hij hj hd
+      let mid : Fin (n + 1) := ⟨i.val + d, by omega⟩
+      have hmid_active : mid.val < P.len.val := by
+        simp [mid]
+        omega
+      have hprev : F.IsAncestor (P.node i) (P.node mid) := by
+        apply ih
+        · simp [mid]
+        · exact hmid_active
+        · simp [mid]
+      have hstep : mid.val + 1 = j.val := by
+        simp [mid]
+        omega
+      have hparent : F.parent (P.node mid) = P.node j :=
+        hchain mid j hstep hj
+      exact F.isAncestor_of_parent_eq hprev hparent
+
+/-- If an active path slot is top, every later active slot is top. -/
+theorem top_suffix_of_le
+    (D : RawDissection F)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F)
+    {i j : Fin (n + 1)}
+    (hij : i.val <= j.val)
+    (hj : j.val < P.len.val)
+    (hi : D.IsTop (P.node i)) :
+    D.IsTop (P.node j) := by
+  exact D.top_of_ancestor hi (P.ancestor_of_le_active hchain hij hj)
+
+/-- If a later active path slot is bottom, every earlier active slot is bottom. -/
+theorem bottom_prefix_of_le
+    (D : RawDissection F)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F)
+    {i j : Fin (n + 1)}
+    (hij : i.val <= j.val)
+    (hj : j.val < P.len.val)
+    (hjbottom : D.IsBottom (P.node j)) :
+    D.IsBottom (P.node i) := by
+  intro hitop
+  exact hjbottom (P.top_suffix_of_le D hchain hij hj hitop)
+
+/-- Cut predicate for the bottom-prefix/top-suffix split of one raw path. -/
+def HasDissectionCut
+    (P : RawCompressionPath n)
+    (D : RawDissection F)
+    (cut : Nat) : Prop :=
+  cut <= P.len.val /\
+    (forall i : Fin (n + 1),
+      i.val < P.len.val -> i.val < cut -> D.IsBottom (P.node i)) /\
+    (forall i : Fin (n + 1),
+      i.val < P.len.val -> cut <= i.val -> D.IsTop (P.node i))
+
+/--
+A dissection cuts every active path into a bottom prefix and a top suffix.  The
+cut is the first active top slot, or the active length if no top slot occurs.
+-/
+theorem exists_dissection_cut
+    (D : RawDissection F)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F) :
+    Exists (P.HasDissectionCut D) := by
+  classical
+  let tops := P.projectedActiveFinset D DissectionSide.top
+  by_cases htops : tops.Nonempty
+  · let first := tops.min' htops
+    have hfirst_mem : first ∈ tops := Finset.min'_mem tops htops
+    have hfirst_active : first.val < P.len.val := by
+      have hmem_active : first ∈ P.activeFinset := (Finset.mem_filter.mp hfirst_mem).1
+      simpa using hmem_active
+    have hfirst_top : D.IsTop (P.node first) := by
+      have htop_raw := (Finset.mem_filter.mp hfirst_mem).2
+      simpa [RawDissection.sidePred] using htop_raw
+    refine ⟨first.val, ?_, ?_, ?_⟩
+    · exact le_of_lt hfirst_active
+    · intro i hia hilt hitop
+      have hi_mem : i ∈ tops := by
+        simp [tops, projectedActiveFinset, RawDissection.sidePred, hia, hitop]
+      have hmin_le : first <= i := Finset.min'_le tops i hi_mem
+      have hval_le : first.val <= i.val := hmin_le
+      omega
+    · intro i hia hcut
+      exact P.top_suffix_of_le D hchain hcut hia hfirst_top
+  · refine ⟨P.len.val, ?_, ?_, ?_⟩
+    · rfl
+    · intro i hia _hilt hitop
+      have hi_mem : i ∈ tops := by
+        simp [tops, projectedActiveFinset, RawDissection.sidePred, hia, hitop]
+      exact htops ⟨i, hi_mem⟩
+    · intro i hia hcut
+      omega
 
 end RawCompressionPath
 

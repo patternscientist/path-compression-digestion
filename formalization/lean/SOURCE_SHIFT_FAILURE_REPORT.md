@@ -48,6 +48,7 @@ In `PathCompressionDigestion/SourceDissection.lean`:
 - `RawCompressionPath.properFinset`
 - `RawCompressionPath.projectedActiveFinset`
 - `RawCompressionPath.projectedProperFinset`
+- `RawCompressionPath.HasDissectionCut`
 - `RawCompressionExecution.nonrootCount`
 - `RankThresholdDissection.topPred`
 - `RankThresholdDissection.dissection`
@@ -71,10 +72,19 @@ lemma can be attacked:
 - `RawDissection.bottomParent_val_of_parent_top`
 - `RawRankedForest.rankNat_le_parent`
 - `RawRankedForest.rankNat_le_parentIter`
+- `RawRankedForest.parentIter_succ_eq_parent_parentIter`
+- `RawRankedForest.isAncestor_parent`
+- `RawRankedForest.isAncestor_of_parent_eq`
 - `RawCompressionPath.mem_activeFinset`
 - `RawCompressionPath.mem_properFinset`
+- `RawCompressionPath.projectedActive_card_bottom_add_top`
+- `RawCompressionPath.projectedProper_card_bottom_add_top`
 - `RawCompressionPath.top_of_adjacent`
 - `RawCompressionPath.bottom_of_adjacent`
+- `RawCompressionPath.ancestor_of_le_active`
+- `RawCompressionPath.top_suffix_of_le`
+- `RawCompressionPath.bottom_prefix_of_le`
+- `RawCompressionPath.exists_dissection_cut`
 - `RawCompressionExecution.nonrootCount_le_length`
 - `RankThresholdDissection.dissection_isTop`
 - `RankThresholdDissection.dissection_isBottom`
@@ -86,34 +96,53 @@ lemma can be attacked:
 
 ## Exact First Failed Theorem
 
-The first theorem not yet closed is the global path projection theorem turning
-the local adjacent split into actual bottom/top projected paths:
+The global path-contiguity theorem is now closed in the reusable cut form:
 
 ```lean
-theorem projected_path_has_contiguous_split
+theorem RawCompressionPath.exists_dissection_cut
+    (D : RawDissection F)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F) :
+    Exists (P.HasDissectionCut D)
+```
+
+The first theorem not yet closed is the construction of actual bottom/top
+projected path objects over restricted forests, with parent-chain proofs:
+
+```lean
+theorem bottom_projected_path_is_valid
     {n r : Nat}
     {F : RawRankedForest n r}
     (D : RawDissection F)
     (P : RawCompressionPath n)
-    (hvalid : P.IsValidFor F) :
-    Exists fun cut : Nat =>
-      -- all active positions below `cut` are bottom,
-      -- all active positions from `cut` onward are top,
-      -- the bottom projection is a path in `F(Xb)`,
-      -- and the top projection is a path in `F(Xt)`.
-      True
+    (hvalid : P.IsValidFor F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut) :
+    -- the bottom projection is a valid path in the restricted bottom forest.
+    Prop
+
+theorem top_projected_path_is_valid
+    {n r : Nat}
+    {F : RawRankedForest n r}
+    (D : RawDissection F)
+    (P : RawCompressionPath n)
+    (hvalid : P.IsValidFor F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut) :
+    -- the top projection is a valid path in the restricted top forest.
+    Prop
 ```
 
-The statement above is not in Lean as a theorem because the existing
-`RawCompressionPath` type stores paths in fixed `Fin n` arrays, while the
-natural projected paths live over restricted bottom/top vertex types.  This
-branch only defines projected active/proper index sets; it does not yet define
-a projected path object carrying its own target, rootpath/nonrootpath
-classification, and restricted parent-chain proof.
+These statements are not in Lean yet because the existing `RawCompressionPath`
+type stores paths in fixed `Fin n` arrays, while the natural projected paths
+live over restricted bottom/top vertex types.  This branch defines projected
+active/proper index sets and proves the existence of the dissection cut; it
+does not yet define projected path objects carrying their own targets,
+rootpath/nonrootpath classification, and restricted parent-chain proofs.
 
 ## Blocker Classification
 
-Primary blocker: path projection.
+Primary blocker: projected path object construction.
 
 Secondary blockers:
 
@@ -152,31 +181,26 @@ sequences over restricted forests.
 
 ## Next Smallest Worker Theorem
 
-The next smallest useful theorem is the global path split theorem, building on
-the already proved adjacent facts:
+The next smallest useful theorem is to define the projected path objects
+associated to a cut and prove their parent-chain facts.  Recommended next
+target:
 
 ```lean
-RawCompressionPath.top_of_adjacent
-RawCompressionPath.bottom_of_adjacent
-```
-
-Recommended next target:
-
-```lean
-theorem projected_path_has_contiguous_split
+theorem bottom_projected_path_parent_chain
     {n r : Nat}
     {F : RawRankedForest n r}
     (D : RawDissection F)
     (P : RawCompressionPath n)
-    (hvalid : P.IsValidFor F) :
-    -- produce a bottom/top cut of the active path positions
-    -- and prove the projected index sets are contiguous.
+    (hchain : P.IsParentChain F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut D cut) :
+    -- adjacent active bottom-projection slots follow `RawDissection.bottomParent`.
     Prop
 ```
 
-After that, define actual projected path objects over `RawDissection.TopNode`
-and `RawDissection.BottomNode`, then prove execution/restriction commutation
-for one step before lifting to sequences.
+The analogous top parent-chain theorem should follow from upward closure and
+`RawDissection.topParent`.  After those two path-level facts, prove
+execution/restriction commutation for one step before lifting to sequences.
 
 ## Honesty Boundary
 
