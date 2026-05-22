@@ -101,6 +101,9 @@ under `ThresholdCoreAssumptions R`.
   conditional `SourceRecurrence` interface and proves the finite paper-facing
   cost theorem from that interface. It does not formalize the source
   recurrence/model itself.
+- `formalization/lean/PathCompressionDigestion/PaperPipeline.lean` exposes the
+  formalized direct-proof pipeline under paper-facing wrapper names, including
+  the finite bound conditional on `SourceRecurrence`.
 - `formalization/lean/PathCompressionDigestion.lean` imports these concrete
   support modules along with the abstract comparison modules.
 
@@ -143,13 +146,22 @@ under `ThresholdCoreAssumptions R`.
 - The conditional source-cost interface and finite cost theorem
   `source_cost_bound_of_recurrence` in
   `formalization/lean/PathCompressionDigestion/SourceCost.lean`.
+- The paper-facing pipeline wrappers, including
+  `paper_finite_bound_of_source_recurrence`, in
+  `formalization/lean/PathCompressionDigestion/PaperPipeline.lean`.
 - The concrete base-row facts and generic infrastructure listed above.
 
 ## Not Yet Proved in Lean
 
 - The source recurrence/model theorem itself, including the source
   Seidel--Sharir recurrence outside the conditional interface.
-- The full paper-facing formalization of the final top-down compression bound.
+- Asymptotic Big-O packaging.
+- The unconditional full paper theorem for the actual source
+  path-compression model.
+
+The finite paper-facing bound is formalized conditional on
+`SourceRecurrence`; the Lean lane does not yet prove that interface for the
+actual Seidel--Sharir/top-down path-compression source model.
 
 ## Build Check
 
