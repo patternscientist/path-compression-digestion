@@ -267,6 +267,22 @@ theorem edgeCost_le_len (S : ProjectedPathSegment α parent) :
 
 end ProjectedPathSegment
 
+/-- A projected one-step object over a restricted vertex type. -/
+structure ProjectedCompressionStep (α : Type*) where
+  beforeParent : α -> α
+  afterParent : α -> α
+  path : ProjectedPathSegment α beforeParent
+
+namespace ProjectedCompressionStep
+
+variable {α : Type*}
+
+/-- Path-edge cost of a projected step. -/
+def cost (S : ProjectedCompressionStep α) : Nat :=
+  S.path.edgeCost
+
+end ProjectedCompressionStep
+
 /-- Active path slots. -/
 noncomputable def activeFinset (P : RawCompressionPath n) :
     Finset (Fin (n + 1)) := by
@@ -1024,6 +1040,63 @@ theorem afterDissection_bottom_card
     (S.afterDissection D hS).bottomFinset.card = D.bottomFinset.card := by
   simp
 
+/-- After-step top parent, represented on the original top-node subtype. -/
+def afterTopParent
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (v : D.TopNode) :
+    D.TopNode :=
+  ⟨S.after.parent v.1, S.after_parent_top D hS v.2⟩
+
+@[simp]
+theorem afterTopParent_val
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (v : D.TopNode) :
+    (S.afterTopParent D hS v).1 = S.after.parent v.1 :=
+  rfl
+
+/--
+After-step bottom parent, represented on the original bottom-node subtype.
+As with `RawDissection.bottomParent`, an edge crossing into the top side is
+truncated into a restricted-forest root.
+-/
+noncomputable def afterBottomParent
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (_hS : S.IsValid)
+    (v : D.BottomNode) :
+    D.BottomNode := by
+  classical
+  by_cases hparent : D.IsBottom (S.after.parent v.1)
+  · exact ⟨S.after.parent v.1, hparent⟩
+  · exact ⟨v.1, v.2⟩
+
+theorem afterBottomParent_val_of_parent_bottom
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (v : D.BottomNode)
+    (hparent : D.IsBottom (S.after.parent v.1)) :
+    (S.afterBottomParent D hS v).1 = S.after.parent v.1 := by
+  classical
+  simp [afterBottomParent, hparent]
+
+theorem afterBottomParent_val_of_parent_top
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (v : D.BottomNode)
+    (hparent : D.IsTop (S.after.parent v.1)) :
+    (S.afterBottomParent D hS v).1 = v.1 := by
+  classical
+  have hnot : Not (D.IsBottom (S.after.parent v.1)) := by
+    intro hb
+    exact hb hparent
+  simp [afterBottomParent, hnot]
+
 /-- A valid raw step's path admits a dissection cut. -/
 theorem exists_path_dissection_cut
     (S : RawCompressionStep n r)
@@ -1051,11 +1124,74 @@ theorem exists_projection_segments_cost_bound
   unfold cost
   exact S.path.sourceCost_le_projection_edgeCosts_add_one D hS.1.2.2.1 cut hcut
 
+/-- Bottom projected step for a fixed dissection cut. -/
+noncomputable def bottomProjectedStep
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    RawCompressionPath.ProjectedCompressionStep D.BottomNode where
+  beforeParent := D.bottomParent
+  afterParent := S.afterBottomParent D hS
+  path := S.path.bottomProjectionSegment D hS.1.2.2.1 cut hcut
+
+/-- Top projected step for a fixed dissection cut. -/
+def topProjectedStep
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    RawCompressionPath.ProjectedCompressionStep D.TopNode where
+  beforeParent := D.topParent
+  afterParent := S.afterTopParent D hS
+  path := S.path.topProjectionSegment D hS.1.2.2.1 cut hcut
+
+@[simp]
+theorem bottomProjectedStep_cost
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    (S.bottomProjectedStep D hS cut hcut).cost =
+      (S.path.bottomProjectionSegment D hS.1.2.2.1 cut hcut).edgeCost :=
+  rfl
+
+@[simp]
+theorem topProjectedStep_cost
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    (S.topProjectedStep D hS cut hcut).cost =
+      (S.path.topProjectionSegment D hS.1.2.2.1 cut hcut).edgeCost :=
+  rfl
+
+/-- One-step source-cost accounting in terms of the packaged projected steps. -/
+theorem cost_le_projectedSteps_cost_add_one
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    S.cost <=
+      (S.bottomProjectedStep D hS cut hcut).cost +
+        (S.topProjectedStep D hS cut hcut).cost + 1 := by
+  unfold cost
+  exact S.path.sourceCost_le_projection_edgeCosts_add_one D hS.1.2.2.1 cut hcut
+
 end RawCompressionStep
 
 namespace RawCompressionExecution
 
 variable {m n r : Nat}
+
+/-- Sum of source costs of all raw steps in an execution. -/
+noncomputable def stepCostSum (E : RawCompressionExecution m n r) : Nat :=
+  ∑ i : Fin m, (E.step i).cost
 
 /-- Source nonrootpath count for a raw execution. -/
 noncomputable def nonrootCount (E : RawCompressionExecution m n r) : Nat := by

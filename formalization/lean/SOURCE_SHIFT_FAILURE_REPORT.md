@@ -46,6 +46,8 @@ In `PathCompressionDigestion/SourceDissection.lean`:
 - `RawDissection.bottomRankNat`
 - `RawCompressionPath.ProjectedPathSegment`
 - `ProjectedPathSegment.edgeCost`
+- `RawCompressionPath.ProjectedCompressionStep`
+- `ProjectedCompressionStep.cost`
 - `RawCompressionPath.activeFinset`
 - `RawCompressionPath.properFinset`
 - `RawCompressionPath.projectedActiveFinset`
@@ -60,6 +62,11 @@ In `PathCompressionDigestion/SourceDissection.lean`:
 - `RawCompressionPath.bottomProjectionSegment`
 - `RawCompressionPath.topProjectionSegment`
 - `RawCompressionStep.afterDissection`
+- `RawCompressionStep.afterTopParent`
+- `RawCompressionStep.afterBottomParent`
+- `RawCompressionStep.bottomProjectedStep`
+- `RawCompressionStep.topProjectedStep`
+- `RawCompressionExecution.stepCostSum`
 - `RawCompressionExecution.nonrootCount`
 - `RankThresholdDissection.topPred`
 - `RankThresholdDissection.dissection`
@@ -121,8 +128,14 @@ lemma can be attacked:
 - `RawCompressionStep.afterDissection_bottomFinset`
 - `RawCompressionStep.afterDissection_top_card`
 - `RawCompressionStep.afterDissection_bottom_card`
+- `RawCompressionStep.afterTopParent_val`
+- `RawCompressionStep.afterBottomParent_val_of_parent_bottom`
+- `RawCompressionStep.afterBottomParent_val_of_parent_top`
 - `RawCompressionStep.exists_path_dissection_cut`
 - `RawCompressionStep.exists_projection_segments_cost_bound`
+- `RawCompressionStep.bottomProjectedStep_cost`
+- `RawCompressionStep.topProjectedStep_cost`
+- `RawCompressionStep.cost_le_projectedSteps_cost_add_one`
 - `RawCompressionExecution.nonrootCount_le_length`
 - `RankThresholdDissection.dissection_isTop`
 - `RankThresholdDissection.dissection_isBottom`
@@ -198,6 +211,28 @@ theorem RawCompressionStep.exists_projection_segments_cost_bound
             (S.path.topProjectionSegment D hS.1.2.2.1 cut hcut).edgeCost + 1
 ```
 
+It also packages actual projected one-step objects:
+
+```lean
+structure RawCompressionPath.ProjectedCompressionStep (alpha : Type*) where
+  beforeParent : alpha -> alpha
+  afterParent : alpha -> alpha
+  path : ProjectedPathSegment alpha beforeParent
+
+def RawCompressionStep.bottomProjectedStep ...
+def RawCompressionStep.topProjectedStep ...
+
+theorem RawCompressionStep.cost_le_projectedSteps_cost_add_one
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    S.cost <=
+      (S.bottomProjectedStep D hS cut hcut).cost +
+        (S.topProjectedStep D hS cut hcut).cost + 1
+```
+
 Representative next statement:
 
 ```lean
@@ -271,8 +306,12 @@ theorem projected_step_commutes_with_restriction
     Prop
 ```
 
-After that, lift the one-step construction to `RawCompressionExecution` and
-prove the nonrootpath-count and cost inequalities for projected executions.
+After that, lift the one-step construction to `RawCompressionExecution`, prove
+the charge-unit execution cost equals the sum of step costs, and then sum the
+one-step projected-step inequalities.  A direct attempt at this summation was
+left out of the branch because it made `SourceDissection.lean` compile too
+slowly; the next worker should make that proof in a small auxiliary lemma or
+module with a performance-conscious statement.
 
 ## Honesty Boundary
 
