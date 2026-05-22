@@ -121,13 +121,61 @@ theorem alphaQ_exists (m n : Nat) :
         (one_le_Q m n))
   simpa [ackermannAlphaFamily] using hlinear.trans hmono
 
-theorem sourceThreshold_le_Q {m n : Nat} (hn : 1 <= n) :
+theorem sourceThreshold_le_Q_pos {m n : Nat} (hn : 0 < n) :
     sourceThreshold m n <= Q m n := by
   have hm_le : m <= m + n - 1 := by
     omega
   have hdiv : m / n <= (m + n - 1) / n :=
     Nat.div_le_div_right hm_le
   simpa [sourceThreshold, Q, ceilDiv] using Nat.succ_le_succ hdiv
+
+theorem sourceThreshold_le_Q {m n : Nat} (hn : 1 <= n) :
+    sourceThreshold m n <= Q m n :=
+  sourceThreshold_le_Q_pos (m := m) (n := n) hn
+
+theorem ceilDiv_eq_div_of_dvd_pos {m n : Nat} (hn : 0 < n) (hdiv : n ∣ m) :
+    ceilDiv m n = m / n := by
+  unfold ceilDiv
+  apply Nat.div_eq_of_lt_le
+  · have hmul : m / n * n = m := Nat.div_mul_cancel hdiv
+    rw [hmul]
+    omega
+  · have hmul : m / n * n = m := Nat.div_mul_cancel hdiv
+    rw [Nat.add_mul, Nat.one_mul, hmul]
+    omega
+
+theorem ceilDiv_eq_div_add_one_of_not_dvd_pos {m n : Nat}
+    (hn : 0 < n) (hndiv : ¬ n ∣ m) :
+    ceilDiv m n = m / n + 1 := by
+  unfold ceilDiv
+  apply Nat.div_eq_of_lt_le
+  · have hlt : n * (m / n) < m :=
+      Nat.mul_div_lt_iff_not_dvd.mpr hndiv
+    rw [Nat.mul_comm n (m / n)] at hlt
+    rw [Nat.add_mul, Nat.one_mul]
+    omega
+  · have hdecomp : n * (m / n) + m % n = m := Nat.div_add_mod m n
+    rw [Nat.mul_comm n (m / n)] at hdecomp
+    have hmod_lt : m % n < n := Nat.mod_lt m hn
+    rw [Nat.add_mul, Nat.add_mul, Nat.one_mul]
+    omega
+
+theorem sourceThreshold_eq_Q_of_dvd {m n : Nat} (hn : 0 < n) (hdiv : n ∣ m) :
+    sourceThreshold m n = Q m n := by
+  simp [sourceThreshold, Q, ceilDiv_eq_div_of_dvd_pos hn hdiv]
+
+theorem Q_eq_sourceThreshold_add_one_of_not_dvd
+    {m n : Nat} (hn : 0 < n) (hndiv : ¬ n ∣ m) :
+    Q m n = sourceThreshold m n + 1 := by
+  simp [sourceThreshold, Q, ceilDiv_eq_div_add_one_of_not_dvd_pos hn hndiv]
+  omega
+
+theorem Q_le_sourceThreshold_add_one_pos {m n : Nat} (hn : 0 < n) :
+    Q m n <= sourceThreshold m n + 1 := by
+  by_cases hdiv : n ∣ m
+  · rw [← sourceThreshold_eq_Q_of_dvd (m := m) (n := n) hn hdiv]
+    exact Nat.le_succ (sourceThreshold m n)
+  · rw [Q_eq_sourceThreshold_add_one_of_not_dvd (m := m) (n := n) hn hdiv]
 
 /-- `alphaQ` satisfies its Ackermann predicate whenever the defining set is nonempty. -/
 theorem alphaQ_spec {m n : Nat} (h : alphaQExists m n) :
