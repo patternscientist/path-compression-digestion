@@ -14,3 +14,4 @@ import PathCompressionDigestion.ConcreteCore
 import PathCompressionDigestion.PaperConsequences
 import PathCompressionDigestion.AlphaPrelude
 import PathCompressionDigestion.AlphaTail
+import PathCompressionDigestion.SourceCost

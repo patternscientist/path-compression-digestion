@@ -71,7 +71,8 @@ Any edit touching these normalizations or constants is high risk.
 | Direct paper consequence | `PathCompressionDigestion/PaperConsequences.lean` | `J_le_of_le_R`, `direct_paper_consequence` | Proved | Derives `A z (4 * Q) > r -> J (z + 1) r <= Q` from `concrete_main_comparison` and the concrete threshold inverse bridge. |
 | Generic alpha prelude | `PathCompressionDigestion/AlphaPrelude.lean` | `Ackermann.monotone_left_of_pos`, `Ackermann.eval_two`, `Ackermann.four_mul_column_mono`, `Ackermann.four_mul_column_succ`, `le_four_mul`, `Abstract.alphaOf`, `Abstract.alpha_spec`, `Abstract.alpha_min`, `Abstract.target_le_R_of_le_ackermann_four_mul`, `Abstract.alphaOf_le_succ_of_le_ackermann_four_mul`, `Abstract.alphaOf_le_succ_of_main_comparison_from_core` | Proved generically/preparatory | Useful for later alpha/cost work, but not the final paper-specific alpha or cost theorem. |
 | Paper-specific alpha tail | `PathCompressionDigestion/AlphaTail.lean` | `ceilDiv`, `L`, `Q`, `sourceThreshold`, `ackermannAlphaFamily`, `alphaQ`, `alphaJQ`, `alphaJS`, `alphaQExists`, `one_le_Q`, `one_le_L`, `one_le_alphaQ`, `alphaQ_exists`, `sourceThreshold_le_Q`, `sourceThreshold_le_Q_pos`, `Q_le_sourceThreshold_add_one_pos`, `R_threshold_succ_le_level_succ_threshold`, `alphaQ_spec`, `alphaJQ_le_succ_of_ackermann_witness`, `alphaJQ_exists`, `alphaJQ_le_alphaQ_add_one`, `alphaJQ_le_alphaQ_add_one_unconditional`, `alphaJS_le_alphaJQ_add_one_pos`, `alphaJS_le_alphaQ_add_two`, `alphaJS_eq_alphaJQ_of_sourceThreshold_eq_Q`, `alphaJS_le_alphaQ_add_one_of_sourceThreshold_eq_Q` | Proved/defined, including unconditional existence for `alphaQ`, the unconditional `alphaJQ <= alphaQ + 1` comparison, and the positive-domain source-faithful `alphaJS <= alphaQ + 2` comparison | Defines the paper-specific packet alpha quantities and source-threshold alpha bridge. It does not formalize the source recurrence/cost theorem. |
-| Lean root import surface | `PathCompressionDigestion.lean` | Imports `Basic`, `JBase`, `CeilLog2`, `Diamond`, `JHierarchy`, `Ackermann`, `Threshold`, `ThresholdInverse`, `ThresholdInverseExtras`, `ConcreteThreshold`, `DiamondThreshold`, `MainComparison`, `ConcreteCore`, `PaperConsequences`, `AlphaPrelude`, `AlphaTail` | Present | This is the current public Lean lane. |
+| Conditional source-cost interface | `PathCompressionDigestion/SourceCost.lean` | `SourceCostFamily`, `SourceRecurrence`, `two_mul_n_mul_Q_le_two_mul_m_add_four_mul_n`, `source_cost_bound_of_recurrence` | Proved conditionally | Isolates the source recurrence as an explicit interface assumption and proves the finite paper-facing cost theorem from it. It does not formalize the source recurrence/model itself. |
+| Lean root import surface | `PathCompressionDigestion.lean` | Imports `Basic`, `JBase`, `CeilLog2`, `Diamond`, `JHierarchy`, `Ackermann`, `Threshold`, `ThresholdInverse`, `ThresholdInverseExtras`, `ConcreteThreshold`, `DiamondThreshold`, `MainComparison`, `ConcreteCore`, `PaperConsequences`, `AlphaPrelude`, `AlphaTail`, `SourceCost` | Present | This is the current public Lean lane. |
 
 ## Already formalized layers
 
@@ -94,18 +95,21 @@ Any edit touching these normalizations or constants is high risk.
 - Generic alpha prelude.
 - Paper-specific alpha definitions, alphaQ existence, and source-faithful
   `alphaJS <= alphaQ + 2` comparison.
+- Conditional source-cost interface and finite cost theorem
+  `source_cost_bound_of_recurrence`.
 
 ## Not yet formalized
 
 The following items remain open at this checkpoint:
 
-- Source recurrence/cost theorem, including the source Seidel--Sharir
-  recurrence itself and the finite cost consequence.
+- Source recurrence/model theorem itself, including the source
+  Seidel--Sharir recurrence outside the conditional interface.
 - Full paper-facing formalization of the final top-down compression bound.
 
 In particular, `AlphaPrelude.lean` is generic preparation. The paper-specific
-alpha definitions and alpha comparison live in `AlphaTail.lean`; cost
-consequences remain open.
+alpha definitions and alpha comparison live in `AlphaTail.lean`; the finite
+cost consequence conditional on a `SourceRecurrence` interface lives in
+`SourceCost.lean`.
 
 ## Dependency DAG
 
@@ -116,7 +120,8 @@ Diamond complete
   -> ConcreteCore / ThresholdCoreAssumptions R complete
   -> concrete main comparison via Abstract.main_comparison_from_core complete
   -> direct paper consequence complete
-  -> paper-specific alpha/cost consequences open
+  -> paper-specific alpha comparison complete
+  -> conditional source-cost theorem complete
 
 DiamondThreshold complete
   -> ConcreteCore complete
@@ -128,7 +133,7 @@ AlphaPrelude complete
   -> AlphaTail paper-specific alpha definition layer, alphaQ existence,
      unconditional alphaJQ/alphaQ comparison, and source-faithful
      alphaJS/alphaQ +2 comparison
-  -> remaining paper-specific cost consequences
+  -> SourceCost conditional finite cost theorem
 
 TheoremMap/docs audit
   -> worker coordination
