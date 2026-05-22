@@ -1,9 +1,9 @@
 # Lean formalization lane
 
 This directory is a bounded Lean 4 + mathlib lane for the threshold-comparison
-core and concrete `J`/threshold infrastructure of the path-compression
-digestion paper. It is not yet a formalization of the Seidel--Sharir source
-recurrence or paper-specific alpha/cost tail.
+core, concrete `J`/threshold infrastructure, and paper-specific alpha
+comparison of the path-compression digestion paper. It is not yet a
+formalization of the Seidel--Sharir source recurrence or cost tail.
 
 ## Release-layer context
 
@@ -128,11 +128,11 @@ theorem direct_paper_consequence
 preparation and Ackermann buffer facts. This is preparation for later
 paper-specific alpha/cost consequences, not the final paper alpha/cost theorem.
 
-`PathCompressionDigestion/AlphaTail.lean` adds the first paper-specific alpha
+`PathCompressionDigestion/AlphaTail.lean` adds the paper-specific alpha
 definition layer: packet `L`, packet `Q`, `alphaQ`, `alphaJQ`, and a
-Nat-threshold encoding of `alphaJS`, plus immediate conditional bridge lemmas.
-It does not formalize the source recurrence/cost theorem or the full
-real-threshold `+2` comparison.
+Nat-threshold encoding of `alphaJS`, plus conditional/unconditional bridge
+lemmas and the positive-domain source-faithful `alphaJS <= alphaQ + 2`
+comparison. It does not formalize the source recurrence/cost theorem.
 
 The Lean root file `PathCompressionDigestion.lean` imports these concrete
 support modules, including `ConcreteCore.lean`, along with the Ackermann,
@@ -143,15 +143,16 @@ threshold, and main-comparison modules.
 The current merged Lean lane still does not formalize:
 
 * the source Seidel--Sharir path-compression recurrence;
-* the remaining paper-specific alpha/cost consequences, source anchors, or
-  release packaging;
+* the source recurrence/cost consequences, source anchors, or release
+  packaging;
 * the full paper-facing formalization of the final top-down compression bound.
 
 These remain outside the current merged stack. The concrete diamond transform,
 recursive concrete `J_k` hierarchy, concrete threshold inverse `R`, generic
 diamond-to-threshold recurrence, concrete threshold core assumptions for `R`,
-concrete main comparison via `Abstract.main_comparison_from_core`, and generic
-alpha prelude are in the Lean lane and should not be marked absent.
+concrete main comparison via `Abstract.main_comparison_from_core`, generic
+alpha prelude, and paper-specific alpha comparison are in the Lean lane and
+should not be marked absent.
 
 ## Proof status
 
@@ -171,8 +172,9 @@ concrete `J_k` hierarchy, generic threshold-inverse infrastructure, generic
 threshold-inverse extras, concrete threshold inverse `R`, generic
 diamond-to-threshold recurrence, concrete core bridge, direct paper
 consequence, and generic alpha prelude are present as setup for later
-paper-specific alpha/cost work. The first paper-specific alpha definitions and
-conditional bridges are present in `AlphaTail.lean`.
+paper-specific cost work. The paper-specific alpha definitions, conditional
+bridges, and source-faithful `alphaJS <= alphaQ + 2` comparison are present in
+`AlphaTail.lean`.
 
 ## Build
 
@@ -210,7 +212,7 @@ checks and do not force a full Mathlib rebuild for every branch.
 | `concrete_main_comparison` | Concrete main comparison via `Abstract.main_comparison_from_core` |
 | `J_le_of_le_R`, `direct_paper_consequence` | Direct paper-facing consequence from the concrete comparison |
 | `Abstract.alphaOf` and alpha prelude facts | Generic preparation for later alpha consequences |
-| `L`, `Q`, `alphaQ`, `alphaJQ`, `alphaJS`, and AlphaTail bridge lemmas | First paper-specific alpha-tail definition layer |
+| `L`, `Q`, `alphaQ`, `alphaJQ`, `alphaJS`, and AlphaTail bridge/comparison lemmas | Paper-specific alpha-tail layer |
 | `Abstract.ThresholdCoreAssumptions.baseExact` | Section 4.4, exact base inverse |
 | `Abstract.ThresholdCoreAssumptions.thresholdStep` | Lemma 4.3 |
 | `Abstract.threshold_jump_from_step` | Lemma 4.4 |

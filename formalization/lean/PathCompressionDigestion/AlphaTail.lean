@@ -13,8 +13,7 @@ This file instantiates the generic alpha prelude with the packet quantities
 * `alphaJS`, using the integer threshold corresponding to the source real
   condition `J_k(L(n)) <= 1 + m/n`.
 
-The source recurrence/cost theorem and the full real-threshold `+2` comparison
-are intentionally not formalized here.
+The source recurrence/cost theorem is intentionally not formalized here.
 -/
 
 namespace PathCompressionDigestion
@@ -177,6 +176,40 @@ theorem Q_le_sourceThreshold_add_one_pos {m n : Nat} (hn : 0 < n) :
     exact Nat.le_succ (sourceThreshold m n)
   · rw [Q_eq_sourceThreshold_add_one_of_not_dvd (m := m) (n := n) hn hdiv]
 
+/--
+One unit of threshold slack can be absorbed by increasing the concrete `J`
+level once.
+-/
+theorem R_threshold_succ_le_level_succ_threshold {k t : Nat} (ht : 1 <= t) :
+    R k (t + 1) <= R (k + 1) t := by
+  have hbaseLower : R 0 (t - 1) <= R (k + 1) (t - 1) :=
+    Abstract.threshold_lower_base (R := R)
+      concrete_threshold_core_assumptions (k + 1) (t - 1)
+  rw [R_zero_eq] at hbaseLower
+  have ht_le_R : t <= R (k + 1) (t - 1) := by
+    have hlin : t <= 2 * (t - 1) + 1 := by
+      omega
+    exact hlin.trans hbaseLower
+  have hpow_t : t + 1 <= 2 ^ t := by
+    have hx : 2 <= t + 1 := by
+      omega
+    have h := self_le_two_pow_pred (x := t + 1) hx
+    have hsub : t + 1 - 1 = t := by
+      omega
+    simpa [hsub] using h
+  have hpowmono : 2 ^ t <= 2 ^ (R (k + 1) (t - 1)) :=
+    Nat.pow_le_pow_right (by norm_num : 0 < 2) ht_le_R
+  have hthreshold : t + 1 <= 2 ^ (R (k + 1) (t - 1)) :=
+    hpow_t.trans hpowmono
+  have hmono : R k (t + 1) <= R k (2 ^ (R (k + 1) (t - 1))) :=
+    R_mono_t hthreshold
+  have hstep :
+      R k (2 ^ (R (k + 1) (t - 1))) <= R (k + 1) ((t - 1) + 1) :=
+    concrete_threshold_core_assumptions.thresholdStep k (t - 1)
+  have htminus : t - 1 + 1 = t := by
+    omega
+  exact hmono.trans (by simpa [htminus] using hstep)
+
 /-- `alphaQ` satisfies its Ackermann predicate whenever the defining set is nonempty. -/
 theorem alphaQ_spec {m n : Nat} (h : alphaQExists m n) :
     L n < A (alphaQ m n) (4 * Q m n) := by
@@ -210,6 +243,21 @@ theorem alphaJQ_le_succ_of_ackermann_witness {m n z : Nat}
       (Nat.le_of_lt hTarget)
       (concrete_main_comparison z (Q m n) hz (one_le_Q m n))
 
+/-- The concrete `J` packet alpha has a threshold witness. -/
+theorem alphaJQ_exists (m n : Nat) :
+    Exists fun k : Nat => L n <= R k (Q m n) := by
+  refine Exists.intro (alphaQ m n + 1) ?_
+  have hTarget : L n <= A (alphaQ m n) (4 * Q m n) :=
+    Nat.le_of_lt (alphaQ_spec (alphaQ_exists m n))
+  have hCompare :
+      A (alphaQ m n) (4 * Q m n) <= R (alphaQ m n + 1) (Q m n) :=
+    concrete_main_comparison
+      (alphaQ m n)
+      (Q m n)
+      (one_le_alphaQ m n)
+      (one_le_Q m n)
+  exact hTarget.trans hCompare
+
 /--
 Conditional packet alpha comparison. The only explicit assumption is that the
 minimum defining `alphaQ` has an Ackermann witness.
@@ -227,6 +275,51 @@ theorem alphaJQ_le_alphaQ_add_one {m n : Nat} (h : alphaQExists m n) :
 theorem alphaJQ_le_alphaQ_add_one_unconditional (m n : Nat) :
     alphaJQ m n <= alphaQ m n + 1 := by
   exact alphaJQ_le_alphaQ_add_one (m := m) (n := n) (alphaQ_exists m n)
+
+/-- Source threshold alpha comparison against the packet `J` alpha. -/
+theorem alphaJS_le_alphaJQ_add_one_pos {m n : Nat} (hn : 0 < n) :
+    alphaJS m n <= alphaJQ m n + 1 := by
+  have hspecQ : L n <= R (alphaJQ m n) (Q m n) := by
+    simpa [alphaJQ] using
+      (Abstract.alpha_spec
+        (R := R)
+        (target := L n)
+        (threshold := Q m n)
+        (alphaJQ_exists m n))
+  have hQle : Q m n <= sourceThreshold m n + 1 :=
+    Q_le_sourceThreshold_add_one_pos (m := m) (n := n) hn
+  have hmono :
+      R (alphaJQ m n) (Q m n) <=
+        R (alphaJQ m n) (sourceThreshold m n + 1) :=
+    R_mono_t hQle
+  have hsourcePos : 1 <= sourceThreshold m n := by
+    simp [sourceThreshold]
+  have hbuffer :
+      R (alphaJQ m n) (sourceThreshold m n + 1) <=
+        R (alphaJQ m n + 1) (sourceThreshold m n) :=
+    R_threshold_succ_le_level_succ_threshold
+      (k := alphaJQ m n)
+      (t := sourceThreshold m n)
+      hsourcePos
+  have hsourceWitness :
+      L n <= R (alphaJQ m n + 1) (sourceThreshold m n) :=
+    hspecQ.trans (hmono.trans hbuffer)
+  simpa [alphaJS] using
+    (Abstract.alpha_min
+      (R := R)
+      (target := L n)
+      (threshold := sourceThreshold m n)
+      (k := alphaJQ m n + 1)
+      hsourceWitness)
+
+/-- Full source-faithful alpha comparison on the positive denominator domain. -/
+theorem alphaJS_le_alphaQ_add_two {m n : Nat} (hn : 0 < n) :
+    alphaJS m n <= alphaQ m n + 2 := by
+  have hsource : alphaJS m n <= alphaJQ m n + 1 :=
+    alphaJS_le_alphaJQ_add_one_pos (m := m) (n := n) hn
+  have hpacket : alphaJQ m n <= alphaQ m n + 1 :=
+    alphaJQ_le_alphaQ_add_one_unconditional m n
+  omega
 
 /-- If the source threshold equals the packet threshold, the two `J` alphas coincide. -/
 theorem alphaJS_eq_alphaJQ_of_sourceThreshold_eq_Q {m n : Nat}

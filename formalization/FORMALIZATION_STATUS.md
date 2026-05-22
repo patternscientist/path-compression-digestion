@@ -93,9 +93,10 @@ under `ThresholdCoreAssumptions R`.
   generic alpha/least-index preparation and Ackermann buffer facts. It is not
   the final paper-specific alpha/cost formalization.
 - `formalization/lean/PathCompressionDigestion/AlphaTail.lean` defines the
-  first paper-specific alpha-tail layer: `L`, `Q`, `alphaQ`, `alphaJQ`, and a
-  Nat-threshold encoding of `alphaJS`, plus immediate conditional and
-  unconditional bridge lemmas from the already-proved concrete comparison.
+  paper-specific alpha-tail layer: `L`, `Q`, `alphaQ`, `alphaJQ`, and a
+  Nat-threshold encoding of `alphaJS`, plus conditional/unconditional bridge
+  lemmas and the positive-domain source-faithful `alphaJS <= alphaQ + 2`
+  comparison.
 - `formalization/lean/PathCompressionDigestion.lean` imports these concrete
   support modules along with the abstract comparison modules.
 
@@ -131,17 +132,16 @@ under `ThresholdCoreAssumptions R`.
   `A z (4 * Q) > r -> J (z + 1) r <= Q`.
 - Generic/preparatory alpha prelude facts in
   `formalization/lean/PathCompressionDigestion/AlphaPrelude.lean`.
-- The first paper-specific alpha-tail definitions, `alphaQ` existence, and
-  conditional/unconditional `alphaJQ <= alphaQ + 1` bridges in
+- The paper-specific alpha-tail definitions, `alphaQ` existence,
+  conditional/unconditional `alphaJQ <= alphaQ + 1` bridges, and the
+  positive-domain source-faithful `alphaJS <= alphaQ + 2` comparison in
   `formalization/lean/PathCompressionDigestion/AlphaTail.lean`.
 - The concrete base-row facts and generic infrastructure listed above.
 
 ## Not Yet Proved in Lean
 
-- The remaining paper-specific alpha/cost tail: the full source-faithful
-  `alpha_J^S <= alpha_Q + 2` comparison and the cost consequence.
 - The source recurrence/cost theorem, including the source Seidel--Sharir
-  recurrence itself.
+  recurrence itself and the finite cost consequence.
 - The full paper-facing formalization of the final top-down compression bound.
 
 ## Build Check
