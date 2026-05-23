@@ -986,6 +986,46 @@ theorem sourceRelevantBottomException_after_parent_top_of_index
   rw [hrewire]
   exact htarget_parent_top
 
+/--
+Source-relevant bottom exceptional cost is exactly the number of bottom-prefix
+edges when the source step is nonroot and the bottom projection is root-like,
+and zero otherwise.
+-/
+theorem sourceRelevantBottomExceptionalCost_eq_if_nonroot_not_charged
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    S.sourceRelevantBottomExceptionalCost D hS cut hcut =
+      (by
+        classical
+        exact if S.path.IsNonrootPath S.before ∧
+          Not (S.bottomProjectedStep D hS cut hcut).IsCharged then
+          cut - 1
+        else
+          0) := by
+  classical
+  let B := S.bottomProjectedStep D hS cut hcut
+  have hcost : B.cost = cut - 1 := by
+    change (S.path.bottomProjectionSegment D hS.1.2.2.1 cut hcut).edgeCost = cut - 1
+    unfold RawCompressionPath.ProjectedPathSegment.edgeCost
+    rw [RawCompressionPath.bottomProjectionSegment_len]
+    simp [RawCompressionPath.bottomProjectionLength]
+  by_cases hnonroot : S.path.IsNonrootPath S.before
+  · by_cases hcharged : B.IsCharged
+    · have hnot : Not (S.path.IsNonrootPath S.before ∧ Not B.IsCharged) := by
+        intro h
+        exact h.2 hcharged
+      simp [sourceRelevantBottomExceptionalCost, hnonroot, hcharged, B]
+    · have hcond : S.path.IsNonrootPath S.before ∧ Not B.IsCharged :=
+        ⟨hnonroot, hcharged⟩
+      simp [sourceRelevantBottomExceptionalCost, hnonroot, hcharged, hcost, B]
+  · have hcond : Not (S.path.IsNonrootPath S.before ∧ Not B.IsCharged) := by
+      intro h
+      exact hnonroot h.1
+    simp [sourceRelevantBottomExceptionalCost, hnonroot]
+
 /-- Source-relevant bottom exceptional cost is always bounded by source step cost. -/
 theorem sourceRelevantBottomExceptionalCost_le_cost
     (S : RawCompressionStep n r)
@@ -1987,6 +2027,29 @@ theorem rankThreshold_sourceRelevantBottomException_future_bottom_edge_ne
     simpa [hsame] using hparent_bottom_j
   exact hparent_bottom_i hfuture_top
 
+/-- Same-step bottom-prefix lower endpoints on a source-nonroot path are distinct. -/
+theorem rankThreshold_sourceRelevantBottomException_same_step_bottom_edge_ne
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hnonroot : (E.step i).path.IsNonrootPath (E.step i).before)
+    (qi qj : Fin (n + 1))
+    (hij : qi.val < qj.val)
+    (hqj :
+      qj.val + 1 <
+        E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i) :
+    (E.step i).path.node qi ≠ (E.step i).path.node qj := by
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  change qj.val + 1 < cut i at hqj
+  have hqj_active : qj.val < (E.step i).path.len.val := by
+    have hcut_le : cut i <= (E.step i).path.len.val := (hcut i).1
+    omega
+  exact (E.step i).path.node_ne_of_lt_active_of_nonroot
+    (hE.1 i).1 hnonroot hij hqj_active
+
 /--
 The canonical top projected execution for a rank-threshold dissection has
 consecutive states up to the projected equivalences.
@@ -2209,6 +2272,140 @@ theorem rankThreshold_bottomBoundaryCard_eq_bottomFinset_card
     (E.rankThresholdDissectionFamily hE.1 s) i0
     (fun i => E.rankThresholdDissectionFamily_bottomFinset_eq_of_slot
       hE.1 hE.2.1 s i0 i)
+
+/--
+Finite units for the source-relevant bottom exceptional boundary charge in a
+rank-threshold execution: a slot together with a lower endpoint of an
+exceptional bottom-prefix edge.
+-/
+noncomputable def rankThresholdSourceRelevantBottomExceptionEdgeUnit
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) : Type :=
+  Sigma fun i : Fin m =>
+    {q : Fin (n + 1) //
+      (E.step i).path.IsNonrootPath (E.step i).before ∧
+      Not ((E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged ∧
+      q.val + 1 <
+        E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i}
+
+noncomputable instance rankThresholdSourceRelevantBottomExceptionEdgeUnitFintype
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    Fintype (E.rankThresholdSourceRelevantBottomExceptionEdgeUnit hE s) := by
+  classical
+  unfold rankThresholdSourceRelevantBottomExceptionEdgeUnit
+  infer_instance
+
+/-- A source-relevant bottom exceptional edge unit maps to its stable bottom vertex. -/
+noncomputable def rankThresholdSourceRelevantBottomExceptionEdgeVertex
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.rankThresholdSourceRelevantBottomExceptionEdgeUnit hE s →
+      ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset) := by
+  classical
+  intro u
+  rcases u with ⟨i, q, hq⟩
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  change
+    (E.step i).path.IsNonrootPath (E.step i).before ∧
+      Not ((E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+        (cut i) (hcut i)).IsCharged ∧
+      q.val + 1 < cut i at hq
+  refine ⟨(E.step i).path.node q, ?_⟩
+  have hq_active : q.val < (E.step i).path.len.val := by
+    have hcut_le : cut i <= (E.step i).path.len.val := (hcut i).1
+    omega
+  have hq_cut : q.val < cut i := by
+    omega
+  have hbottom_i : (Dfam i).IsBottom ((E.step i).path.node q) :=
+    (hcut i).2.1 q hq_active hq_cut
+  have hmem_i : (E.step i).path.node q ∈ (Dfam i).bottomFinset := by
+    simpa using hbottom_i
+  have hstable :
+      (Dfam i).bottomFinset = (Dfam i0).bottomFinset := by
+    exact E.rankThresholdDissectionFamily_bottomFinset_eq_of_slot
+      hE.1 hE.2.1 s i0 i
+  simpa [hstable] using hmem_i
+
+/--
+The source-relevant bottom exceptional edge units inject into the stable bottom
+finset.  This packages the same-step rank strictness and cross-step freshness
+lemmas into the finite map needed for the remaining cardinality bridge.
+-/
+theorem rankThresholdSourceRelevantBottomExceptionEdgeVertex_injective
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    Function.Injective
+      (E.rankThresholdSourceRelevantBottomExceptionEdgeVertex hE s i0) := by
+  classical
+  intro u v huv
+  rcases u with ⟨i, qi, hi⟩
+  rcases v with ⟨j, qj, hj⟩
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  change
+    (E.step i).path.IsNonrootPath (E.step i).before ∧
+      Not ((E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+        (cut i) (hcut i)).IsCharged ∧
+      qi.val + 1 < cut i at hi
+  change
+    (E.step j).path.IsNonrootPath (E.step j).before ∧
+      Not ((E.step j).bottomProjectedStep (Dfam j) (hE.1 j)
+        (cut j) (hcut j)).IsCharged ∧
+      qj.val + 1 < cut j at hj
+  have hnode :
+      (E.step i).path.node qi = (E.step j).path.node qj := by
+    exact congrArg Subtype.val huv
+  rcases lt_trichotomy i.val j.val with hij | hij_eq | hji
+  · exact False.elim
+      ((E.rankThreshold_sourceRelevantBottomException_future_bottom_edge_ne
+        hE s hij hi.1 hi.2.1 qi qj hi.2.2 hj.2.2) hnode)
+  · have hfin : i = j := Fin.ext hij_eq
+    subst j
+    rcases lt_trichotomy qi.val qj.val with hqij | hqeq | hqji
+    · exact False.elim
+        ((E.rankThreshold_sourceRelevantBottomException_same_step_bottom_edge_ne
+          hE s i hi.1 qi qj hqij hj.2.2) hnode)
+    · have hqfin : qi = qj := Fin.ext hqeq
+      subst qj
+      exact congrArg (fun x => Sigma.mk i x) (Subtype.ext rfl)
+    · exact False.elim
+        ((E.rankThreshold_sourceRelevantBottomException_same_step_bottom_edge_ne
+          hE s i hi.1 qj qi hqji hi.2.2) hnode.symm)
+  · exact False.elim
+      ((E.rankThreshold_sourceRelevantBottomException_future_bottom_edge_ne
+        hE s hji hj.1 hj.2.1 qj qi hj.2.2 hi.2.2) hnode.symm)
+
+/-- Cardinality form of the source-relevant bottom exceptional edge injection. -/
+theorem rankThresholdSourceRelevantBottomExceptionEdgeUnit_card_le_bottomFinset_card
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    Fintype.card (E.rankThresholdSourceRelevantBottomExceptionEdgeUnit hE s) <=
+      ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) := by
+  classical
+  have hle :=
+    Fintype.card_le_of_injective
+      (E.rankThresholdSourceRelevantBottomExceptionEdgeVertex hE s i0)
+      (E.rankThresholdSourceRelevantBottomExceptionEdgeVertex_injective hE s i0)
+  let D0 := E.rankThresholdDissectionFamily hE.1 s i0
+  have hcard :
+      Fintype.card D0.bottomFinset = D0.bottomFinset.card :=
+    Fintype.card_coe D0.bottomFinset
+  exact hle.trans_eq hcard
 
 /-- Slot-level bottom rank bound for the rank-threshold dissection family. -/
 theorem rankThresholdDissectionFamily_bottom_rank_le
