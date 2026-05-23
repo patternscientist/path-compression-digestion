@@ -18,17 +18,17 @@ theorem topDown_shift_step :
     forall k : Nat, topDownShiftStepTarget k
 ```
 
-It also did not prove the unconditional direct rank-threshold accounting
-target:
+The direct rank-threshold accounting target is now proved:
 
 ```lean
 E.cost <= Cb.consumableCost + Ct.consumableCost + |X_b| + Ct.chargedCount
 ```
 
-However, it proves the source-step case split that was missing after the
-bottom-exception counterexample.  Bottom projected exceptional cost is now
-made source-relevant: source-rootpath-only projected artifacts are assigned
-zero, while source-nonroot bottom exceptions remain explicit.
+The proof uses the source-step case split that was missing after the
+bottom-exception counterexample.  Bottom projected exceptional cost is made
+source-relevant: source-rootpath-only projected artifacts are assigned zero,
+while source-nonroot bottom exceptions are counted by boundary edge units and
+charged to the stable rank-threshold bottom side.
 
 ## Mechanical Progress
 
@@ -157,6 +157,16 @@ def RawCompressionExecution.rankThresholdSourceRelevantBottomExceptionEdgeUnit
 theorem RawCompressionExecution.rankThresholdSourceRelevantBottomExceptionEdgeVertex_injective
 
 theorem RawCompressionExecution.rankThresholdSourceRelevantBottomExceptionEdgeUnit_card_le_bottomFinset_card
+
+theorem RawCompressionExecution.rankThresholdSourceRelevantBottomExceptionEdgeUnit_slot_natCard
+
+theorem RawCompressionExecution.rankThresholdSourceRelevantBottomExceptionEdgeUnit_card_eq_relevant_sum
+
+theorem RawCompressionExecution.rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_card
+
+theorem RawCompressionExecution.rankThreshold_source_cost_le_projected_consumable_add_boundary
+
+theorem RawCompressionExecution.rankThreshold_source_cost_le_projected_consumable_add_boundary_add_length
 ```
 
 The last theorem is the main no-repeat lemma in index form: if a source-nonroot
@@ -169,7 +179,8 @@ propagates parent-top status through the stable rank-threshold family.
 The edge-unit type packages exactly the finite objects that should be counted:
 a source-nonroot exceptional slot plus a lower endpoint of a bottom-prefix
 edge.  Lean now proves these edge units inject into the stable bottom finset,
-so their cardinality is bounded by `|X_b|`.
+their cardinality is bounded by `|X_b|`, and their cardinality is exactly the
+numeric source-relevant bottom exceptional sum.
 
 ## Exact Source-Step Cases
 
@@ -201,13 +212,13 @@ so their cardinality is bounded by `|X_b|`.
      `RawCompressionStep.topProjectedStep_cost_eq_consumableCost_of_source_nonroot`
      plus the rootpath `S.cost = 0` branch.
 
-## Blocker
+## Resolved Boundary Blocker
 
-The first remaining blocker is the boundary charging theorem for the
-source-relevant bottom exceptional sum.  The current API now has the finite
-edge-unit injection into the stable bottom side.  What remains is the counting
-bridge identifying the numeric exceptional sum with the cardinality of that
-edge-unit type:
+The previous blocker was the boundary charging theorem for the
+source-relevant bottom exceptional sum.  The finite edge-unit injection into
+the stable bottom side has now been combined with the counting bridge
+identifying the numeric exceptional sum with the cardinality of that edge-unit
+type:
 
 ```lean
 theorem rankThresholdSourceRelevantBottomExceptionEdgeUnit_card_eq_relevant_sum
@@ -220,9 +231,9 @@ theorem rankThresholdSourceRelevantBottomExceptionEdgeUnit_card_eq_relevant_sum
         (E.rankThresholdDissectionFamily hE.1 s)
 ```
 
-Once this counting theorem is proved, combining it with
+Combining this with
 `rankThresholdSourceRelevantBottomExceptionEdgeUnit_card_le_bottomFinset_card`
-gives the desired boundary theorem.
+now gives the desired boundary theorem:
 
 This is not the false theorem:
 
@@ -244,8 +255,7 @@ theorem rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_car
       <= ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card)
 ```
 
-Once this theorem is proved, the existing conditional theorem immediately
-gives:
+The existing conditional theorem now immediately gives:
 
 ```lean
 E.cost <= Cb.consumableCost + Ct.consumableCost + |X_b| + Ct.chargedCount
@@ -253,10 +263,13 @@ E.cost <= Cb.consumableCost + Ct.consumableCost + |X_b| + Ct.chargedCount
 
 ## Verdict
 
-Ambition C achieved, and Ambition B reduced to one explicit finite counting
-bridge.  Source-rootpath-only bottom exceptions are bypassed in Lean, future
-re-use of a source-relevant bottom exceptional lower endpoint is ruled out for
-rank-threshold executions, and the packaged edge units inject into `|X_b|`.
-The unconditional direct source-cost accounting theorem is not yet proved
-because the source-relevant bottom exception sum is not yet identified with
-the edge-unit cardinality.
+Ambition B achieved for the source-relevant projected accounting layer.
+Source-rootpath-only bottom exceptions are bypassed in Lean, future re-use of
+a source-relevant bottom exceptional lower endpoint is ruled out for
+rank-threshold executions, the packaged edge units inject into `|X_b|`, and
+the unconditional direct source-cost accounting theorem is proved.
+
+The remaining gap is recurrence consumption: the theorem still exposes
+`Cb.consumableCost` and `Ct.consumableCost`; consuming those terms into the
+`topDownCost` recurrence is separate from the source-relevant boundary
+accounting completed here.

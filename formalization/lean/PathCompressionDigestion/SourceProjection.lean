@@ -2273,6 +2273,31 @@ theorem rankThreshold_bottomBoundaryCard_eq_bottomFinset_card
     (fun i => E.rankThresholdDissectionFamily_bottomFinset_eq_of_slot
       hE.1 hE.2.1 s i0 i)
 
+/-- The number of finite indices `q` with `q + 1 < cut` is `cut - 1`. -/
+theorem bottomPrefixEdgeIndexSubtype_card
+    (N cut : Nat)
+    (hcut : cut <= N + 1) :
+    Fintype.card {q : Fin (N + 1) // q.val + 1 < cut} = cut - 1 := by
+  classical
+  let e : {q : Fin (N + 1) // q.val + 1 < cut} ≃ Fin (cut - 1) := {
+    toFun := fun q => ⟨q.1.val, by omega⟩
+    invFun := fun k => by
+      have hk : k.val < cut - 1 := k.isLt
+      have hkcut : k.val + 1 < cut := by omega
+      have hkN : k.val < N + 1 := by omega
+      exact ⟨⟨k.val, hkN⟩, hkcut⟩
+    left_inv := by
+      intro q
+      apply Subtype.ext
+      apply Fin.ext
+      rfl
+    right_inv := by
+      intro k
+      apply Fin.ext
+      rfl
+  }
+  simpa using Fintype.card_congr e
+
 /--
 Finite units for the source-relevant bottom exceptional boundary charge in a
 rank-threshold execution: a slot together with a lower endpoint of an
@@ -2300,6 +2325,163 @@ noncomputable instance rankThresholdSourceRelevantBottomExceptionEdgeUnitFintype
   classical
   unfold rankThresholdSourceRelevantBottomExceptionEdgeUnit
   infer_instance
+
+/-- Slotwise `Nat.card` count of source-relevant bottom exceptional edge units. -/
+theorem rankThresholdSourceRelevantBottomExceptionEdgeUnit_slot_natCard
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m) :
+    Nat.card
+      {q : Fin (n + 1) //
+        (E.step i).path.IsNonrootPath (E.step i).before ∧
+        Not ((E.step i).bottomProjectedStep
+          (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+          (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+          (E.dissectionCut_spec hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged ∧
+        q.val + 1 <
+          E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i} =
+      (E.step i).sourceRelevantBottomExceptionalCost
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i) := by
+  classical
+  by_cases hcond :
+      (E.step i).path.IsNonrootPath (E.step i).before ∧
+        Not ((E.step i).bottomProjectedStep
+          (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+          (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+          (E.dissectionCut_spec hE.1
+            (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged
+  · have hcut_le_fin :
+        E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i <= n + 1 := by
+      have hcut_len :
+          E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i <=
+            (E.step i).path.len.val :=
+        (E.dissectionCut_spec hE.1 (E.rankThresholdDissectionFamily hE.1 s) i).1
+      have hlen_le : (E.step i).path.len.val <= n + 1 :=
+        Nat.le_of_lt_succ (E.step i).path.len.isLt
+      exact hcut_len.trans hlen_le
+    let e :
+        {q : Fin (n + 1) //
+          (E.step i).path.IsNonrootPath (E.step i).before ∧
+          Not ((E.step i).bottomProjectedStep
+            (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+            (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+            (E.dissectionCut_spec hE.1
+              (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged ∧
+          q.val + 1 <
+            E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i} ≃
+        {q : Fin (n + 1) //
+          q.val + 1 <
+            E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i} := {
+      toFun := fun q => ⟨q.1, q.2.2.2⟩
+      invFun := fun q => ⟨q.1, ⟨hcond.1, hcond.2, q.2⟩⟩
+      left_inv := by
+        intro q
+        apply Subtype.ext
+        rfl
+      right_inv := by
+        intro q
+        apply Subtype.ext
+        rfl
+    }
+    calc
+      Nat.card
+          {q : Fin (n + 1) //
+            (E.step i).path.IsNonrootPath (E.step i).before ∧
+            Not ((E.step i).bottomProjectedStep
+              (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+              (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+              (E.dissectionCut_spec hE.1
+                (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged ∧
+            q.val + 1 <
+              E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i}
+          =
+        Nat.card
+          {q : Fin (n + 1) //
+            q.val + 1 <
+              E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i} :=
+            Nat.card_congr e
+      _ =
+        Fintype.card
+          {q : Fin (n + 1) //
+            q.val + 1 <
+              E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i} := by
+            rw [Nat.card_eq_fintype_card]
+      _ = E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i - 1 :=
+            bottomPrefixEdgeIndexSubtype_card n
+              (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+              hcut_le_fin
+      _ =
+        (E.step i).sourceRelevantBottomExceptionalCost
+          (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+          (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+          (E.dissectionCut_spec hE.1
+            (E.rankThresholdDissectionFamily hE.1 s) i) := by
+            symm
+            have hsrc :=
+              (E.step i).sourceRelevantBottomExceptionalCost_eq_if_nonroot_not_charged
+                (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+                (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+                (E.dissectionCut_spec hE.1
+                  (E.rankThresholdDissectionFamily hE.1 s) i)
+            simpa [hcond] using hsrc
+  · have hEmpty :
+        IsEmpty
+          {q : Fin (n + 1) //
+            (E.step i).path.IsNonrootPath (E.step i).before ∧
+            Not ((E.step i).bottomProjectedStep
+              (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+              (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+              (E.dissectionCut_spec hE.1
+                (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged ∧
+            q.val + 1 <
+              E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i} := by
+      refine ⟨?_⟩
+      intro q
+      exact hcond ⟨q.2.1, q.2.2.1⟩
+    have hcard :
+        Nat.card
+          {q : Fin (n + 1) //
+            (E.step i).path.IsNonrootPath (E.step i).before ∧
+            Not ((E.step i).bottomProjectedStep
+              (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+              (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+              (E.dissectionCut_spec hE.1
+                (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged ∧
+            q.val + 1 <
+              E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i} = 0 := by
+      letI := hEmpty
+      rw [Nat.card_eq_fintype_card]
+      exact Fintype.card_eq_zero
+    calc
+      Nat.card
+          {q : Fin (n + 1) //
+            (E.step i).path.IsNonrootPath (E.step i).before ∧
+            Not ((E.step i).bottomProjectedStep
+              (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+              (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+              (E.dissectionCut_spec hE.1
+                (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged ∧
+            q.val + 1 <
+              E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i}
+          = 0 := hcard
+      _ =
+        (E.step i).sourceRelevantBottomExceptionalCost
+          (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+          (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+          (E.dissectionCut_spec hE.1
+            (E.rankThresholdDissectionFamily hE.1 s) i) := by
+            symm
+            have hsrc :=
+              (E.step i).sourceRelevantBottomExceptionalCost_eq_if_nonroot_not_charged
+                (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+                (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+                (E.dissectionCut_spec hE.1
+                  (E.rankThresholdDissectionFamily hE.1 s) i)
+            simpa [hcond] using hsrc
 
 /-- A source-relevant bottom exceptional edge unit maps to its stable bottom vertex. -/
 noncomputable def rankThresholdSourceRelevantBottomExceptionEdgeVertex
@@ -2406,6 +2588,92 @@ theorem rankThresholdSourceRelevantBottomExceptionEdgeUnit_card_le_bottomFinset_
       Fintype.card D0.bottomFinset = D0.bottomFinset.card :=
     Fintype.card_coe D0.bottomFinset
   exact hle.trans_eq hcard
+
+/--
+The finite edge-unit model counts exactly the canonical source-relevant bottom
+exceptional cost sum for the rank-threshold family.
+-/
+theorem rankThresholdSourceRelevantBottomExceptionEdgeUnit_card_eq_relevant_sum
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    Fintype.card (E.rankThresholdSourceRelevantBottomExceptionEdgeUnit hE s) =
+      E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+        (E.rankThresholdDissectionFamily hE.1 s) := by
+  classical
+  unfold rankThresholdSourceRelevantBottomExceptionEdgeUnit
+  unfold canonicalBottomSourceRelevantExceptionalCostSum
+    bottomSourceRelevantExceptionalCostSum
+  calc
+    Fintype.card
+        (Sigma fun i : Fin m =>
+          {q : Fin (n + 1) //
+            (E.step i).path.IsNonrootPath (E.step i).before ∧
+            Not ((E.step i).bottomProjectedStep
+              (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+              (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+              (E.dissectionCut_spec hE.1
+                (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged ∧
+            q.val + 1 <
+              E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i}) =
+        Finset.sum (Finset.univ : Finset (Fin m)) fun i =>
+          Fintype.card
+            {q : Fin (n + 1) //
+              (E.step i).path.IsNonrootPath (E.step i).before ∧
+              Not ((E.step i).bottomProjectedStep
+                (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+                (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+                (E.dissectionCut_spec hE.1
+                  (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged ∧
+              q.val + 1 <
+                E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i} := by
+        exact @Fintype.card_sigma (Fin m)
+          (fun i =>
+            {q : Fin (n + 1) //
+              (E.step i).path.IsNonrootPath (E.step i).before ∧
+              Not ((E.step i).bottomProjectedStep
+                (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+                (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+                (E.dissectionCut_spec hE.1
+                  (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged ∧
+              q.val + 1 <
+                E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i}) _ _
+    _ = Finset.sum (Finset.univ : Finset (Fin m)) fun i =>
+          (E.step i).sourceRelevantBottomExceptionalCost
+            (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+            (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+            (E.dissectionCut_spec hE.1
+              (E.rankThresholdDissectionFamily hE.1 s) i) := by
+        apply Finset.sum_congr rfl
+        intro i _hi
+        have hslot :=
+          E.rankThresholdSourceRelevantBottomExceptionEdgeUnit_slot_natCard hE s i
+        rw [Nat.card_eq_fintype_card] at hslot
+        exact hslot
+
+/--
+The rank-threshold source-relevant bottom exceptional sum is paid by the stable
+bottom boundary side.
+-/
+theorem rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_card
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+        (E.rankThresholdDissectionFamily hE.1 s) <=
+      ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) := by
+  have hcount :=
+    E.rankThresholdSourceRelevantBottomExceptionEdgeUnit_card_eq_relevant_sum hE s
+  have hle :=
+    E.rankThresholdSourceRelevantBottomExceptionEdgeUnit_card_le_bottomFinset_card
+      hE s i0
+  calc
+    E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+        = Fintype.card (E.rankThresholdSourceRelevantBottomExceptionEdgeUnit hE s) :=
+          hcount.symm
+    _ <= ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) := hle
 
 /-- Slot-level bottom rank bound for the rank-threshold dissection family. -/
 theorem rankThresholdDissectionFamily_bottom_rank_le
@@ -3078,6 +3346,53 @@ theorem rankThreshold_source_cost_le_projected_consumable_add_boundary_of_releva
             (E.canonicalTopProjectedExecution hE.1
               (E.rankThresholdDissectionFamily hE.1 s)).chargedCount := by
   have hmain := E.rankThreshold_sourceRelevant_projected_accounting hE s
+  omega
+
+/--
+Direct rank-threshold source-relevant accounting: source-rootpath-only bottom
+projected exceptions have been bypassed, and the remaining source-relevant
+bottom exceptions are charged to the stable bottom boundary side.
+-/
+theorem rankThreshold_source_cost_le_projected_consumable_add_boundary
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+          ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) +
+            (E.canonicalTopProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).chargedCount := by
+  exact E.rankThreshold_source_cost_le_projected_consumable_add_boundary_of_relevant_bound
+    hE s i0
+    (E.rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_card
+      hE s i0)
+
+/--
+Length-consumed form of direct rank-threshold source-relevant accounting.
+-/
+theorem rankThreshold_source_cost_le_projected_consumable_add_boundary_add_length
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+          ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) +
+            m := by
+  have hmain :=
+    E.rankThreshold_source_cost_le_projected_consumable_add_boundary hE s i0
+  have hcharge :
+      (E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount <= m :=
+    (E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).chargedCount_le_length
   omega
 
 /--
