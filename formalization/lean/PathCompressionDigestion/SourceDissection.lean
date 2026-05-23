@@ -967,6 +967,53 @@ theorem after_parent_top
       exact D.parent_top hv
 
 /--
+If a vertex already has a top parent before a valid compression step, then it
+still has a top parent afterwards.  This is the local persistence fact used by
+source-relevant boundary charging: once a bottom vertex has crossed to the top
+side, later source steps cannot make its parent bottom again.
+-/
+theorem after_parent_top_of_parent_top
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    {v : Fin n}
+    (hv : D.IsTop (S.before.parent v)) :
+    D.IsTop (S.after.parent v) := by
+  rcases hS with
+    ⟨hpath, _hafterRank, _hrank, hroot_step, hnonroot_step, hunchanged⟩
+  by_cases hroot : S.path.IsRootPath S.before
+  · have hparent_eq : S.after.parent = S.before.parent := hroot_step hroot
+    rw [hparent_eq]
+    exact hv
+  · have hnonroot : S.path.IsNonrootPath S.before := by
+      simpa [RawCompressionPath.IsRootPath, RawCompressionPath.IsNonrootPath,
+        RawRankedForest.IsRoot] using hroot
+    by_cases hcomp : S.path.IsCompressedVertex v
+    · have hrewire :
+          S.after.parent v = S.before.parent S.path.target :=
+        hnonroot_step hnonroot v hcomp
+      rw [hrewire]
+      have htarget_ancestor : S.before.IsAncestor v S.path.target :=
+        S.path.target_ancestor_of_compressedVertex hpath hcomp
+      have hparent_target_ancestor :
+          S.before.IsAncestor (S.before.parent v) (S.before.parent S.path.target) := by
+        rcases htarget_ancestor with ⟨t, ht⟩
+        cases t with
+        | zero =>
+            have hv_target : v = S.path.target := by
+              simpa [RawRankedForest.parentIter] using ht
+            exact ⟨0, by simp [RawRankedForest.parentIter, hv_target]⟩
+        | succ t =>
+            have hparent_target : S.before.IsAncestor (S.before.parent v) S.path.target := by
+              exact ⟨t, by simpa [RawRankedForest.parentIter] using ht⟩
+            exact S.before.isAncestor_parent hparent_target
+      exact D.top_of_ancestor hv hparent_target_ancestor
+    · have hsame : S.after.parent v = S.before.parent v :=
+        hunchanged v hcomp
+      rw [hsame]
+      exact hv
+
+/--
 The same top set is still upward closed after a valid raw compression step.
 This is the one-step dissection-preservation bridge needed before projected
 steps can be assembled.

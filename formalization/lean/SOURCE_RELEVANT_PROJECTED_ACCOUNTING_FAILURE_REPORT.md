@@ -62,6 +62,8 @@ theorem RawCompressionStep.sourceRelevantBottomExceptionalCost_eq_zero_of_root
 theorem RawCompressionStep.sourceRelevantBottomExceptionalCost_le_cost
 
 theorem RawCompressionStep.cost_le_sourceRelevantProjectedParts
+
+theorem RawCompressionStep.sourceRelevantBottomException_after_parent_top_of_index
 ```
 
 The last theorem proves:
@@ -127,6 +129,27 @@ Under that hypothesis, Lean proves the requested shape:
 E.cost <= Cb.consumableCost + Ct.consumableCost + |X_b| + Ct.chargedCount
 ```
 
+Additional freshness infrastructure now proved:
+
+```lean
+theorem RawCompressionStep.after_parent_top_of_parent_top
+
+theorem RawCompressionExecution.rankThresholdDissectionFamily_parentTop_of_adjacent
+
+theorem RawCompressionExecution.rankThresholdDissectionFamily_parentTop_of_le
+
+theorem RawCompressionExecution.rankThresholdDissectionFamily_parentTop_of_after_lt
+
+theorem RawCompressionExecution.rankThreshold_sourceRelevantBottomException_future_bottom_edge_ne
+```
+
+The last theorem is the main no-repeat lemma in index form: if a source-nonroot
+rank-threshold bottom projection is exceptional at slot `i`, then any raw
+lower endpoint `qi` of a bottom-prefix edge in that event cannot equal a raw
+lower endpoint `qj` of a bottom-prefix edge in a later slot `j`.  The proof
+uses the local fact that the first event rewires `qi` to a top parent, then
+propagates parent-top status through the stable rank-threshold family.
+
 ## Exact Source-Step Cases
 
 1. Source rootpath:
@@ -161,8 +184,9 @@ E.cost <= Cb.consumableCost + Ct.consumableCost + |X_b| + Ct.chargedCount
 
 The first remaining blocker is the boundary charging theorem for the
 source-relevant bottom exceptional sum.  The current API still lacks the
-freshness/no-repeat argument showing that source-nonroot root-like bottom
-projection events can be charged injectively to the stable bottom side.
+finite charge-unit packaging that turns the proved no-repeat index theorem
+into an injection from source-relevant bottom exceptional edge units to the
+stable bottom side.
 
 This is not the false theorem:
 
@@ -194,6 +218,8 @@ E.cost <= Cb.consumableCost + Ct.consumableCost + |X_b| + Ct.chargedCount
 ## Verdict
 
 Ambition C achieved, and Ambition B reduced to one explicit boundary-charging
-theorem.  Source-rootpath-only bottom exceptions are bypassed in Lean.  The
+theorem plus finite injection packaging.  Source-rootpath-only bottom
+exceptions are bypassed in Lean, and future re-use of a source-relevant bottom
+exceptional lower endpoint is now ruled out for rank-threshold executions.  The
 unconditional direct source-cost accounting theorem is not yet proved because
 the source-relevant bottom exception sum is not yet bounded by `|X_b|`.

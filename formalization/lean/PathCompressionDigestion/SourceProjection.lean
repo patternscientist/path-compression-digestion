@@ -883,6 +883,109 @@ theorem sourceRelevantBottomExceptionalCost_eq_zero_of_root
   intro hnonroot
   exact hnonroot hroot
 
+/--
+In a source-nonroot bottom exceptional event, every raw slot contributing a
+bottom-prefix edge is rewired to a top parent.  This is the local charging
+fact behind the remaining global injection into the stable bottom side.
+-/
+theorem sourceRelevantBottomException_after_parent_top_of_index
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut)
+    (hnonroot : S.path.IsNonrootPath S.before)
+    (hnotCharged : Not (S.bottomProjectedStep D hS cut hcut).IsCharged)
+    (q : Fin (n + 1))
+    (hq : q.val + 1 < cut) :
+    D.IsTop (S.after.parent (S.path.node q)) := by
+  classical
+  rcases hS with
+    ⟨hpath, _hafterRank, _hrank, _hroot_step, hnonroot_step, _hunchanged⟩
+  have hq_compressed : S.path.IsCompressedVertex (S.path.node q) := by
+    refine ⟨q, ?_, rfl⟩
+    exact lt_of_lt_of_le hq hcut.1
+  have hrewire :
+      S.after.parent (S.path.node q) = S.before.parent S.path.target :=
+    hnonroot_step hnonroot (S.path.node q) hq_compressed
+  have htarget_parent_top : D.IsTop (S.before.parent S.path.target) := by
+    by_cases hcut_lt : cut < S.path.len.val
+    · have hlen_one : 1 <= S.path.len.val := by
+        exact Nat.le_trans (by norm_num : 1 <= 2) hpath.2.1
+      let last := S.path.lastIndex hlen_one
+      have hlast_active : last.val < S.path.len.val :=
+        S.path.lastIndex_active hlen_one
+      have hcut_last : cut <= last.val := by
+        simp [last, RawCompressionPath.lastIndex]
+        omega
+      have hlast_top : D.IsTop (S.path.node last) :=
+        hcut.2.2 last hlast_active hcut_last
+      have hlast_target : S.path.node last = S.path.target :=
+        hpath.2.2.2 last (S.path.lastIndex_succ hlen_one)
+      have htarget_top : D.IsTop S.path.target := by
+        simpa [hlast_target] using hlast_top
+      exact D.parent_top htarget_top
+    · have hcut_eq : cut = S.path.len.val := by
+        exact le_antisymm hcut.1 (Nat.le_of_not_gt hcut_lt)
+      have hcut_pos : 0 < cut :=
+        lt_trans (Nat.succ_pos q.val) hq
+      have hseg_root :
+          (S.path.bottomProjectionSegment D hpath.2.2.1 cut hcut).IsRootPath := by
+        have hrootlike :
+            (S.bottomProjectedStep D
+              ⟨hpath, _hafterRank, _hrank, _hroot_step, hnonroot_step, _hunchanged⟩
+              cut hcut).IsRootLike :=
+          ((S.bottomProjectedStep D
+            ⟨hpath, _hafterRank, _hrank, _hroot_step, hnonroot_step, _hunchanged⟩
+            cut hcut).not_charged_iff_rootLike).1 hnotCharged
+        change (S.path.bottomProjectionSegment D hpath.2.2.1 cut hcut).IsRootPath
+          at hrootlike
+        exact hrootlike
+      let seg := S.path.bottomProjectionSegment D hpath.2.2.1 cut hcut
+      have hseg_len_pos : 0 < seg.len := by
+        simpa [seg, RawCompressionPath.bottomProjectionSegment,
+          RawCompressionPath.bottomProjectionLength] using hcut_pos
+      let bi : Fin (S.path.bottomProjectionLength D cut hcut) :=
+        seg.lastIndex hseg_len_pos
+      let orig : Fin (n + 1) := S.path.bottomProjectionIndex D cut hcut bi
+      have horig_last : orig.val + 1 = S.path.len.val := by
+        simp [orig, bi, seg, RawCompressionPath.ProjectedPathSegment.lastIndex,
+          RawCompressionPath.bottomProjectionIndex,
+          RawCompressionPath.bottomProjectionSegment,
+          RawCompressionPath.bottomProjectionLength]
+        omega
+      have horig_target : S.path.node orig = S.path.target :=
+        hpath.2.2.2 orig horig_last
+      have hroot_eq :
+          D.bottomParent (S.path.bottomProjectionNode D cut hcut bi) =
+            S.path.bottomProjectionNode D cut hcut bi := by
+        simpa [seg] using hseg_root hseg_len_pos
+      have hroot_val :
+          (D.bottomParent (S.path.bottomProjectionNode D cut hcut bi)).1 =
+            (S.path.bottomProjectionNode D cut hcut bi).1 :=
+        congrArg Subtype.val hroot_eq
+      by_cases hb : D.IsBottom (S.before.parent S.path.target)
+      · have hparent_bottom :
+            D.IsBottom (S.before.parent (S.path.node orig)) := by
+          simpa [horig_target] using hb
+        have hbottom_val :
+            (D.bottomParent (S.path.bottomProjectionNode D cut hcut bi)).1 =
+              S.before.parent (S.path.node orig) :=
+          D.bottomParent_val_of_parent_bottom
+            (S.path.bottomProjectionNode D cut hcut bi) hparent_bottom
+        have hnode_val :
+            (S.path.bottomProjectionNode D cut hcut bi).1 = S.path.target := by
+          simpa [RawCompressionPath.bottomProjectionNode_val, orig] using horig_target
+        have hparent_target :
+            S.before.parent S.path.target = S.path.target := by
+          rw [hbottom_val, hnode_val] at hroot_val
+          simpa [horig_target] using hroot_val
+        exact False.elim (hnonroot hparent_target)
+      · unfold RawDissection.IsBottom at hb
+        exact Decidable.not_not.mp hb
+  rw [hrewire]
+  exact htarget_parent_top
+
 /-- Source-relevant bottom exceptional cost is always bounded by source step cost. -/
 theorem sourceRelevantBottomExceptionalCost_le_cost
     (S : RawCompressionStep n r)
@@ -1699,6 +1802,190 @@ theorem rankThresholdDissectionFamily_topStable
   unfold rankThresholdDissectionFamily
   simp only [RankThresholdDissection.dissection_isTop]
   rw [E.rankThresholdDissectionFamily_rankNat_eq_of_adjacent hsteps hstate i j hij v]
+
+/--
+For rank-threshold dissections, once the parent of a fixed raw vertex is top at
+one slot, it remains top at the next slot.  This is the adjacent-slot form of
+the freshness invariant needed for source-relevant boundary charging.
+-/
+theorem rankThresholdDissectionFamily_parentTop_of_adjacent
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (s : Nat)
+    {i j : Fin m}
+    (hij : i.val + 1 = j.val)
+    (v : Fin n)
+    (hparent :
+      (E.rankThresholdDissectionFamily hsteps s i).IsTop
+        ((E.step i).before.parent v)) :
+    (E.rankThresholdDissectionFamily hsteps s j).IsTop
+      ((E.step j).before.parent v) := by
+  have hafter :
+      (E.rankThresholdDissectionFamily hsteps s i).IsTop
+        ((E.step i).after.parent v) := by
+    exact (E.step i).after_parent_top_of_parent_top
+      (E.rankThresholdDissectionFamily hsteps s i) (hsteps i) hparent
+  have hstate_ij : (E.step i).after = (E.step j).before := hstate i j hij
+  have hbefore_j :
+      (E.rankThresholdDissectionFamily hsteps s i).IsTop
+        ((E.step j).before.parent v) := by
+    simpa [hstate_ij] using hafter
+  exact (E.rankThresholdDissectionFamily_topStable hsteps hstate s i j hij
+    ((E.step j).before.parent v)).1 hbefore_j
+
+/--
+Forward persistence of parent-top status for the stable rank-threshold family.
+This is the slotwise form needed to show that a bottom vertex charged once by a
+source-relevant boundary event cannot later contribute as the lower endpoint of
+another bottom-bottom edge.
+-/
+theorem rankThresholdDissectionFamily_parentTop_of_le
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (s : Nat)
+    {i j : Fin m}
+    (hij_le : i.val <= j.val)
+    (v : Fin n)
+    (hparent :
+      (E.rankThresholdDissectionFamily hsteps s i).IsTop
+        ((E.step i).before.parent v)) :
+    (E.rankThresholdDissectionFamily hsteps s j).IsTop
+      ((E.step j).before.parent v) := by
+  rcases Nat.exists_eq_add_of_le hij_le with ⟨d, hd⟩
+  revert i j
+  induction d with
+  | zero =>
+      intro i j hij_le hparent hd
+      have hvals : i.val = j.val := by omega
+      have hfin : i = j := Fin.ext hvals
+      subst j
+      exact hparent
+  | succ d ih =>
+      intro i j hij_le hparent hd
+      let mid : Fin m := ⟨i.val + d, by omega⟩
+      have hi_mid : i.val <= mid.val := by simp [mid]
+      have hmid_eq : mid.val = i.val + d := by rfl
+      have hmid_j : mid.val + 1 = j.val := by
+        simp [mid]
+        omega
+      have hparent_mid :
+          (E.rankThresholdDissectionFamily hsteps s mid).IsTop
+            ((E.step mid).before.parent v) := by
+        exact ih hi_mid hparent hmid_eq
+      exact E.rankThresholdDissectionFamily_parentTop_of_adjacent
+        hsteps hstate s hmid_j v hparent_mid
+
+/--
+If a step leaves a vertex with a top parent, then every later slot in the
+stable rank-threshold family sees that vertex with a top parent before the
+slot begins.
+-/
+theorem rankThresholdDissectionFamily_parentTop_of_after_lt
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (s : Nat)
+    {i j : Fin m}
+    (hij_lt : i.val < j.val)
+    (v : Fin n)
+    (hafter :
+      (E.rankThresholdDissectionFamily hsteps s i).IsTop
+        ((E.step i).after.parent v)) :
+    (E.rankThresholdDissectionFamily hsteps s j).IsTop
+      ((E.step j).before.parent v) := by
+  let next : Fin m := ⟨i.val + 1, by omega⟩
+  have hi_next : i.val + 1 = next.val := rfl
+  have hstate_next : (E.step i).after = (E.step next).before :=
+    hstate i next hi_next
+  have hbefore_next_i :
+      (E.rankThresholdDissectionFamily hsteps s i).IsTop
+        ((E.step next).before.parent v) := by
+    simpa [hstate_next] using hafter
+  have hbefore_next :
+      (E.rankThresholdDissectionFamily hsteps s next).IsTop
+        ((E.step next).before.parent v) :=
+    (E.rankThresholdDissectionFamily_topStable hsteps hstate s i next hi_next
+      ((E.step next).before.parent v)).1 hbefore_next_i
+  have hnext_le_j : next.val <= j.val := by
+    simp [next]
+    omega
+  exact E.rankThresholdDissectionFamily_parentTop_of_le
+    hsteps hstate s hnext_le_j v hbefore_next
+
+/--
+No future bottom-prefix edge can reuse the lower endpoint of an earlier
+source-relevant bottom exceptional edge.  The earlier exceptional edge rewires
+that vertex to a top parent; parent-top persistence then contradicts the later
+edge's bottom-parent requirement.
+-/
+theorem rankThreshold_sourceRelevantBottomException_future_bottom_edge_ne
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    {i j : Fin m}
+    (hij : i.val < j.val)
+    (hnonroot_i : (E.step i).path.IsNonrootPath (E.step i).before)
+    (hnotCharged_i :
+      Not ((E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged)
+    (qi qj : Fin (n + 1))
+    (hqi :
+      qi.val + 1 <
+        E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+    (hqj :
+      qj.val + 1 <
+        E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) j) :
+    (E.step i).path.node qi ≠ (E.step j).path.node qj := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  change Not ((E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+    (cut i) (hcut i)).IsCharged at hnotCharged_i
+  change qi.val + 1 < cut i at hqi
+  change qj.val + 1 < cut j at hqj
+  have hafter_top :
+      (Dfam i).IsTop ((E.step i).after.parent ((E.step i).path.node qi)) :=
+    (E.step i).sourceRelevantBottomException_after_parent_top_of_index
+      (Dfam i) (hE.1 i) (cut i) (hcut i) hnonroot_i hnotCharged_i qi hqi
+  have hfuture_top :
+      (Dfam j).IsTop
+        ((E.step j).before.parent ((E.step i).path.node qi)) :=
+    E.rankThresholdDissectionFamily_parentTop_of_after_lt
+      hE.1 hE.2.1 s hij ((E.step i).path.node qi) hafter_top
+  intro hsame
+  have hcutj_le : cut j <= (E.step j).path.len.val := (hcut j).1
+  let rj : Fin (n + 1) := ⟨qj.val + 1, by
+    have hlen_le : (E.step j).path.len.val <= n + 1 :=
+      Nat.le_of_lt_succ (E.step j).path.len.isLt
+    omega⟩
+  have hrj_active : rj.val < (E.step j).path.len.val := by
+    simp [rj]
+    omega
+  have hrj_cut : rj.val < cut j := by
+    simpa [rj] using hqj
+  have hparent_eq :
+      (E.step j).before.parent ((E.step j).path.node qj) =
+        (E.step j).path.node rj := by
+    exact (hE.1 j).1.2.2.1 qj rj (by simp [rj]) hrj_active
+  have hrj_bottom : (Dfam j).IsBottom ((E.step j).path.node rj) :=
+    (hcut j).2.1 rj hrj_active hrj_cut
+  have hparent_bottom_j :
+      (Dfam j).IsBottom
+        ((E.step j).before.parent ((E.step j).path.node qj)) := by
+    simpa [hparent_eq] using hrj_bottom
+  have hparent_bottom_i :
+      (Dfam j).IsBottom
+        ((E.step j).before.parent ((E.step i).path.node qi)) := by
+    simpa [hsame] using hparent_bottom_j
+  exact hparent_bottom_i hfuture_top
 
 /--
 The canonical top projected execution for a rank-threshold dissection has
