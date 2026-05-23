@@ -153,6 +153,18 @@ def HasConsecutiveStates (E : ProjectedCompressionExecution m) : Prop :=
     Exists fun e : Equiv (E.vertex i) (E.vertex j) =>
       (E.step i).ParentCommutesWithEquiv (E.step j) e
 
+/--
+Semantic validity for dependent projected executions: adjacent parent maps
+commute after identifying consecutive restricted vertex types.
+-/
+def IsSemanticallyValid (E : ProjectedCompressionExecution m) : Prop :=
+  E.HasConsecutiveStates
+
+theorem isSemanticallyValid_iff_hasConsecutiveStates
+    (E : ProjectedCompressionExecution m) :
+    E.IsSemanticallyValid <-> E.HasConsecutiveStates :=
+  Iff.rfl
+
 end ProjectedCompressionExecution
 
 /--
@@ -973,6 +985,40 @@ theorem topProjectedExecution_hasConsecutiveStates
     (E.step j) (D i) (D j) (hsteps i) (hsteps j) (hstate i j hij)
     (htop i j hij) (cut i) (cut j) (hcut i) (hcut j)
 
+/--
+The bottom dependent projected execution is semantically valid in the projected
+execution API.
+-/
+theorem bottomProjectedExecution_isSemanticallyValid
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (hbottom : forall i j : Fin m, i.val + 1 = j.val ->
+      forall v : Fin n, Iff ((D i).IsBottom v) ((D j).IsBottom v))
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.bottomProjectedExecution hsteps D cut hcut).IsSemanticallyValid :=
+  E.bottomProjectedExecution_hasConsecutiveStates hsteps hstate D hbottom cut hcut
+
+/--
+The top dependent projected execution is semantically valid in the projected
+execution API.
+-/
+theorem topProjectedExecution_isSemanticallyValid
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (htop : forall i j : Fin m, i.val + 1 = j.val ->
+      forall v : Fin n, Iff ((D i).IsTop v) ((D j).IsTop v))
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.topProjectedExecution hsteps D cut hcut).IsSemanticallyValid :=
+  E.topProjectedExecution_hasConsecutiveStates hsteps hstate D htop cut hcut
+
 /-- Canonical-cut bottom projected execution consecutive-state theorem. -/
 theorem canonicalBottomProjectedExecution_hasConsecutiveStates
     (E : RawCompressionExecution m n r)
@@ -994,6 +1040,26 @@ theorem canonicalTopProjectedExecution_hasConsecutiveStates
     (E.canonicalTopProjectedExecution hE.1 D).HasConsecutiveStates := by
   exact E.topProjectedExecution_hasConsecutiveStates hE.1 hE.2.1 D htop
     (E.dissectionCut hE.1 D) (E.dissectionCut_spec hE.1 D)
+
+/-- Canonical-cut bottom projected execution semantic-validity theorem. -/
+theorem canonicalBottomProjectedExecution_isSemanticallyValid
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (hbottom : forall i j : Fin m, i.val + 1 = j.val ->
+      forall v : Fin n, Iff ((D i).IsBottom v) ((D j).IsBottom v)) :
+    (E.canonicalBottomProjectedExecution hE.1 D).IsSemanticallyValid := by
+  exact E.canonicalBottomProjectedExecution_hasConsecutiveStates hE D hbottom
+
+/-- Canonical-cut top projected execution semantic-validity theorem. -/
+theorem canonicalTopProjectedExecution_isSemanticallyValid
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (htop : forall i j : Fin m, i.val + 1 = j.val ->
+      forall v : Fin n, Iff ((D i).IsTop v) ((D j).IsTop v)) :
+    (E.canonicalTopProjectedExecution hE.1 D).IsSemanticallyValid := by
+  exact E.canonicalTopProjectedExecution_hasConsecutiveStates hE D htop
 
 /-- Rank-threshold dissection attached to each raw execution slot. -/
 def rankThresholdDissectionFamily
@@ -1068,6 +1134,30 @@ theorem rankThresholdBottomProjectedExecution_hasConsecutiveStates
     (fun i j hij v => E.bottomSideStable_of_topSideStable
       (E.rankThresholdDissectionFamily hE.1 s)
       (E.rankThresholdDissectionFamily_topStable hE.1 hE.2.1 s) i j hij v)
+
+/--
+The canonical top projected execution for a rank-threshold dissection is
+semantically valid in the projected execution API.
+-/
+theorem rankThresholdTopProjectedExecution_isSemanticallyValid
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).IsSemanticallyValid := by
+  exact E.rankThresholdTopProjectedExecution_hasConsecutiveStates hE s
+
+/--
+The canonical bottom projected execution for a rank-threshold dissection is
+semantically valid in the projected execution API.
+-/
+theorem rankThresholdBottomProjectedExecution_isSemanticallyValid
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).IsSemanticallyValid := by
+  exact E.rankThresholdBottomProjectedExecution_hasConsecutiveStates hE s
 
 /-- The stepwise nonroot indicators sum to the execution nonroot count. -/
 theorem nonrootIndicator_sum_eq_nonrootCount

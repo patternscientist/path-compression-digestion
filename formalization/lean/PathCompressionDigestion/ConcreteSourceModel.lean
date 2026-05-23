@@ -177,12 +177,59 @@ def HasBaseRankAccounting (E : RawCompressionExecution m n r) : Prop :=
   Exists fun charge : E.ChargeUnit -> Prod (Fin n) (Fin (r - 1)) =>
     Function.Injective charge
 
-/-- Valid executions have valid steps, consecutive states, and base accounting. -/
+/-- Every slot of an execution is a valid concrete compression step. -/
+def HasValidSteps (E : RawCompressionExecution m n r) : Prop :=
+  forall i : Fin m, (E.step i).IsValid
+
+/-- Consecutive execution slots agree literally as before/after forests. -/
+def HasConsecutiveStates (E : RawCompressionExecution m n r) : Prop :=
+  forall i j : Fin m,
+    i.val + 1 = j.val -> (E.step i).after = (E.step j).before
+
+/--
+Semantic execution validity, separated from the base/rank accounting
+certificate used by the base-bound proof.
+-/
+def IsSemanticallyValid (E : RawCompressionExecution m n r) : Prop :=
+  E.HasValidSteps /\ E.HasConsecutiveStates
+
+/-- Valid executions have semantic validity and base accounting. -/
 def IsValid (E : RawCompressionExecution m n r) : Prop :=
-  (forall i : Fin m, (E.step i).IsValid) /\
-    (forall i j : Fin m,
-      i.val + 1 = j.val -> (E.step i).after = (E.step j).before) /\
+  E.HasValidSteps /\
+    E.HasConsecutiveStates /\
     E.HasBaseRankAccounting
+
+/-- The old execution validity predicate factors into semantic validity plus accounting. -/
+theorem isValid_iff_semantic_and_rank
+    (E : RawCompressionExecution m n r) :
+    E.IsValid <-> E.IsSemanticallyValid /\ E.HasBaseRankAccounting := by
+  constructor
+  · intro h
+    exact ⟨⟨h.1, h.2.1⟩, h.2.2⟩
+  · intro h
+    exact ⟨h.1.1, h.1.2, h.2⟩
+
+/-- Valid executions are semantically valid. -/
+theorem isSemanticallyValid_of_isValid
+    (E : RawCompressionExecution m n r)
+    (h : E.IsValid) :
+    E.IsSemanticallyValid :=
+  (E.isValid_iff_semantic_and_rank).1 h |>.1
+
+/-- Valid executions carry the base/rank accounting certificate. -/
+theorem hasBaseRankAccounting_of_isValid
+    (E : RawCompressionExecution m n r)
+    (h : E.IsValid) :
+    E.HasBaseRankAccounting :=
+  (E.isValid_iff_semantic_and_rank).1 h |>.2
+
+/-- Semantic validity plus base/rank accounting reconstructs the old validity predicate. -/
+theorem isValid_of_semantic_and_rank
+    (E : RawCompressionExecution m n r)
+    (hsemantic : E.IsSemanticallyValid)
+    (hrank : E.HasBaseRankAccounting) :
+    E.IsValid :=
+  (E.isValid_iff_semantic_and_rank).2 ⟨hsemantic, hrank⟩
 
 /--
 Total execution cost, represented as the number of individual charged units
@@ -235,7 +282,7 @@ theorem topDownCost_le_base_budget (m n r : Nat) :
   refine Finset.sup_le ?_
   intro E hE
   have hvalid : E.IsValid := (Finset.mem_filter.mp hE).2
-  exact E.cost_le_base_budget hvalid.2.2
+  exact E.cost_le_base_budget (E.hasBaseRankAccounting_of_isValid hvalid)
 
 private theorem pred_le_two_mul_J0 (r : Nat) :
     r - 1 <= 2 * J 0 r := by
