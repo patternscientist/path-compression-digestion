@@ -177,6 +177,25 @@ noncomputable def nonrootCount (E : ProjectedCompressionExecution m) : Nat :=
 noncomputable def chargedCount (E : ProjectedCompressionExecution m) : Nat :=
   E.nonrootCount
 
+/-- Projected nonroot counts are bounded by the number of projected slots. -/
+theorem nonrootCount_le_length (E : ProjectedCompressionExecution m) :
+    E.nonrootCount <= m := by
+  classical
+  unfold nonrootCount
+  calc
+    Finset.sum (Finset.univ : Finset (Fin m)) (fun i => (E.step i).nonrootIndicator)
+        <= Finset.sum (Finset.univ : Finset (Fin m)) (fun _i => (1 : Nat)) := by
+          exact Finset.sum_le_sum (by
+            intro i _hi
+            exact (E.step i).nonrootIndicator_le_one)
+    _ = m := by
+          simp
+
+/-- Projected charged counts are bounded by the number of projected slots. -/
+theorem chargedCount_le_length (E : ProjectedCompressionExecution m) :
+    E.chargedCount <= m := by
+  simpa [chargedCount] using E.nonrootCount_le_length
+
 /-- Consecutive projected slots agree up to a vertex equivalence. -/
 def HasConsecutiveStates (E : ProjectedCompressionExecution m) : Prop :=
   forall i j : Fin m, i.val + 1 = j.val ->
@@ -1297,6 +1316,24 @@ theorem bottomBoundaryCard_le_of_forall_bottom_card_le
   intro i _hi
   exact hcard i
 
+/-- Identify the bottom-boundary budget when all displayed bottom sides agree. -/
+theorem bottomBoundaryCard_eq_of_forall_bottomFinset_eq
+    (E : RawCompressionExecution m n r)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (i0 : Fin m)
+    (hstable : forall i : Fin m, (D i).bottomFinset = (D i0).bottomFinset) :
+    E.bottomBoundaryCard D = (D i0).bottomFinset.card := by
+  classical
+  apply le_antisymm
+  · exact E.bottomBoundaryCard_le_of_forall_bottom_card_le D (by
+      intro i
+      rw [hstable i])
+  · unfold bottomBoundaryCard
+    exact Finset.le_sup
+      (s := (Finset.univ : Finset (Fin m)))
+      (f := fun i => (D i).bottomFinset.card)
+      (Finset.mem_univ i0)
+
 /--
 In a semantically valid execution, rank-threshold dissections compute the same
 rank for a vertex at every slot, measured against any chosen slot.
@@ -1358,6 +1395,21 @@ theorem rankThresholdDissectionFamily_bottomFinset_eq_of_slot
   simp [rankThresholdDissectionFamily,
     E.rankThresholdDissectionFamily_rankNat_eq_of_slot hsteps hstate i0 i v]
 
+/-- Rank-threshold top vertex sets are stable across all execution slots. -/
+theorem rankThresholdDissectionFamily_topFinset_eq_of_slot
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (s : Nat)
+    (i0 i : Fin m) :
+    (E.rankThresholdDissectionFamily hsteps s i).topFinset =
+      (E.rankThresholdDissectionFamily hsteps s i0).topFinset := by
+  classical
+  ext v
+  simp [rankThresholdDissectionFamily,
+    E.rankThresholdDissectionFamily_rankNat_eq_of_slot hsteps hstate i0 i v]
+
 /--
 For a nonempty valid execution, the finite `bottomBoundaryCard` of the
 rank-threshold family is bounded by the bottom side at any chosen slot.  This
@@ -1379,6 +1431,22 @@ theorem rankThreshold_bottomBoundaryCard_le_bottomFinset_card
         (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset :=
     E.rankThresholdDissectionFamily_bottomFinset_eq_of_slot hE.1 hE.2.1 s i0 i
   rw [hfinset]
+
+/--
+For a nonempty valid execution, the finite `bottomBoundaryCard` of the
+rank-threshold family is exactly the bottom side at any chosen slot.
+-/
+theorem rankThreshold_bottomBoundaryCard_eq_bottomFinset_card
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.bottomBoundaryCard (E.rankThresholdDissectionFamily hE.1 s) =
+      ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) := by
+  exact E.bottomBoundaryCard_eq_of_forall_bottomFinset_eq
+    (E.rankThresholdDissectionFamily hE.1 s) i0
+    (fun i => E.rankThresholdDissectionFamily_bottomFinset_eq_of_slot
+      hE.1 hE.2.1 s i0 i)
 
 /-- Slot-level bottom rank bound for the rank-threshold dissection family. -/
 theorem rankThresholdDissectionFamily_bottom_rank_le
@@ -1415,6 +1483,27 @@ theorem rankThresholdDissectionFamily_top_card_le_div
     (E.rankThresholdDissectionFamily hsteps s i).topFinset.card <=
       n / 2 ^ (s + 1) := by
   exact RankThresholdDissection.top_card_le_div (E.step i).before (hsteps i).1.1 s P
+
+/--
+Top-side cardinality bound transported across the stable rank-threshold family
+from a packing witness at a chosen slot.
+-/
+theorem rankThresholdDissectionFamily_top_card_le_div_of_slot_packing
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (s : Nat)
+    (i0 i : Fin m)
+    (P : RankThresholdDissection.TopPacking (E.step i0).before (hsteps i0).1.1 s) :
+    (E.rankThresholdDissectionFamily hsteps s i).topFinset.card <=
+      n / 2 ^ (s + 1) := by
+  have hfinset :
+      (E.rankThresholdDissectionFamily hsteps s i).topFinset =
+        (E.rankThresholdDissectionFamily hsteps s i0).topFinset :=
+    E.rankThresholdDissectionFamily_topFinset_eq_of_slot hsteps hstate s i0 i
+  rw [hfinset]
+  exact E.rankThresholdDissectionFamily_top_card_le_div hsteps s i0 P
 
 /-- The stepwise nonroot indicators sum to the execution nonroot count. -/
 theorem nonrootIndicator_sum_eq_nonrootCount
@@ -1647,6 +1736,19 @@ theorem canonical_projected_nonroot_count_le
   exact E.projected_nonroot_count_le hsteps D
     (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
 
+/-- Rank-threshold specialization of the projected nonroot-count inequality. -/
+theorem rankThreshold_projected_nonroot_count_le
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount <=
+      E.nonrootCount := by
+  exact E.canonical_projected_nonroot_count_le hE.1
+    (E.rankThresholdDissectionFamily hE.1 s)
+
 /--
 Paper-facing projected source cost accounting.  The current finite projection
 proof is stronger than this statement: it pays only the top projected
@@ -1682,6 +1784,36 @@ theorem canonical_projected_cost_main_lemma
             (E.canonicalTopProjectedExecution hsteps D).chargedCount := by
   exact E.projected_cost_main_lemma hsteps D
     (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
+
+/--
+Rank-threshold specialization of the projected main lemma with the stable
+bottom side cardinality displayed as the paper-side `|X_b|` term.
+-/
+theorem rankThreshold_projected_cost_main_lemma
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+          ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) +
+            (E.canonicalTopProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).chargedCount := by
+  have hmain :
+      E.cost <=
+        (E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+          (E.canonicalTopProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+            E.bottomBoundaryCard (E.rankThresholdDissectionFamily hE.1 s) +
+              (E.canonicalTopProjectedExecution hE.1
+                (E.rankThresholdDissectionFamily hE.1 s)).chargedCount :=
+    E.canonical_projected_cost_main_lemma hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  simpa [E.rankThreshold_bottomBoundaryCard_eq_bottomFinset_card hE s i0] using hmain
 
 /--
 Execution-level projected cost accounting for a chosen family of dissection
