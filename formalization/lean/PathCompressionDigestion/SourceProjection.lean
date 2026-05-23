@@ -119,6 +119,16 @@ noncomputable def nonrootIndicator (S : ProjectedCompressionStep alpha) : Nat :=
 noncomputable def boundaryCharge (S : ProjectedCompressionStep alpha) : Nat :=
   S.nonrootIndicator
 
+/-- Cost of the part of a projected step that is nonroot-like and recurrence-consumable. -/
+noncomputable def consumableCost (S : ProjectedCompressionStep alpha) : Nat := by
+  classical
+  exact if S.IsCharged then S.cost else 0
+
+/-- Cost of the root-like projected part that must be handled outside `topDownCost`. -/
+noncomputable def exceptionalCost (S : ProjectedCompressionStep alpha) : Nat := by
+  classical
+  exact if S.IsCharged then 0 else S.cost
+
 /-- Projected charged steps are exactly the non-root-like steps. -/
 theorem not_charged_iff_rootLike (S : ProjectedCompressionStep alpha) :
     Not S.IsCharged <-> S.IsRootLike := by
@@ -133,6 +143,41 @@ theorem nonrootIndicator_le_one (S : ProjectedCompressionStep alpha) :
 theorem boundaryCharge_le_one (S : ProjectedCompressionStep alpha) :
     S.boundaryCharge <= 1 := by
   exact S.nonrootIndicator_le_one
+
+@[simp]
+theorem consumableCost_eq_cost_of_charged
+    (S : ProjectedCompressionStep alpha)
+    (h : S.IsCharged) :
+    S.consumableCost = S.cost := by
+  simp [consumableCost, h]
+
+@[simp]
+theorem consumableCost_eq_zero_of_not_charged
+    (S : ProjectedCompressionStep alpha)
+    (h : Not S.IsCharged) :
+    S.consumableCost = 0 := by
+  simp [consumableCost, h]
+
+@[simp]
+theorem exceptionalCost_eq_zero_of_charged
+    (S : ProjectedCompressionStep alpha)
+    (h : S.IsCharged) :
+    S.exceptionalCost = 0 := by
+  simp [exceptionalCost, h]
+
+@[simp]
+theorem exceptionalCost_eq_cost_of_not_charged
+    (S : ProjectedCompressionStep alpha)
+    (h : Not S.IsCharged) :
+    S.exceptionalCost = S.cost := by
+  simp [exceptionalCost, h]
+
+/-- Projected step cost splits into recurrence-consumable and exceptional parts. -/
+theorem cost_eq_consumableCost_add_exceptionalCost
+    (S : ProjectedCompressionStep alpha) :
+    S.cost = S.consumableCost + S.exceptionalCost := by
+  classical
+  by_cases h : S.IsCharged <;> simp [consumableCost, exceptionalCost, h]
 
 variable {beta : Type*}
 
@@ -169,6 +214,14 @@ noncomputable def cost (E : ProjectedCompressionExecution m) : Nat :=
 noncomputable def projectedCost (E : ProjectedCompressionExecution m) : Nat :=
   E.cost
 
+/-- Sum of recurrence-consumable projected step costs. -/
+noncomputable def consumableCost (E : ProjectedCompressionExecution m) : Nat :=
+  Finset.sum (Finset.univ : Finset (Fin m)) fun i => (E.step i).consumableCost
+
+/-- Sum of exceptional projected step costs. -/
+noncomputable def exceptionalCost (E : ProjectedCompressionExecution m) : Nat :=
+  Finset.sum (Finset.univ : Finset (Fin m)) fun i => (E.step i).exceptionalCost
+
 /-- Sum of projected nonrootpath indicators. -/
 noncomputable def nonrootCount (E : ProjectedCompressionExecution m) : Nat :=
   Finset.sum (Finset.univ : Finset (Fin m)) fun i => (E.step i).nonrootIndicator
@@ -195,6 +248,17 @@ theorem nonrootCount_le_length (E : ProjectedCompressionExecution m) :
 theorem chargedCount_le_length (E : ProjectedCompressionExecution m) :
     E.chargedCount <= m := by
   simpa [chargedCount] using E.nonrootCount_le_length
+
+/-- Projected execution cost splits into recurrence-consumable and exceptional parts. -/
+theorem projectedCost_eq_consumableCost_add_exceptionalCost
+    (E : ProjectedCompressionExecution m) :
+    E.projectedCost = E.consumableCost + E.exceptionalCost := by
+  classical
+  unfold projectedCost cost consumableCost exceptionalCost
+  rw [← Finset.sum_add_distrib]
+  exact Finset.sum_congr rfl (by
+    intro i _hi
+    exact (E.step i).cost_eq_consumableCost_add_exceptionalCost)
 
 /-- Consecutive projected slots agree up to a vertex equivalence. -/
 def HasConsecutiveStates (E : ProjectedCompressionExecution m) : Prop :=
@@ -683,6 +747,76 @@ theorem cost_le_projectedSteps_cost_add_topNonrootIndicator
   unfold cost
   exact S.path.sourceCost_le_projection_edgeCosts_add_topNonrootIndicator
     D hS.1.2.2.1 hS.1.2.2.2 cut hcut
+
+/--
+For a source nonrootpath, the top projection has no exceptional cost: if the
+top suffix is nonempty it is nonroot-like, and if it is empty its edge cost is
+zero.
+-/
+theorem topProjectedStep_cost_eq_consumableCost_of_source_nonroot
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut)
+    (hnonroot : S.path.IsNonrootPath S.before) :
+    (S.topProjectedStep D hS cut hcut).cost =
+      (S.topProjectedStep D hS cut hcut).consumableCost := by
+  classical
+  let T := S.topProjectedStep D hS cut hcut
+  change T.cost = T.consumableCost
+  by_cases htop : cut < S.path.len.val
+  · have ht_charged : T.IsCharged := by
+      unfold T RawCompressionPath.ProjectedCompressionStep.IsCharged
+        RawCompressionPath.ProjectedCompressionStep.IsNonrootPath
+      exact S.path.topProjectionSegment_isNonrootPath_of_source_nonroot
+        D hS.1.2.2.1 hS.1.2.2.2 hnonroot cut hcut htop
+    rw [T.consumableCost_eq_cost_of_charged ht_charged]
+  · have hcut_eq : cut = S.path.len.val := by
+      have hcut_le : cut <= S.path.len.val := hcut.1
+      omega
+    have hcost : T.cost = 0 := by
+      unfold T RawCompressionStep.topProjectedStep
+        RawCompressionPath.ProjectedCompressionStep.cost
+        RawCompressionPath.ProjectedPathSegment.edgeCost
+      simp [RawCompressionPath.topProjectionSegment,
+        RawCompressionPath.topProjectionLength, hcut_eq]
+    rw [hcost]
+    by_cases ht_charged : T.IsCharged
+    · rw [T.consumableCost_eq_cost_of_charged ht_charged, hcost]
+    · rw [T.consumableCost_eq_zero_of_not_charged ht_charged]
+
+/--
+Step-level accounting with the top exceptional projected cost removed.  The
+only top-side additive remainder is the already existing projected nonroot
+indicator.
+-/
+theorem cost_le_bottomCost_add_topConsumable_add_topNonroot
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    S.cost <=
+      (S.bottomProjectedStep D hS cut hcut).cost +
+        (S.topProjectedStep D hS cut hcut).consumableCost +
+          (S.topProjectedStep D hS cut hcut).nonrootIndicator := by
+  classical
+  by_cases hnonroot : S.path.IsNonrootPath S.before
+  · have htop_cost :
+        (S.topProjectedStep D hS cut hcut).cost =
+          (S.topProjectedStep D hS cut hcut).consumableCost :=
+      S.topProjectedStep_cost_eq_consumableCost_of_source_nonroot
+        D hS cut hcut hnonroot
+    simpa [htop_cost] using
+      S.cost_le_projectedSteps_cost_add_topNonrootIndicator D hS cut hcut
+  · have hroot : S.path.IsRootPath S.before := by
+      unfold RawCompressionPath.IsRootPath RawRankedForest.IsRoot
+      unfold RawCompressionPath.IsNonrootPath at hnonroot
+      exact Decidable.not_not.mp hnonroot
+    unfold cost RawCompressionPath.sourceCost
+    rw [if_pos hroot]
+    omega
 
 /--
 Top restricted vertices are preserved by `afterDissection`, packaged as the
@@ -1700,6 +1834,58 @@ theorem stepCostSum_le_projectedCostSums_add_topProjectedNonrootCount
               rfl
   exact le_trans hsum (le_of_eq hsplit)
 
+/--
+Execution-level accounting with top exceptional projected costs removed.  This
+is still not a `topDownCost` consumption theorem: the bottom projected cost
+remains a full projected cost.
+-/
+theorem stepCostSum_le_bottomProjectedCostSum_add_topConsumableCost_add_topProjectedNonrootCount
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    E.stepCostSum <=
+      E.bottomProjectedCostSum hsteps D cut hcut +
+        (E.topProjectedExecution hsteps D cut hcut).consumableCost +
+          E.topProjectedNonrootCount hsteps D cut hcut := by
+  classical
+  unfold stepCostSum bottomProjectedCostSum topProjectedNonrootCount
+  unfold RawCompressionPath.ProjectedCompressionExecution.consumableCost
+  let B : Fin m -> Nat := fun i =>
+    ((E.step i).bottomProjectedStep (D i) (hsteps i) (cut i) (hcut i)).cost
+  let T : Fin m -> Nat := fun i =>
+    ((E.step i).topProjectedStep (D i) (hsteps i) (cut i) (hcut i)).consumableCost
+  let N : Fin m -> Nat := fun i =>
+    ((E.step i).topProjectedStep (D i) (hsteps i) (cut i) (hcut i)).nonrootIndicator
+  have hsum :
+      Finset.sum (Finset.univ : Finset (Fin m)) (fun i => (E.step i).cost) <=
+        Finset.sum (Finset.univ : Finset (Fin m)) (fun i => B i + T i + N i) := by
+    exact Finset.sum_le_sum (by
+      intro i _hi
+      change (E.step i).cost <= B i + T i + N i
+      exact (E.step i).cost_le_bottomCost_add_topConsumable_add_topNonroot
+        (D i) (hsteps i) (cut i) (hcut i))
+  have hsplit :
+      Finset.sum (Finset.univ : Finset (Fin m)) (fun i => B i + T i + N i) =
+        Finset.sum (Finset.univ : Finset (Fin m)) B +
+          Finset.sum (Finset.univ : Finset (Fin m)) T +
+            Finset.sum (Finset.univ : Finset (Fin m)) N := by
+    calc
+      Finset.sum (Finset.univ : Finset (Fin m)) (fun i => B i + T i + N i)
+          = Finset.sum (Finset.univ : Finset (Fin m)) (fun i => B i + T i) +
+              Finset.sum (Finset.univ : Finset (Fin m)) N := by
+              rw [Finset.sum_add_distrib]
+      _ = (Finset.sum (Finset.univ : Finset (Fin m)) B +
+              Finset.sum (Finset.univ : Finset (Fin m)) T) +
+            Finset.sum (Finset.univ : Finset (Fin m)) N := by
+              rw [Finset.sum_add_distrib]
+      _ = Finset.sum (Finset.univ : Finset (Fin m)) B +
+            Finset.sum (Finset.univ : Finset (Fin m)) T +
+              Finset.sum (Finset.univ : Finset (Fin m)) N := by
+              rfl
+  exact le_trans hsum (le_of_eq hsplit)
+
 /-- Canonical-cut form of the sharper execution-level projected cost bound. -/
 theorem stepCostSum_le_canonicalProjectedCostSums_add_topProjectedNonrootCount
     (E : RawCompressionExecution m n r)
@@ -1777,6 +1963,25 @@ theorem cost_le_projectedExecutions_cost_add_topNonrootCount
   rw [E.cost_eq_stepCostSum]
   exact E.stepCostSum_le_projectedCostSums_add_topProjectedNonrootCount hsteps D cut hcut
 
+/--
+Projected-execution cost accounting with top exceptional projected costs
+removed.  The bottom side is still a full projected cost.
+-/
+theorem cost_le_projectedExecutions_bottomCost_add_topConsumableCost_add_topNonrootCount
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    E.cost <=
+      (E.bottomProjectedExecution hsteps D cut hcut).cost +
+        (E.topProjectedExecution hsteps D cut hcut).consumableCost +
+          (E.topProjectedExecution hsteps D cut hcut).nonrootCount := by
+  rw [E.cost_eq_stepCostSum]
+  exact
+    E.stepCostSum_le_bottomProjectedCostSum_add_topConsumableCost_add_topProjectedNonrootCount
+      hsteps D cut hcut
+
 /-- Canonical-cut form of the projected-execution cost inequality. -/
 theorem cost_le_canonicalProjectedExecutions_cost_add_topNonrootCount
     (E : RawCompressionExecution m n r)
@@ -1789,6 +1994,21 @@ theorem cost_le_canonicalProjectedExecutions_cost_add_topNonrootCount
   rw [E.cost_eq_stepCostSum]
   exact E.stepCostSum_le_projectedCostSums_add_topProjectedNonrootCount hsteps D
     (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
+
+/--
+Canonical-cut projected-execution cost accounting with top exceptional costs
+removed.
+-/
+theorem cost_le_canonicalProjectedExecutions_bottomCost_add_topConsumableCost_add_topNonrootCount
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hsteps D).cost +
+        (E.canonicalTopProjectedExecution hsteps D).consumableCost +
+          (E.canonicalTopProjectedExecution hsteps D).nonrootCount := by
+  exact E.cost_le_projectedExecutions_bottomCost_add_topConsumableCost_add_topNonrootCount
+    hsteps D (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
 
 /--
 Paper-facing projected nonroot-count inequality for first-class projected
@@ -1895,6 +2115,62 @@ theorem rankThreshold_projected_cost_main_lemma
     E.canonical_projected_cost_main_lemma hE.1
       (E.rankThresholdDissectionFamily hE.1 s)
   simpa [E.rankThreshold_bottomBoundaryCard_eq_bottomFinset_card hE s i0] using hmain
+
+/--
+Rank-threshold projected accounting with the top exceptional projected cost
+removed.  The remaining unconsumed projected term is the full bottom projected
+cost.
+-/
+theorem rankThreshold_projected_consumable_cost_main_lemma
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+          ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) +
+            (E.canonicalTopProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).chargedCount := by
+  have hstrong :
+      E.cost <=
+        (E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).cost +
+          (E.canonicalTopProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+            (E.canonicalTopProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).nonrootCount :=
+    E.cost_le_canonicalProjectedExecutions_bottomCost_add_topConsumableCost_add_topNonrootCount
+      hE.1 (E.rankThresholdDissectionFamily hE.1 s)
+  simp [RawCompressionPath.ProjectedCompressionExecution.projectedCost,
+    RawCompressionPath.ProjectedCompressionExecution.chargedCount] at *
+  omega
+
+/--
+Rank-threshold projected accounting with top exceptional projected cost removed
+and the remaining top charge term consumed by execution length.
+-/
+theorem rankThreshold_projected_consumable_cost_main_lemma_add_length
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+          ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) +
+            m := by
+  have hmain := E.rankThreshold_projected_consumable_cost_main_lemma hE s i0
+  have hcharge :
+      (E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount <= m :=
+    (E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).chargedCount_le_length
+  omega
 
 /--
 Rank-threshold projected main lemma with the top projected charge term consumed
