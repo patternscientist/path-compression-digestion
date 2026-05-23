@@ -227,6 +227,37 @@ theorem isAdmissible_iff_isSemanticallyValid
     E.IsAdmissible <-> E.IsSemanticallyValid :=
   Iff.rfl
 
+/--
+Projected admissibility alone is too weak to imply domination by `topDownCost`:
+a one-slot projected execution over `Unit` can have positive projected cost
+while the rank-zero base-accounted `topDownCost` is zero.
+-/
+theorem exists_admissible_projectedCost_gt_topDownCost_rank_zero :
+    Exists fun E : ProjectedCompressionExecution.{0} 1 =>
+      E.IsAdmissible /\ E.projectedCost = 1 /\ topDownCost 1 1 0 = 0 := by
+  classical
+  let path : ProjectedPathSegment Unit (fun _ : Unit => ()) := {
+    len := 2
+    node := fun _ => ()
+    parent_chain := by
+      intro i j hij
+      rfl
+  }
+  let step : ProjectedCompressionStep Unit := {
+    beforeParent := fun _ => ()
+    afterParent := fun _ => ()
+    path := path
+  }
+  let E : ProjectedCompressionExecution 1 := {
+    vertex := fun _ => Unit
+    step := fun _ => step
+  }
+  refine ⟨E, ?_, ?_, topDownCost_rank_zero_eq_zero 1 1⟩
+  · intro i j hij
+    omega
+  · simp [E, step, path, projectedCost, cost, ProjectedCompressionStep.cost,
+      ProjectedPathSegment.edgeCost]
+
 end ProjectedCompressionExecution
 
 /--
