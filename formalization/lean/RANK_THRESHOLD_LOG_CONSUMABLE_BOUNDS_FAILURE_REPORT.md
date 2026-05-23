@@ -178,14 +178,49 @@ Thus the old one-vertex high-rank root is no longer accepted by the repaired
 `RawCompressionExecution.IsValid`; it remains accepted only by the explicitly
 named legacy predicate.
 
-## Blocker Classification
+## Current Blocker Classification
 
-Blocker: top packing first.
-
-Secondary blockers, after top packing is supplied:
+The original first blocker, top packing, is repaired in the faithful model.
+The remaining blockers are now exactly the two recurrence-consumable simulation
+fields:
 
 - bottom consumable-cost simulation;
 - top consumable-cost simulation.
+
+A follow-up worker proved the rank-range part of these simulations:
+
+```lean
+theorem RawCompressionExecution.rankThresholdBottomProjectedExecution_consumableCost_le_threshold_mul_chargedCount
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+      s *
+        (E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount
+
+theorem RawCompressionExecution.rankThresholdTopProjectedExecution_consumableCost_le_shiftedRank_mul_chargedCount
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+      (r - s - 1) *
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount
+```
+
+These are structural projected-path bounds, not the final Seidel--Sharir
+recurrence consumption.  The package still needs the sharper bounds:
+
+```lean
+Cb.consumableCost <= (k + 1) * Cb.chargedCount
+  + 2 * |X_b| * Drow.diamond s
+
+Ct.consumableCost <= k * Ct.chargedCount
+  + 2 * |X_t| * Drow.g (r - s - 1)
+```
 
 The charged-count bookkeeping needed by the existing log/diamond budget theorem
 is already present.  The failure is not in the packaged source-shift arithmetic
@@ -193,24 +228,29 @@ and not in the existing finite paper theorem bridge.
 
 ## Smallest Next Theorem Statement
 
-The smallest theorem over the current package shape is:
+The smallest next theorem should consume one side's projected recurrence, not
+just its rank range.  For the bottom side:
 
 ```lean
-theorem rankThresholdLogTopPacking
+theorem rankThreshold_bottom_consumableCost_le_recurrence_budget
+    (Drow : DiamondInput)
+    (k : Nat)
     (E : RawCompressionExecution m n r)
     (hE : E.IsValid)
     (s : Nat)
     (i0 : Fin m) :
-    RankThresholdDissection.TopPacking (E.step i0).before
-      (hE.1 i0).1.1 s
+    (E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+      (k + 1) *
+        (E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+        2 * ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) *
+          Drow.diamond s
 ```
 
-However, the new counterexample theorem shows that this statement is not sound
-for the present concrete model unless `RawCompressionExecution.IsValid` is
-strengthened, or accompanied, by a source-faithful rank-size/subtree packing
-invariant.  A sound next step should first add and audit that invariant, then
-prove the top-packing theorem from it while preserving the existing
-`RankThresholdLogConsumableBounds` wrapper.
+The analogous top-side theorem has coefficient `k` and budget
+`Drow.g (r - s - 1)`.  Proving either theorem likely requires a valid
+restricted-projection simulation/comparison theorem, not more Nat arithmetic.
 
 ## Verdict
 
