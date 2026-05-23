@@ -227,6 +227,37 @@ theorem isAdmissible_iff_isSemanticallyValid
     E.IsAdmissible <-> E.IsSemanticallyValid :=
   Iff.rfl
 
+/--
+Projected admissibility alone is too weak to imply domination by `topDownCost`:
+a one-slot projected execution over `Unit` can have positive projected cost
+while the rank-zero base-accounted `topDownCost` is zero.
+-/
+theorem exists_admissible_projectedCost_gt_topDownCost_rank_zero :
+    Exists fun E : ProjectedCompressionExecution.{0} 1 =>
+      E.IsAdmissible /\ E.projectedCost = 1 /\ topDownCost 1 1 0 = 0 := by
+  classical
+  let path : ProjectedPathSegment Unit (fun _ : Unit => ()) := {
+    len := 2
+    node := fun _ => ()
+    parent_chain := by
+      intro i j hij
+      rfl
+  }
+  let step : ProjectedCompressionStep Unit := {
+    beforeParent := fun _ => ()
+    afterParent := fun _ => ()
+    path := path
+  }
+  let E : ProjectedCompressionExecution 1 := {
+    vertex := fun _ => Unit
+    step := fun _ => step
+  }
+  refine ⟨E, ?_, ?_, topDownCost_rank_zero_eq_zero 1 1⟩
+  · intro i j hij
+    omega
+  · simp [E, step, path, projectedCost, cost, ProjectedCompressionStep.cost,
+      ProjectedPathSegment.edgeCost]
+
 end ProjectedCompressionExecution
 
 /--
@@ -517,6 +548,16 @@ end RawDissection
 namespace RawCompressionStep
 
 variable {n r : Nat}
+
+/-- Over one vertex every raw source step is a rootpath and has zero cost. -/
+theorem cost_eq_zero_of_one_vertex (S : RawCompressionStep 1 r) :
+    S.cost = 0 := by
+  classical
+  have hroot : S.path.IsRootPath S.before := by
+    unfold RawCompressionPath.IsRootPath RawRankedForest.IsRoot
+    exact Subsingleton.elim _ _
+  unfold cost RawCompressionPath.sourceCost
+  rw [if_pos hroot]
 
 /-- Indicator for source nonrootpaths. -/
 noncomputable def nonrootIndicator (S : RawCompressionStep n r) : Nat := by
@@ -853,6 +894,46 @@ theorem cost_eq_stepCostSum
             apply Finset.sum_congr rfl
             intro i _hi
             exact Fintype.card_fin ((E.step i).cost)
+
+/-- Over one vertex every raw execution has zero cost. -/
+theorem cost_eq_zero_of_one_vertex
+    (E : RawCompressionExecution m 1 r) :
+    E.cost = 0 := by
+  rw [E.cost_eq_stepCostSum]
+  unfold stepCostSum
+  exact Finset.sum_eq_zero (by
+    intro i _hi
+    exact RawCompressionStep.cost_eq_zero_of_one_vertex (E.step i))
+
+/-- The ordinary base-accounted top-down cost over one vertex is zero. -/
+theorem topDownCost_one_vertex_eq_zero (m r : Nat) :
+    topDownCost m 1 r = 0 := by
+  exact Nat.eq_zero_of_le_zero (by
+    apply topDownCost_le_of_forall_valid
+    intro E _hE
+    rw [E.cost_eq_zero_of_one_vertex])
+
+end RawCompressionExecution
+
+namespace RawCompressionPath.ProjectedCompressionExecution
+
+/--
+The projected counterexample persists at every rank bound over one ordinary
+vertex, since ordinary one-vertex executions have zero cost.
+-/
+theorem exists_admissible_projectedCost_gt_topDownCost_one_vertex
+    (r : Nat) :
+    Exists fun E : ProjectedCompressionExecution.{0} 1 =>
+      E.IsAdmissible /\ E.projectedCost = 1 /\ topDownCost 1 1 r = 0 := by
+  rcases exists_admissible_projectedCost_gt_topDownCost_rank_zero with
+    ⟨E, hAdm, hCost, _hZero⟩
+  exact ⟨E, hAdm, hCost, RawCompressionExecution.topDownCost_one_vertex_eq_zero 1 r⟩
+
+end RawCompressionPath.ProjectedCompressionExecution
+
+namespace RawCompressionExecution
+
+variable {m n r : Nat}
 
 /-- Canonical dissection cut for the `i`th step, chosen from path contiguity. -/
 noncomputable def dissectionCut

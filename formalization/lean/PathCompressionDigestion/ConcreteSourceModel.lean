@@ -306,6 +306,12 @@ theorem topDownCost_le_base_budget (m n r : Nat) :
   intro E hvalid
   exact E.cost_le_base_budget (E.hasBaseRankAccounting_of_isValid hvalid)
 
+/-- At rank bound zero, the base-accounted extremal cost is zero. -/
+theorem topDownCost_rank_zero_eq_zero (m n : Nat) :
+    topDownCost m n 0 = 0 := by
+  exact Nat.eq_zero_of_le_zero (by
+    simpa using topDownCost_le_base_budget m n 0)
+
 private theorem pred_le_two_mul_J0 (r : Nat) :
     r - 1 <= 2 * J 0 r := by
   have h : r <= 2 * (r / 2) + 1 := by
