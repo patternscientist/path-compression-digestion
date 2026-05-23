@@ -274,14 +274,36 @@ noncomputable def topDownCost : SourceCostFamily :=
     ((Finset.univ : Finset (RawCompressionExecution m n r)).filter
         fun E => E.IsValid).sup fun E => E.cost
 
-/-- Every valid, base-accounted execution satisfies the source base budget. -/
-theorem topDownCost_le_base_budget (m n r : Nat) :
-    topDownCost m n r <= n * (r - 1) := by
+/-- Any valid concrete execution is bounded by the extremal `topDownCost`. -/
+theorem RawCompressionExecution.cost_le_topDownCost
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid) :
+    E.cost <= topDownCost m n r := by
+  classical
+  unfold topDownCost
+  exact Finset.le_sup
+    (s := (Finset.univ : Finset (RawCompressionExecution m n r)).filter
+      fun E => E.IsValid)
+    (f := fun E => E.cost)
+    (Finset.mem_filter.mpr ⟨Finset.mem_univ E, hE⟩)
+
+/-- To bound `topDownCost`, it suffices to bound every valid execution. -/
+theorem topDownCost_le_of_forall_valid
+    {m n r B : Nat}
+    (h : forall E : RawCompressionExecution m n r, E.IsValid -> E.cost <= B) :
+    topDownCost m n r <= B := by
   classical
   unfold topDownCost
   refine Finset.sup_le ?_
   intro E hE
-  have hvalid : E.IsValid := (Finset.mem_filter.mp hE).2
+  exact h E (Finset.mem_filter.mp hE).2
+
+/-- Every valid, base-accounted execution satisfies the source base budget. -/
+theorem topDownCost_le_base_budget (m n r : Nat) :
+    topDownCost m n r <= n * (r - 1) := by
+  classical
+  apply topDownCost_le_of_forall_valid
+  intro E hvalid
   exact E.cost_le_base_budget (E.hasBaseRankAccounting_of_isValid hvalid)
 
 private theorem pred_le_two_mul_J0 (r : Nat) :

@@ -99,18 +99,40 @@ namespace ProjectedCompressionStep
 
 variable {alpha : Type*}
 
+/-- A projected step is root-like when its projected segment ends at a restricted root. -/
+def IsRootLike (S : ProjectedCompressionStep alpha) : Prop :=
+  S.path.IsRootPath
+
 /-- Nonrootness of a projected step is nonrootness of its projected segment. -/
 def IsNonrootPath (S : ProjectedCompressionStep alpha) : Prop :=
   S.path.IsNonrootPath
+
+/-- A projected step is charged precisely when it is nonroot-like. -/
+def IsCharged (S : ProjectedCompressionStep alpha) : Prop :=
+  S.IsNonrootPath
 
 /-- Indicator for projected-step nonrootpaths. -/
 noncomputable def nonrootIndicator (S : ProjectedCompressionStep alpha) : Nat :=
   S.path.nonrootIndicator
 
+/-- Boundary charge carried by a projected step in the projected accounting API. -/
+noncomputable def boundaryCharge (S : ProjectedCompressionStep alpha) : Nat :=
+  S.nonrootIndicator
+
+/-- Projected charged steps are exactly the non-root-like steps. -/
+theorem not_charged_iff_rootLike (S : ProjectedCompressionStep alpha) :
+    Not S.IsCharged <-> S.IsRootLike := by
+  exact S.path.not_nonroot_iff_root
+
 /-- Projected-step nonroot indicators are Boolean-valued naturals. -/
 theorem nonrootIndicator_le_one (S : ProjectedCompressionStep alpha) :
     S.nonrootIndicator <= 1 :=
   S.path.nonrootIndicator_le_one
+
+/-- Projected-step boundary charges are Boolean-valued naturals. -/
+theorem boundaryCharge_le_one (S : ProjectedCompressionStep alpha) :
+    S.boundaryCharge <= 1 := by
+  exact S.nonrootIndicator_le_one
 
 variable {beta : Type*}
 
@@ -143,9 +165,36 @@ variable {m : Nat}
 noncomputable def cost (E : ProjectedCompressionExecution m) : Nat :=
   Finset.sum (Finset.univ : Finset (Fin m)) fun i => (E.step i).cost
 
+/-- Source-facing projected execution cost. -/
+noncomputable def projectedCost (E : ProjectedCompressionExecution m) : Nat :=
+  E.cost
+
 /-- Sum of projected nonrootpath indicators. -/
 noncomputable def nonrootCount (E : ProjectedCompressionExecution m) : Nat :=
   Finset.sum (Finset.univ : Finset (Fin m)) fun i => (E.step i).nonrootIndicator
+
+/-- Number of charged projected steps. -/
+noncomputable def chargedCount (E : ProjectedCompressionExecution m) : Nat :=
+  E.nonrootCount
+
+/-- Projected nonroot counts are bounded by the number of projected slots. -/
+theorem nonrootCount_le_length (E : ProjectedCompressionExecution m) :
+    E.nonrootCount <= m := by
+  classical
+  unfold nonrootCount
+  calc
+    Finset.sum (Finset.univ : Finset (Fin m)) (fun i => (E.step i).nonrootIndicator)
+        <= Finset.sum (Finset.univ : Finset (Fin m)) (fun _i => (1 : Nat)) := by
+          exact Finset.sum_le_sum (by
+            intro i _hi
+            exact (E.step i).nonrootIndicator_le_one)
+    _ = m := by
+          simp
+
+/-- Projected charged counts are bounded by the number of projected slots. -/
+theorem chargedCount_le_length (E : ProjectedCompressionExecution m) :
+    E.chargedCount <= m := by
+  simpa [chargedCount] using E.nonrootCount_le_length
 
 /-- Consecutive projected slots agree up to a vertex equivalence. -/
 def HasConsecutiveStates (E : ProjectedCompressionExecution m) : Prop :=
@@ -160,9 +209,22 @@ commute after identifying consecutive restricted vertex types.
 def IsSemanticallyValid (E : ProjectedCompressionExecution m) : Prop :=
   E.HasConsecutiveStates
 
+/--
+Admissibility for projected executions.  These are first-class projected
+objects rather than ordinary source executions; the admissible semantic
+condition is the projected consecutive-state condition.
+-/
+def IsAdmissible (E : ProjectedCompressionExecution m) : Prop :=
+  E.IsSemanticallyValid
+
 theorem isSemanticallyValid_iff_hasConsecutiveStates
     (E : ProjectedCompressionExecution m) :
     E.IsSemanticallyValid <-> E.HasConsecutiveStates :=
+  Iff.rfl
+
+theorem isAdmissible_iff_isSemanticallyValid
+    (E : ProjectedCompressionExecution m) :
+    E.IsAdmissible <-> E.IsSemanticallyValid :=
   Iff.rfl
 
 end ProjectedCompressionExecution
@@ -809,6 +871,16 @@ theorem dissectionCut_spec
     (E.step i).path.HasDissectionCut (D i) (E.dissectionCut hsteps D i) :=
   Classical.choose_spec ((E.step i).exists_path_dissection_cut (D i) (hsteps i))
 
+/--
+Bottom-side vertex budget for projected source accounting.  For stable
+dissection families this is the paper's `|X_b|`; for arbitrary step-indexed
+families it is the finite supremum over the displayed bottom sides.
+-/
+noncomputable def bottomBoundaryCard
+    (E : RawCompressionExecution m n r)
+    (D : forall i : Fin m, RawDissection (E.step i).before) : Nat :=
+  (Finset.univ : Finset (Fin m)).sup fun i => (D i).bottomFinset.card
+
 /-- Sum of the bottom projected costs for a chosen family of cuts. -/
 noncomputable def bottomProjectedCostSum
     (E : RawCompressionExecution m n r)
@@ -1019,6 +1091,34 @@ theorem topProjectedExecution_isSemanticallyValid
     (E.topProjectedExecution hsteps D cut hcut).IsSemanticallyValid :=
   E.topProjectedExecution_hasConsecutiveStates hsteps hstate D htop cut hcut
 
+/-- The bottom dependent projected execution is admissible in the projected API. -/
+theorem bottomProjectedExecution_isAdmissible
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (hbottom : forall i j : Fin m, i.val + 1 = j.val ->
+      forall v : Fin n, Iff ((D i).IsBottom v) ((D j).IsBottom v))
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.bottomProjectedExecution hsteps D cut hcut).IsAdmissible :=
+  E.bottomProjectedExecution_isSemanticallyValid hsteps hstate D hbottom cut hcut
+
+/-- The top dependent projected execution is admissible in the projected API. -/
+theorem topProjectedExecution_isAdmissible
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (htop : forall i j : Fin m, i.val + 1 = j.val ->
+      forall v : Fin n, Iff ((D i).IsTop v) ((D j).IsTop v))
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.topProjectedExecution hsteps D cut hcut).IsAdmissible :=
+  E.topProjectedExecution_isSemanticallyValid hsteps hstate D htop cut hcut
+
 /-- Canonical-cut bottom projected execution consecutive-state theorem. -/
 theorem canonicalBottomProjectedExecution_hasConsecutiveStates
     (E : RawCompressionExecution m n r)
@@ -1060,6 +1160,26 @@ theorem canonicalTopProjectedExecution_isSemanticallyValid
       forall v : Fin n, Iff ((D i).IsTop v) ((D j).IsTop v)) :
     (E.canonicalTopProjectedExecution hE.1 D).IsSemanticallyValid := by
   exact E.canonicalTopProjectedExecution_hasConsecutiveStates hE D htop
+
+/-- Canonical-cut bottom projected execution admissibility theorem. -/
+theorem canonicalBottomProjectedExecution_isAdmissible
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (hbottom : forall i j : Fin m, i.val + 1 = j.val ->
+      forall v : Fin n, Iff ((D i).IsBottom v) ((D j).IsBottom v)) :
+    (E.canonicalBottomProjectedExecution hE.1 D).IsAdmissible := by
+  exact E.canonicalBottomProjectedExecution_isSemanticallyValid hE D hbottom
+
+/-- Canonical-cut top projected execution admissibility theorem. -/
+theorem canonicalTopProjectedExecution_isAdmissible
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (htop : forall i j : Fin m, i.val + 1 = j.val ->
+      forall v : Fin n, Iff ((D i).IsTop v) ((D j).IsTop v)) :
+    (E.canonicalTopProjectedExecution hE.1 D).IsAdmissible := by
+  exact E.canonicalTopProjectedExecution_isSemanticallyValid hE D htop
 
 /-- Rank-threshold dissection attached to each raw execution slot. -/
 def rankThresholdDissectionFamily
@@ -1158,6 +1278,232 @@ theorem rankThresholdBottomProjectedExecution_isSemanticallyValid
     (E.canonicalBottomProjectedExecution hE.1
       (E.rankThresholdDissectionFamily hE.1 s)).IsSemanticallyValid := by
   exact E.rankThresholdBottomProjectedExecution_hasConsecutiveStates hE s
+
+/--
+The canonical top projected execution for a rank-threshold dissection is
+admissible in the projected execution API.
+-/
+theorem rankThresholdTopProjectedExecution_isAdmissible
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).IsAdmissible := by
+  exact E.rankThresholdTopProjectedExecution_isSemanticallyValid hE s
+
+/--
+The canonical bottom projected execution for a rank-threshold dissection is
+admissible in the projected execution API.
+-/
+theorem rankThresholdBottomProjectedExecution_isAdmissible
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).IsAdmissible := by
+  exact E.rankThresholdBottomProjectedExecution_isSemanticallyValid hE s
+
+/-- Bound a displayed bottom-boundary budget by any common bottom-card bound. -/
+theorem bottomBoundaryCard_le_of_forall_bottom_card_le
+    (E : RawCompressionExecution m n r)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    {b : Nat}
+    (hcard : forall i : Fin m, (D i).bottomFinset.card <= b) :
+    E.bottomBoundaryCard D <= b := by
+  classical
+  unfold bottomBoundaryCard
+  refine Finset.sup_le ?_
+  intro i _hi
+  exact hcard i
+
+/-- Identify the bottom-boundary budget when all displayed bottom sides agree. -/
+theorem bottomBoundaryCard_eq_of_forall_bottomFinset_eq
+    (E : RawCompressionExecution m n r)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (i0 : Fin m)
+    (hstable : forall i : Fin m, (D i).bottomFinset = (D i0).bottomFinset) :
+    E.bottomBoundaryCard D = (D i0).bottomFinset.card := by
+  classical
+  apply le_antisymm
+  · exact E.bottomBoundaryCard_le_of_forall_bottom_card_le D (by
+      intro i
+      rw [hstable i])
+  · unfold bottomBoundaryCard
+    exact Finset.le_sup
+      (s := (Finset.univ : Finset (Fin m)))
+      (f := fun i => (D i).bottomFinset.card)
+      (Finset.mem_univ i0)
+
+/--
+In a semantically valid execution, rank-threshold dissections compute the same
+rank for a vertex at every slot, measured against any chosen slot.
+-/
+theorem rankThresholdDissectionFamily_rankNat_eq_of_slot
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (i0 i : Fin m)
+    (v : Fin n) :
+    RawRankedForest.rankNat (E.step i).before v =
+      RawRankedForest.rankNat (E.step i0).before v := by
+  have hm_pos : 0 < m := lt_of_le_of_lt (Nat.zero_le i0.val) i0.isLt
+  let first : Fin m := ⟨0, hm_pos⟩
+  have hto_first :
+      forall t : Nat, forall ht : t < m,
+        RawRankedForest.rankNat (E.step ⟨t, ht⟩).before v =
+          RawRankedForest.rankNat (E.step first).before v := by
+    intro t
+    induction t with
+    | zero =>
+        intro ht
+        rfl
+    | succ t ih =>
+        intro ht
+        let prev : Fin m := ⟨t, by omega⟩
+        let curr : Fin m := ⟨t + 1, ht⟩
+        have hadj : prev.val + 1 = curr.val := rfl
+        have hprev_curr :
+            RawRankedForest.rankNat (E.step prev).before v =
+              RawRankedForest.rankNat (E.step curr).before v :=
+          E.rankThresholdDissectionFamily_rankNat_eq_of_adjacent
+            hsteps hstate prev curr hadj v
+        calc
+          RawRankedForest.rankNat (E.step ⟨Nat.succ t, ht⟩).before v
+              = RawRankedForest.rankNat (E.step curr).before v := rfl
+          _ = RawRankedForest.rankNat (E.step prev).before v := hprev_curr.symm
+          _ = RawRankedForest.rankNat (E.step first).before v := ih (by omega)
+  calc
+    RawRankedForest.rankNat (E.step i).before v
+        = RawRankedForest.rankNat (E.step first).before v :=
+          hto_first i.val i.isLt
+    _ = RawRankedForest.rankNat (E.step i0).before v :=
+          (hto_first i0.val i0.isLt).symm
+
+/-- Rank-threshold bottom vertex sets are stable across all execution slots. -/
+theorem rankThresholdDissectionFamily_bottomFinset_eq_of_slot
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (s : Nat)
+    (i0 i : Fin m) :
+    (E.rankThresholdDissectionFamily hsteps s i).bottomFinset =
+      (E.rankThresholdDissectionFamily hsteps s i0).bottomFinset := by
+  classical
+  ext v
+  simp [rankThresholdDissectionFamily,
+    E.rankThresholdDissectionFamily_rankNat_eq_of_slot hsteps hstate i0 i v]
+
+/-- Rank-threshold top vertex sets are stable across all execution slots. -/
+theorem rankThresholdDissectionFamily_topFinset_eq_of_slot
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (s : Nat)
+    (i0 i : Fin m) :
+    (E.rankThresholdDissectionFamily hsteps s i).topFinset =
+      (E.rankThresholdDissectionFamily hsteps s i0).topFinset := by
+  classical
+  ext v
+  simp [rankThresholdDissectionFamily,
+    E.rankThresholdDissectionFamily_rankNat_eq_of_slot hsteps hstate i0 i v]
+
+/--
+For a nonempty valid execution, the finite `bottomBoundaryCard` of the
+rank-threshold family is bounded by the bottom side at any chosen slot.  This
+is the formal bridge between the supremum-shaped boundary budget and the
+stable paper-side `|X_b|`.
+-/
+theorem rankThreshold_bottomBoundaryCard_le_bottomFinset_card
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.bottomBoundaryCard (E.rankThresholdDissectionFamily hE.1 s) <=
+      ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) := by
+  refine E.bottomBoundaryCard_le_of_forall_bottom_card_le
+    (E.rankThresholdDissectionFamily hE.1 s) ?_
+  intro i
+  have hfinset :
+      (E.rankThresholdDissectionFamily hE.1 s i).bottomFinset =
+        (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset :=
+    E.rankThresholdDissectionFamily_bottomFinset_eq_of_slot hE.1 hE.2.1 s i0 i
+  rw [hfinset]
+
+/--
+For a nonempty valid execution, the finite `bottomBoundaryCard` of the
+rank-threshold family is exactly the bottom side at any chosen slot.
+-/
+theorem rankThreshold_bottomBoundaryCard_eq_bottomFinset_card
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.bottomBoundaryCard (E.rankThresholdDissectionFamily hE.1 s) =
+      ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) := by
+  exact E.bottomBoundaryCard_eq_of_forall_bottomFinset_eq
+    (E.rankThresholdDissectionFamily hE.1 s) i0
+    (fun i => E.rankThresholdDissectionFamily_bottomFinset_eq_of_slot
+      hE.1 hE.2.1 s i0 i)
+
+/-- Slot-level bottom rank bound for the rank-threshold dissection family. -/
+theorem rankThresholdDissectionFamily_bottom_rank_le
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (v : (E.rankThresholdDissectionFamily hsteps s i).BottomNode) :
+    RawRankedForest.rankNat (E.step i).before v.1 <= s := by
+  exact RankThresholdDissection.bottom_rank_le (E.step i).before (hsteps i).1.1 s v
+
+/-- Slot-level shifted top rank bound for the rank-threshold dissection family. -/
+theorem rankThresholdDissectionFamily_top_shifted_rank_le
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (v : (E.rankThresholdDissectionFamily hsteps s i).TopNode) :
+    RankThresholdDissection.topShiftedRank (E.step i).before (hsteps i).1.1 s v <=
+      r - s - 1 := by
+  exact RankThresholdDissection.top_shifted_rank_le
+    (E.step i).before (hsteps i).1.1 s v
+
+/--
+Slot-level top cardinality bound for rank-threshold dissections, conditional
+on the existing packing witness carried by the concrete model.
+-/
+theorem rankThresholdDissectionFamily_top_card_le_div
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (P : RankThresholdDissection.TopPacking (E.step i).before (hsteps i).1.1 s) :
+    (E.rankThresholdDissectionFamily hsteps s i).topFinset.card <=
+      n / 2 ^ (s + 1) := by
+  exact RankThresholdDissection.top_card_le_div (E.step i).before (hsteps i).1.1 s P
+
+/--
+Top-side cardinality bound transported across the stable rank-threshold family
+from a packing witness at a chosen slot.
+-/
+theorem rankThresholdDissectionFamily_top_card_le_div_of_slot_packing
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (s : Nat)
+    (i0 i : Fin m)
+    (P : RankThresholdDissection.TopPacking (E.step i0).before (hsteps i0).1.1 s) :
+    (E.rankThresholdDissectionFamily hsteps s i).topFinset.card <=
+      n / 2 ^ (s + 1) := by
+  have hfinset :
+      (E.rankThresholdDissectionFamily hsteps s i).topFinset =
+        (E.rankThresholdDissectionFamily hsteps s i0).topFinset :=
+    E.rankThresholdDissectionFamily_topFinset_eq_of_slot hsteps hstate s i0 i
+  rw [hfinset]
+  exact E.rankThresholdDissectionFamily_top_card_le_div hsteps s i0 P
 
 /-- The stepwise nonroot indicators sum to the execution nonroot count. -/
 theorem nonrootIndicator_sum_eq_nonrootCount
@@ -1362,6 +1708,137 @@ theorem cost_le_canonicalProjectedExecutions_cost_add_topNonrootCount
   rw [E.cost_eq_stepCostSum]
   exact E.stepCostSum_le_projectedCostSums_add_topProjectedNonrootCount hsteps D
     (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
+
+/--
+Paper-facing projected nonroot-count inequality for first-class projected
+bottom/top executions.
+-/
+theorem projected_nonroot_count_le
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.bottomProjectedExecution hsteps D cut hcut).chargedCount +
+        (E.topProjectedExecution hsteps D cut hcut).chargedCount <=
+      E.nonrootCount := by
+  simpa [RawCompressionPath.ProjectedCompressionExecution.chargedCount] using
+    E.projectedExecutions_nonrootCount_add_le_nonrootCount hsteps D cut hcut
+
+/-- Canonical-cut form of `projected_nonroot_count_le`. -/
+theorem canonical_projected_nonroot_count_le
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) :
+    (E.canonicalBottomProjectedExecution hsteps D).chargedCount +
+        (E.canonicalTopProjectedExecution hsteps D).chargedCount <=
+      E.nonrootCount := by
+  exact E.projected_nonroot_count_le hsteps D
+    (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
+
+/-- Rank-threshold specialization of the projected nonroot-count inequality. -/
+theorem rankThreshold_projected_nonroot_count_le
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount <=
+      E.nonrootCount := by
+  exact E.canonical_projected_nonroot_count_le hE.1
+    (E.rankThresholdDissectionFamily hE.1 s)
+
+/--
+Paper-facing projected source cost accounting.  The current finite projection
+proof is stronger than this statement: it pays only the top projected
+nonroot-count term, and the displayed bottom boundary-card budget is carried
+for compatibility with the Seidel--Sharir main-lemma shape.
+-/
+theorem projected_cost_main_lemma
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    E.cost <=
+      (E.bottomProjectedExecution hsteps D cut hcut).projectedCost +
+        (E.topProjectedExecution hsteps D cut hcut).projectedCost +
+          E.bottomBoundaryCard D +
+            (E.topProjectedExecution hsteps D cut hcut).chargedCount := by
+  have hstrong :=
+    E.cost_le_projectedExecutions_cost_add_topNonrootCount hsteps D cut hcut
+  simp [RawCompressionPath.ProjectedCompressionExecution.projectedCost,
+    RawCompressionPath.ProjectedCompressionExecution.chargedCount] at *
+  omega
+
+/-- Canonical-cut form of `projected_cost_main_lemma`. -/
+theorem canonical_projected_cost_main_lemma
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hsteps D).projectedCost +
+        (E.canonicalTopProjectedExecution hsteps D).projectedCost +
+          E.bottomBoundaryCard D +
+            (E.canonicalTopProjectedExecution hsteps D).chargedCount := by
+  exact E.projected_cost_main_lemma hsteps D
+    (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
+
+/--
+Rank-threshold specialization of the projected main lemma with the stable
+bottom side cardinality displayed as the paper-side `|X_b|` term.
+-/
+theorem rankThreshold_projected_cost_main_lemma
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+          ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) +
+            (E.canonicalTopProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).chargedCount := by
+  have hmain :
+      E.cost <=
+        (E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+          (E.canonicalTopProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+            E.bottomBoundaryCard (E.rankThresholdDissectionFamily hE.1 s) +
+              (E.canonicalTopProjectedExecution hE.1
+                (E.rankThresholdDissectionFamily hE.1 s)).chargedCount :=
+    E.canonical_projected_cost_main_lemma hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  simpa [E.rankThreshold_bottomBoundaryCard_eq_bottomFinset_card hE s i0] using hmain
+
+/--
+Rank-threshold projected main lemma with the top projected charge term consumed
+by the execution length.  This is the projected-accounting form of the `+m`
+term in the source shift recurrence.
+-/
+theorem rankThreshold_projected_cost_main_lemma_add_length
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+          ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) +
+            m := by
+  have hmain := E.rankThreshold_projected_cost_main_lemma hE s i0
+  have hcharge :
+      (E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount <= m :=
+    (E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).chargedCount_le_length
+  omega
 
 /--
 Execution-level projected cost accounting for a chosen family of dissection
