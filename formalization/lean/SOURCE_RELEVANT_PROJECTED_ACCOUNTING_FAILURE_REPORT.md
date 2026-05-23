@@ -167,6 +167,20 @@ theorem RawCompressionExecution.rankThreshold_sourceRelevantBottomExceptionalCos
 theorem RawCompressionExecution.rankThreshold_source_cost_le_projected_consumable_add_boundary
 
 theorem RawCompressionExecution.rankThreshold_source_cost_le_projected_consumable_add_boundary_add_length
+
+theorem RawCompressionExecution.rankThresholdDissectionFamily_two_mul_top_card_mul_g_le
+
+theorem RawCompressionExecution.topDownCost_le_shift_target_of_g_small
+
+theorem RawCompressionExecution.rankThreshold_source_cost_le_diamond_budget_of_consumable_bounds
+
+theorem RawCompressionExecution.rankThreshold_source_cost_le_diamond_budget_of_log_consumable_bounds
+
+def RawCompressionExecution.RankThresholdLogConsumableBounds
+
+theorem RawCompressionExecution.sourceShiftStep_of_rankThreshold_log_consumable_bounds
+
+theorem RawCompressionExecution.topDown_shift_step_of_rankThreshold_log_consumable_bounds
 ```
 
 The last theorem is the main no-repeat lemma in index form: if a source-nonroot
@@ -273,3 +287,46 @@ The remaining gap is recurrence consumption: the theorem still exposes
 `Cb.consumableCost` and `Ct.consumableCost`; consuming those terms into the
 `topDownCost` recurrence is separate from the source-relevant boundary
 accounting completed here.
+
+## Continued Push Toward A
+
+After the direct source-cost theorem, the recurrence arithmetic has now been
+packaged conditionally.  Lean proves:
+
+```lean
+theorem sourceShiftStep_of_rankThreshold_log_consumable_bounds
+    (Drow : DiamondInput)
+    (k : Nat)
+    (hconsume : RankThresholdLogConsumableBounds Drow k) :
+    SourceShiftStep topDownCost k Drow
+```
+
+and the packet-row specialization:
+
+```lean
+theorem topDown_shift_step_of_rankThreshold_log_consumable_bounds
+    (k : Nat)
+    (hconsume : RankThresholdLogConsumableBounds (JInput k) k) :
+    topDownShiftStepTarget k
+```
+
+The small case `Drow.g r <= 1` is discharged directly from the previous source
+bound.  In the large case, Lean now performs the full rank-threshold arithmetic
+at `s = ceilLog2 (Drow.g r)`, using:
+
+- the direct source-relevant accounting theorem;
+- `Cb.chargedCount + Ct.chargedCount <= E.nonrootCount <= m`;
+- the stable bottom boundary term;
+- the top packing bound, packaged as
+  `rankThresholdDissectionFamily_two_mul_top_card_mul_g_le`;
+- the diamond equation
+  `Drow.diamond r = 1 + Drow.diamond (ceilLog2 (Drow.g r))`.
+
+Thus the remaining A blocker is exactly `RankThresholdLogConsumableBounds`.
+It asks, for every large-row valid source execution, for:
+
+1. a `RankThresholdDissection.TopPacking` witness at the logarithmic threshold;
+2. a bottom consumable-cost bound with compacted parameter `Cb.chargedCount`;
+3. a top consumable-cost bound with compacted parameter `Ct.chargedCount`.
+
+No unconditional `topDown_shift_step` is claimed.

@@ -2732,6 +2732,50 @@ theorem rankThresholdDissectionFamily_top_card_le_div_of_slot_packing
   rw [hfinset]
   exact E.rankThresholdDissectionFamily_top_card_le_div hsteps s i0 P
 
+/--
+For the logarithmic threshold `s`, the stable top side contributes at most `n`
+to the source-shift arithmetic when weighted by the old row `g`.
+-/
+theorem rankThresholdDissectionFamily_two_mul_top_card_mul_g_le
+    (Drow : DiamondInput)
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (s : Nat)
+    (i0 i : Fin m)
+    (hs : Drow.g r <= 2 ^ s)
+    (P : RankThresholdDissection.TopPacking (E.step i0).before (hsteps i0).1.1 s) :
+    2 * (E.rankThresholdDissectionFamily hsteps s i).topFinset.card *
+        Drow.g (r - s - 1) <= n := by
+  have hfinset :
+      (E.rankThresholdDissectionFamily hsteps s i).topFinset =
+        (E.rankThresholdDissectionFamily hsteps s i0).topFinset :=
+    E.rankThresholdDissectionFamily_topFinset_eq_of_slot hsteps hstate s i0 i
+  have hpack :
+      (E.rankThresholdDissectionFamily hsteps s i0).topFinset.card *
+          2 ^ (s + 1) <= n :=
+    RankThresholdDissection.top_card_mul_pow_le
+      (E.step i0).before (hsteps i0).1.1 s P
+  have hg_rank : Drow.g (r - s - 1) <= Drow.g r :=
+    Drow.monotone (by omega)
+  have hg_pow : Drow.g (r - s - 1) <= 2 ^ s := hg_rank.trans hs
+  calc
+    2 * (E.rankThresholdDissectionFamily hsteps s i).topFinset.card *
+        Drow.g (r - s - 1)
+        = 2 * (E.rankThresholdDissectionFamily hsteps s i0).topFinset.card *
+            Drow.g (r - s - 1) := by rw [hfinset]
+    _ <= 2 * (E.rankThresholdDissectionFamily hsteps s i0).topFinset.card *
+          2 ^ s := by
+        exact Nat.mul_le_mul_left
+          (2 * (E.rankThresholdDissectionFamily hsteps s i0).topFinset.card)
+          hg_pow
+    _ = (E.rankThresholdDissectionFamily hsteps s i0).topFinset.card *
+          2 ^ (s + 1) := by
+        rw [Nat.pow_succ]
+        ring
+    _ <= n := hpack
+
 /-- The stepwise nonroot indicators sum to the execution nonroot count. -/
 theorem nonrootIndicator_sum_eq_nonrootCount
     (E : RawCompressionExecution m n r) :
@@ -3370,6 +3414,240 @@ theorem rankThreshold_source_cost_le_projected_consumable_add_boundary
     hE s i0
     (E.rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_card
       hE s i0)
+
+/-- Small-row case of a source shift step, where `g r <= 1`. -/
+theorem topDownCost_le_shift_target_of_g_small
+    (Drow : DiamondInput)
+    (k : Nat)
+    (hprev : SourceBound topDownCost k Drow.g)
+    {m n r : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n)
+    (hsmall : Drow.g r <= 1) :
+    topDownCost m n r <= (k + 1) * m + 2 * n * Drow.diamond r := by
+  have hbase : topDownCost m n r <= k * m + 2 * n * Drow.g r :=
+    hprev hm hn
+  have htarget :
+      k * m + 2 * n * Drow.g r <= (k + 1) * m + 2 * n * Drow.diamond r := by
+    rw [Drow.diamond_eq_small hsmall]
+    have hkm : k * m <= (k + 1) * m := by
+      exact Nat.mul_le_mul_right m (Nat.le_succ k)
+    omega
+  exact hbase.trans htarget
+
+/--
+Arithmetic consumption of the direct source-relevant accounting theorem.  If the
+bottom and top consumable projected costs have already been bounded with the
+compacted charged-count parameters, then the rank-threshold dissection gives
+the diamond-budget bound for this execution.
+-/
+theorem rankThreshold_source_cost_le_diamond_budget_of_consumable_bounds
+    (Drow : DiamondInput)
+    (k : Nat)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hs : Drow.g r <= 2 ^ s)
+    (hdiamond : Drow.diamond r = 1 + Drow.diamond s)
+    (P : RankThresholdDissection.TopPacking (E.step i0).before (hE.1 i0).1.1 s)
+    (hbottom :
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+        (k + 1) *
+          (E.canonicalBottomProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+          2 * ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) *
+            Drow.diamond s)
+    (htop :
+      (E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+        k *
+          (E.canonicalTopProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+          2 * ((E.rankThresholdDissectionFamily hE.1 s i0).topFinset.card) *
+            Drow.g (r - s - 1)) :
+    E.cost <= (k + 1) * m + 2 * n * Drow.diamond r := by
+  classical
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Ct :=
+    E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+  let Tcard := (E.rankThresholdDissectionFamily hE.1 s i0).topFinset.card
+  let ds := Drow.diamond s
+  let gt := Drow.g (r - s - 1)
+  have hmain :
+      E.cost <= Cb.consumableCost + Ct.consumableCost + Bcard + Ct.chargedCount := by
+    simpa [Cb, Ct, Bcard] using
+      E.rankThreshold_source_cost_le_projected_consumable_add_boundary hE s i0
+  have hbottom' :
+      Cb.consumableCost <= (k + 1) * Cb.chargedCount + 2 * Bcard * ds := by
+    simpa [Cb, Bcard, ds] using hbottom
+  have htop' :
+      Ct.consumableCost <= k * Ct.chargedCount + 2 * Tcard * gt := by
+    simpa [Ct, Tcard, gt] using htop
+  have hcounts :
+      Cb.chargedCount + Ct.chargedCount <= E.nonrootCount := by
+    simpa [Cb, Ct] using E.rankThreshold_projected_nonroot_count_le hE s
+  have hcount_m :
+      Cb.chargedCount + Ct.chargedCount <= m :=
+    hcounts.trans E.nonrootCount_le_length
+  have hcoeff :
+      (k + 1) * Cb.chargedCount + k * Ct.chargedCount + Ct.chargedCount <=
+        (k + 1) * m := by
+    calc
+      (k + 1) * Cb.chargedCount + k * Ct.chargedCount + Ct.chargedCount
+          = (k + 1) * (Cb.chargedCount + Ct.chargedCount) := by
+              ring
+      _ <= (k + 1) * m := Nat.mul_le_mul_left (k + 1) hcount_m
+  have hBcard_le : Bcard <= n := by
+    simpa [Bcard] using
+      (Finset.card_le_univ ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset))
+  have htopBudget :
+      2 * Tcard * gt <= n := by
+    simpa [Tcard, gt] using
+      E.rankThresholdDissectionFamily_two_mul_top_card_mul_g_le
+        Drow hE.1 hE.2.1 s i0 i0 hs P
+  have hbottomDiamond :
+      2 * Bcard * ds <= 2 * n * ds := by
+    exact Nat.mul_le_mul_right ds (Nat.mul_le_mul_left 2 hBcard_le)
+  have hboundary :
+      2 * Bcard * ds + Bcard + 2 * Tcard * gt <=
+        2 * n * Drow.diamond r := by
+    calc
+      2 * Bcard * ds + Bcard + 2 * Tcard * gt
+          <= 2 * n * ds + n + n := by
+              omega
+      _ = 2 * n * (1 + ds) := by
+              ring
+      _ = 2 * n * Drow.diamond r := by
+              rw [hdiamond]
+  have hcombined :
+      E.cost <=
+        ((k + 1) * Cb.chargedCount + k * Ct.chargedCount + Ct.chargedCount) +
+          (2 * Bcard * ds + Bcard + 2 * Tcard * gt) := by
+    omega
+  calc
+    E.cost <=
+        ((k + 1) * Cb.chargedCount + k * Ct.chargedCount + Ct.chargedCount) +
+          (2 * Bcard * ds + Bcard + 2 * Tcard * gt) := hcombined
+    _ <= (k + 1) * m + 2 * n * Drow.diamond r :=
+          Nat.add_le_add hcoeff hboundary
+
+/--
+Log-threshold specialization of
+`rankThreshold_source_cost_le_diamond_budget_of_consumable_bounds`.
+-/
+theorem rankThreshold_source_cost_le_diamond_budget_of_log_consumable_bounds
+    (Drow : DiamondInput)
+    (k : Nat)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (i0 : Fin m)
+    (hlarge : 1 < Drow.g r)
+    (P : RankThresholdDissection.TopPacking (E.step i0).before
+      (hE.1 i0).1.1 (ceilLog2 (Drow.g r)))
+    (hbottom :
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 (ceilLog2 (Drow.g r)))).consumableCost <=
+        (k + 1) *
+          (E.canonicalBottomProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 (ceilLog2 (Drow.g r)))).chargedCount +
+          2 *
+            ((E.rankThresholdDissectionFamily hE.1
+              (ceilLog2 (Drow.g r)) i0).bottomFinset.card) *
+            Drow.diamond (ceilLog2 (Drow.g r)))
+    (htop :
+      (E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 (ceilLog2 (Drow.g r)))).consumableCost <=
+        k *
+          (E.canonicalTopProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 (ceilLog2 (Drow.g r)))).chargedCount +
+          2 *
+            ((E.rankThresholdDissectionFamily hE.1
+              (ceilLog2 (Drow.g r)) i0).topFinset.card) *
+            Drow.g (r - ceilLog2 (Drow.g r) - 1)) :
+    E.cost <= (k + 1) * m + 2 * n * Drow.diamond r := by
+  exact E.rankThreshold_source_cost_le_diamond_budget_of_consumable_bounds
+    Drow k hE (ceilLog2 (Drow.g r)) i0
+    (le_two_pow_ceilLog2 (Drow.g r))
+    (Drow.diamond_eq_large hlarge)
+    P hbottom htop
+
+/--
+The exact large-row consumable-cost obligations needed to turn the
+rank-threshold source-relevant accounting theorem into a source shift step.
+
+This intentionally packages the remaining proof obligations rather than adding
+the shift theorem as a model certificate.
+-/
+def RankThresholdLogConsumableBounds
+    (Drow : DiamondInput)
+    (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < Drow.g r),
+    let s := ceilLog2 (Drow.g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    Exists fun P : RankThresholdDissection.TopPacking (E.step i0).before
+        (hE.1 i0).1.1 s =>
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+          (k + 1) *
+            (E.canonicalBottomProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+            2 *
+              ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) *
+              Drow.diamond s
+      /\
+      (E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+          k *
+            (E.canonicalTopProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+            2 *
+              ((E.rankThresholdDissectionFamily hE.1 s i0).topFinset.card) *
+              Drow.g (r - s - 1)
+
+/--
+Conditional source shift from the exact rank-threshold consumable-cost
+obligations.  This discharges the recurrence arithmetic and leaves only the
+simulation/packing obligations in `RankThresholdLogConsumableBounds`.
+-/
+theorem sourceShiftStep_of_rankThreshold_log_consumable_bounds
+    (Drow : DiamondInput)
+    (k : Nat)
+    (hconsume : RankThresholdLogConsumableBounds Drow k) :
+    SourceShiftStep topDownCost k Drow := by
+  intro hprev m n r hm hn
+  apply topDownCost_le_of_forall_valid
+  intro E hE
+  by_cases hsmall : Drow.g r <= 1
+  · exact (E.cost_le_topDownCost hE).trans
+      (topDownCost_le_shift_target_of_g_small Drow k hprev hm hn hsmall)
+  · have hlarge : 1 < Drow.g r := Nat.lt_of_not_ge hsmall
+    let s := ceilLog2 (Drow.g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    rcases hconsume hm hn E hE hlarge with ⟨P, hbottom, htop⟩
+    exact E.rankThreshold_source_cost_le_diamond_budget_of_log_consumable_bounds
+      Drow k hE i0 hlarge P
+      (by simpa [s, i0] using hbottom)
+      (by simpa [s, i0] using htop)
+
+/--
+Conditional concrete top-down shift step, specialized to the packet `J` row.
+-/
+theorem topDown_shift_step_of_rankThreshold_log_consumable_bounds
+    (k : Nat)
+    (hconsume : RankThresholdLogConsumableBounds (JInput k) k) :
+    topDownShiftStepTarget k :=
+  sourceShiftStep_of_rankThreshold_log_consumable_bounds (JInput k) k hconsume
 
 /--
 Length-consumed form of direct rank-threshold source-relevant accounting.
