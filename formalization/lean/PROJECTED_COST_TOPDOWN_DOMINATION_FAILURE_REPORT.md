@@ -21,9 +21,10 @@ theorem topDown_shift_step :
 
 The obstruction is sharper than the earlier materialization report: a blanket
 domination theorem from the current projected admissibility predicate to
-`topDownCost` is false.  The current projected admissibility predicate only
-records consecutive-state compatibility up to equivalence.  It does not carry
-the ordinary source-step rewrite semantics, path-validity lower bound,
+`topDownCost` is false, and the mismatch is not merely the rank-zero base
+case.  The current projected admissibility predicate only records
+consecutive-state compatibility up to equivalence.  It does not carry the
+ordinary source-step rewrite semantics, path-validity lower bound,
 rank-validity data, side cardinality, or `HasBaseRankAccounting` certificate
 needed by `topDownCost`.
 
@@ -43,6 +44,33 @@ It also adds a projected-admissibility counterexample:
 theorem RawCompressionPath.ProjectedCompressionExecution.exists_admissible_projectedCost_gt_topDownCost_rank_zero :
     Exists fun E : ProjectedCompressionExecution.{0} 1 =>
       E.IsAdmissible /\ E.projectedCost = 1 /\ topDownCost 1 1 0 = 0
+```
+
+Continuing from that counterexample, this branch also proves that ordinary
+one-vertex raw source steps and executions have zero cost:
+
+```lean
+theorem RawCompressionStep.cost_eq_zero_of_one_vertex
+    (S : RawCompressionStep 1 r) :
+    S.cost = 0
+
+theorem RawCompressionExecution.cost_eq_zero_of_one_vertex
+    (E : RawCompressionExecution m 1 r) :
+    E.cost = 0
+
+theorem RawCompressionExecution.topDownCost_one_vertex_eq_zero
+    (m r : Nat) :
+    topDownCost m 1 r = 0
+```
+
+Thus the same one-slot projected witness remains above ordinary
+one-vertex `topDownCost` at every rank bound:
+
+```lean
+theorem RawCompressionPath.ProjectedCompressionExecution.exists_admissible_projectedCost_gt_topDownCost_one_vertex
+    (r : Nat) :
+    Exists fun E : RawCompressionPath.ProjectedCompressionExecution.{0} 1 =>
+      E.IsAdmissible /\ E.projectedCost = 1 /\ topDownCost 1 1 r = 0
 ```
 
 This proves that the strategy
@@ -142,13 +170,20 @@ Yes for projected admissible executions as currently defined.
 The Lean theorem
 
 ```lean
-ProjectedCompressionExecution.exists_admissible_projectedCost_gt_topDownCost_rank_zero
+RawCompressionPath.ProjectedCompressionExecution.exists_admissible_projectedCost_gt_topDownCost_rank_zero
 ```
 
 exhibits an admissible one-slot projected execution with projected cost `1`
-while `topDownCost 1 1 0 = 0`.  This does not refute a future theorem for the
-special canonical rank-threshold projections, but it does refute the broad
-projected-admissible domination strategy.
+while `topDownCost 1 1 0 = 0`.  The follow-up theorem
+
+```lean
+RawCompressionPath.ProjectedCompressionExecution.exists_admissible_projectedCost_gt_topDownCost_one_vertex
+```
+
+shows the same phenomenon for `topDownCost 1 1 r` at every rank bound `r`.
+This does not refute a future theorem for the special canonical rank-threshold
+projections, but it does refute the broad projected-admissible domination
+strategy.
 
 For the rank-threshold projections, `topDownCost` is still too narrow unless a
 simulation theorem supplies ordinary valid executions together with
