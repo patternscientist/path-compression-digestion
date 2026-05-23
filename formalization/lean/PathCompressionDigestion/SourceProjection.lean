@@ -179,6 +179,18 @@ theorem cost_eq_consumableCost_add_exceptionalCost
   classical
   by_cases h : S.IsCharged <;> simp [consumableCost, exceptionalCost, h]
 
+/-- Consumable projected cost is bounded by total projected step cost. -/
+theorem consumableCost_le_cost (S : ProjectedCompressionStep alpha) :
+    S.consumableCost <= S.cost := by
+  classical
+  by_cases h : S.IsCharged <;> simp [consumableCost, h]
+
+/-- Exceptional projected cost is bounded by total projected step cost. -/
+theorem exceptionalCost_le_cost (S : ProjectedCompressionStep alpha) :
+    S.exceptionalCost <= S.cost := by
+  classical
+  by_cases h : S.IsCharged <;> simp [exceptionalCost, h]
+
 variable {beta : Type*}
 
 /--
@@ -870,6 +882,42 @@ theorem sourceRelevantBottomExceptionalCost_eq_zero_of_root
   apply S.sourceRelevantBottomExceptionalCost_eq_zero_of_not_nonroot
   intro hnonroot
   exact hnonroot hroot
+
+/-- Source-relevant bottom exceptional cost is always bounded by source step cost. -/
+theorem sourceRelevantBottomExceptionalCost_le_cost
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    S.sourceRelevantBottomExceptionalCost D hS cut hcut <= S.cost := by
+  classical
+  by_cases hnonroot : S.path.IsNonrootPath S.before
+  · have hrel :
+        S.sourceRelevantBottomExceptionalCost D hS cut hcut =
+          (S.bottomProjectedStep D hS cut hcut).exceptionalCost := by
+      simp [sourceRelevantBottomExceptionalCost, hnonroot]
+    have hexception :
+        (S.bottomProjectedStep D hS cut hcut).exceptionalCost <=
+          (S.bottomProjectedStep D hS cut hcut).cost :=
+      (S.bottomProjectedStep D hS cut hcut).exceptionalCost_le_cost
+    have hbottom_cost :
+        (S.bottomProjectedStep D hS cut hcut).cost <= S.cost := by
+      have hnotroot : Not (S.path.IsRootPath S.before) := by
+        intro hroot
+        exact hnonroot hroot
+      unfold RawCompressionStep.bottomProjectedStep
+        RawCompressionPath.ProjectedCompressionStep.cost
+        RawCompressionPath.ProjectedPathSegment.edgeCost
+      unfold RawCompressionPath.bottomProjectionSegment
+        RawCompressionPath.bottomProjectionLength
+      unfold cost RawCompressionPath.sourceCost RawCompressionPath.cost
+      rw [if_neg hnotroot]
+      exact Nat.sub_le_sub_right hcut.1 1
+    rw [hrel]
+    exact hexception.trans hbottom_cost
+  · rw [S.sourceRelevantBottomExceptionalCost_eq_zero_of_not_nonroot D hS cut hcut hnonroot]
+    exact Nat.zero_le S.cost
 
 /--
 Step-level source-relevant accounting.  Bottom projected exceptional cost is
@@ -2163,6 +2211,32 @@ theorem stepCostSum_le_sourceRelevantProjectedParts
               omega
   exact le_trans hsum (le_of_eq hsplit)
 
+/-- The source-relevant bottom exceptional sum is bounded by source step cost. -/
+theorem bottomSourceRelevantExceptionalCostSum_le_stepCostSum
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    E.bottomSourceRelevantExceptionalCostSum hsteps D cut hcut <= E.stepCostSum := by
+  classical
+  unfold bottomSourceRelevantExceptionalCostSum stepCostSum
+  exact Finset.sum_le_sum (by
+    intro i _hi
+    exact (E.step i).sourceRelevantBottomExceptionalCost_le_cost
+      (D i) (hsteps i) (cut i) (hcut i))
+
+/-- The source-relevant bottom exceptional sum is bounded by execution cost. -/
+theorem bottomSourceRelevantExceptionalCostSum_le_cost
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    E.bottomSourceRelevantExceptionalCostSum hsteps D cut hcut <= E.cost := by
+  rw [E.cost_eq_stepCostSum]
+  exact E.bottomSourceRelevantExceptionalCostSum_le_stepCostSum hsteps D cut hcut
+
 /-- Canonical-cut form of the sharper execution-level projected cost bound. -/
 theorem stepCostSum_le_canonicalProjectedCostSums_add_topProjectedNonrootCount
     (E : RawCompressionExecution m n r)
@@ -2316,6 +2390,15 @@ theorem cost_le_canonicalSourceRelevantProjectedExecutions
         (E.canonicalTopProjectedExecution hsteps D).consumableCost +
           (E.canonicalTopProjectedExecution hsteps D).nonrootCount := by
   exact E.cost_le_sourceRelevantProjectedExecutions hsteps D
+    (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
+
+/-- Canonical source-relevant bottom exceptional cost is bounded by source cost. -/
+theorem canonicalBottomSourceRelevantExceptionalCostSum_le_cost
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) :
+    E.canonicalBottomSourceRelevantExceptionalCostSum hsteps D <= E.cost := by
+  exact E.bottomSourceRelevantExceptionalCostSum_le_cost hsteps D
     (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
 
 /--

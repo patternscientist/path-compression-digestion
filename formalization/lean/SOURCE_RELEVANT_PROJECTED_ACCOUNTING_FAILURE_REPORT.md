@@ -49,11 +49,17 @@ noncomputable def RawCompressionExecution.canonicalBottomSourceRelevantException
 New source-step case split theorems:
 
 ```lean
+theorem RawCompressionPath.ProjectedCompressionStep.consumableCost_le_cost
+
+theorem RawCompressionPath.ProjectedCompressionStep.exceptionalCost_le_cost
+
 theorem RawCompressionStep.sourceRelevantBottomExceptionalCost_eq_exceptional_of_nonroot
 
 theorem RawCompressionStep.sourceRelevantBottomExceptionalCost_eq_zero_of_not_nonroot
 
 theorem RawCompressionStep.sourceRelevantBottomExceptionalCost_eq_zero_of_root
+
+theorem RawCompressionStep.sourceRelevantBottomExceptionalCost_le_cost
 
 theorem RawCompressionStep.cost_le_sourceRelevantProjectedParts
 ```
@@ -73,9 +79,15 @@ New execution-level accounting theorems:
 ```lean
 theorem RawCompressionExecution.stepCostSum_le_sourceRelevantProjectedParts
 
+theorem RawCompressionExecution.bottomSourceRelevantExceptionalCostSum_le_stepCostSum
+
+theorem RawCompressionExecution.bottomSourceRelevantExceptionalCostSum_le_cost
+
 theorem RawCompressionExecution.cost_le_sourceRelevantProjectedExecutions
 
 theorem RawCompressionExecution.cost_le_canonicalSourceRelevantProjectedExecutions
+
+theorem RawCompressionExecution.canonicalBottomSourceRelevantExceptionalCostSum_le_cost
 ```
 
 New rank-threshold source-relevant accounting theorem:
