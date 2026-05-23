@@ -210,6 +210,18 @@ theorem parentIter_succ_eq_parent_parentIter
   | succ t ih =>
       simpa [parentIter] using ih (F.parent v)
 
+/-- Iterating parent pointers from a root stays at that root. -/
+theorem parentIter_eq_of_root
+    {v : Fin n}
+    (hroot : F.parent v = v)
+    (t : Nat) :
+    F.parentIter t v = v := by
+  induction t with
+  | zero =>
+      rfl
+  | succ t ih =>
+      simpa [parentIter, hroot] using ih
+
 /-- An ancestor relation may be extended by one parent step on the right. -/
 theorem isAncestor_parent
     {v a : Fin n}
@@ -526,6 +538,74 @@ theorem target_ancestor_of_compressedVertex
   have htarget : P.node j = P.target :=
     hlast j (P.lastIndex_succ hlen_one)
   simpa [hnode, htarget] using hanc
+
+/-- A compressed vertex on a source-nonroot path cannot already be a root. -/
+theorem not_root_of_compressedVertex_of_nonroot
+    (P : RawCompressionPath n)
+    (hvalid : P.IsValidFor F)
+    (hnonroot : P.IsNonrootPath F)
+    {v : Fin n}
+    (hcomp : P.IsCompressedVertex v) :
+    Not (F.parent v = v) := by
+  intro hroot
+  rcases P.target_ancestor_of_compressedVertex hvalid hcomp with ⟨t, ht⟩
+  have hv_target : v = P.target := by
+    simpa [F.parentIter_eq_of_root hroot t] using ht
+  exact hnonroot (by simpa [hv_target] using hroot)
+
+/--
+Along a valid source-nonroot path, rank strictly increases from an earlier
+active slot to a later active slot.  This supplies same-step distinctness for
+charged bottom-prefix edge endpoints.
+-/
+theorem rankNat_lt_of_lt_active_of_nonroot
+    (P : RawCompressionPath n)
+    (hvalid : P.IsValidFor F)
+    (hnonroot : P.IsNonrootPath F)
+    {i j : Fin (n + 1)}
+    (hij : i.val < j.val)
+    (hj_active : j.val < P.len.val) :
+    F.rankNat (P.node i) < F.rankNat (P.node j) := by
+  let next : Fin (n + 1) := ⟨i.val + 1, by omega⟩
+  have hnext_active : next.val < P.len.val := by
+    simp [next]
+    omega
+  have hi_compressed : P.IsCompressedVertex (P.node i) := by
+    refine ⟨i, ?_, rfl⟩
+    omega
+  have hnot_root : Not (F.parent (P.node i) = P.node i) :=
+    P.not_root_of_compressedVertex_of_nonroot hvalid hnonroot hi_compressed
+  have hparent :
+      F.parent (P.node i) = P.node next :=
+    hvalid.2.2.1 i next (by simp [next]) hnext_active
+  have hrank_next :
+      F.rankNat (P.node i) < F.rankNat (P.node next) := by
+    simpa [hparent] using hvalid.1 (P.node i) hnot_root
+  have hnext_le_j : next.val <= j.val := by
+    simp [next]
+    omega
+  have hancestor :
+      F.IsAncestor (P.node next) (P.node j) :=
+    P.ancestor_of_le_active hvalid.2.2.1 hnext_le_j hj_active
+  rcases hancestor with ⟨t, ht⟩
+  have hrank_le :
+      F.rankNat (P.node next) <= F.rankNat (P.node j) := by
+    simpa [ht] using F.rankNat_le_parentIter hvalid.1 t (P.node next)
+  exact lt_of_lt_of_le hrank_next hrank_le
+
+/-- Earlier and later active slots on a valid source-nonroot path have distinct vertices. -/
+theorem node_ne_of_lt_active_of_nonroot
+    (P : RawCompressionPath n)
+    (hvalid : P.IsValidFor F)
+    (hnonroot : P.IsNonrootPath F)
+    {i j : Fin (n + 1)}
+    (hij : i.val < j.val)
+    (hj_active : j.val < P.len.val) :
+    P.node i ≠ P.node j := by
+  intro hsame
+  have hlt := P.rankNat_lt_of_lt_active_of_nonroot hvalid hnonroot hij hj_active
+  rw [hsame] at hlt
+  exact (Nat.lt_irrefl _) hlt
 
 /-- Cut predicate for the bottom-prefix/top-suffix split of one raw path. -/
 def HasDissectionCut
@@ -965,6 +1045,53 @@ theorem after_parent_top
         hunchanged v hcomp
       rw [hsame]
       exact D.parent_top hv
+
+/--
+If a vertex already has a top parent before a valid compression step, then it
+still has a top parent afterwards.  This is the local persistence fact used by
+source-relevant boundary charging: once a bottom vertex has crossed to the top
+side, later source steps cannot make its parent bottom again.
+-/
+theorem after_parent_top_of_parent_top
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    {v : Fin n}
+    (hv : D.IsTop (S.before.parent v)) :
+    D.IsTop (S.after.parent v) := by
+  rcases hS with
+    ⟨hpath, _hafterRank, _hrank, hroot_step, hnonroot_step, hunchanged⟩
+  by_cases hroot : S.path.IsRootPath S.before
+  · have hparent_eq : S.after.parent = S.before.parent := hroot_step hroot
+    rw [hparent_eq]
+    exact hv
+  · have hnonroot : S.path.IsNonrootPath S.before := by
+      simpa [RawCompressionPath.IsRootPath, RawCompressionPath.IsNonrootPath,
+        RawRankedForest.IsRoot] using hroot
+    by_cases hcomp : S.path.IsCompressedVertex v
+    · have hrewire :
+          S.after.parent v = S.before.parent S.path.target :=
+        hnonroot_step hnonroot v hcomp
+      rw [hrewire]
+      have htarget_ancestor : S.before.IsAncestor v S.path.target :=
+        S.path.target_ancestor_of_compressedVertex hpath hcomp
+      have hparent_target_ancestor :
+          S.before.IsAncestor (S.before.parent v) (S.before.parent S.path.target) := by
+        rcases htarget_ancestor with ⟨t, ht⟩
+        cases t with
+        | zero =>
+            have hv_target : v = S.path.target := by
+              simpa [RawRankedForest.parentIter] using ht
+            exact ⟨0, by simp [RawRankedForest.parentIter, hv_target]⟩
+        | succ t =>
+            have hparent_target : S.before.IsAncestor (S.before.parent v) S.path.target := by
+              exact ⟨t, by simpa [RawRankedForest.parentIter] using ht⟩
+            exact S.before.isAncestor_parent hparent_target
+      exact D.top_of_ancestor hv hparent_target_ancestor
+    · have hsame : S.after.parent v = S.before.parent v :=
+        hunchanged v hcomp
+      rw [hsame]
+      exact hv
 
 /--
 The same top set is still upward closed after a valid raw compression step.
