@@ -1816,6 +1816,31 @@ theorem rankThreshold_projected_cost_main_lemma
   simpa [E.rankThreshold_bottomBoundaryCard_eq_bottomFinset_card hE s i0] using hmain
 
 /--
+Rank-threshold projected main lemma with the top projected charge term consumed
+by the execution length.  This is the projected-accounting form of the `+m`
+term in the source shift recurrence.
+-/
+theorem rankThreshold_projected_cost_main_lemma_add_length
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).projectedCost +
+          ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) +
+            m := by
+  have hmain := E.rankThreshold_projected_cost_main_lemma hE s i0
+  have hcharge :
+      (E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount <= m :=
+    (E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).chargedCount_le_length
+  omega
+
+/--
 Execution-level projected cost accounting for a chosen family of dissection
 cuts.  This is the concrete finite analogue of the cost side of the main lemma
 before quotienting the projected steps into restricted executions.

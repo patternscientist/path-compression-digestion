@@ -54,6 +54,8 @@ theorem RawCompressionExecution.rankThresholdDissectionFamily_top_card_le_div_of
 theorem RawCompressionExecution.rankThreshold_projected_nonroot_count_le
 
 theorem RawCompressionExecution.rankThreshold_projected_cost_main_lemma
+
+theorem RawCompressionExecution.rankThreshold_projected_cost_main_lemma_add_length
 ```
 
 It also adds the reusable extremal-cost handles in
@@ -137,6 +139,25 @@ theorem RawCompressionExecution.rankThreshold_projected_cost_main_lemma
 where `Cb` and `Ct` are the canonical rank-threshold bottom/top projected
 executions.  This consumes the projected accounting theorem up to the exact
 stable `|X_b|` bridge.
+
+The top-charge term can now also be consumed by the projected execution length:
+
+```lean
+theorem RawCompressionExecution.rankThreshold_projected_cost_main_lemma_add_length
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.cost <=
+      Cb.projectedCost + Ct.projectedCost +
+        ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) +
+          m
+```
+
+This discharges the projected `|C_t| <= m` part of the source-shift
+arithmetic.  The remaining unavailable terms are the bounds on
+`Cb.projectedCost` and `Ct.projectedCost` by the existing `topDownCost`
+recurrence premise.
 
 ## First Failed Bridge
 
