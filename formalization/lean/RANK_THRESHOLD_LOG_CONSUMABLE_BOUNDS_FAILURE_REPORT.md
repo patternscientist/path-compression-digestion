@@ -286,3 +286,47 @@ accounting layer.
 
 No unconditional `RankThresholdLogConsumableBounds`, `topDown_shift_step`,
 `SourceRecurrence topDownCost`, or paper-facing finite theorem is claimed.
+
+## Follow-up: Delayed-Row Audit Witness
+
+The model-repair follow-up also audited whether the remaining package can be
+proved from the bare `DiamondInput` interface.  It cannot be attacked that
+generically: the file now contains a concrete delayed row
+
+```lean
+def delayedSubThreeInput : DiamondInput
+```
+
+with
+
+```lean
+delayedSubThreeInput.g 6 = 3
+ceilLog2 (delayedSubThreeInput.g 6) = 2
+delayedSubThreeInput.g (6 - ceilLog2 (delayedSubThreeInput.g 6) - 1) = 0
+```
+
+and a faithful 32-vertex audit execution:
+
+```lean
+theorem delayedAuditStep_isValid
+theorem delayedAuditBefore_hasRankThresholdPacking
+theorem delayedAuditAfter_hasRankThresholdPacking
+theorem delayedAuditExecution_isValid
+theorem delayedAuditExecution_rankThresholdCut_eq_zero
+```
+
+This shows the old top-packing defect is not the issue for the delayed audit
+witness: it is accepted by the repaired faithful model.  The remaining missing
+mechanical step is to compute the canonical top projected consumable sum from
+the chosen-cut proof and use it to refute the over-general delayed-row package
+at `k = 0`.  A smaller local step-level theorem already proves the positive
+top consumable edge at the zero residual row:
+
+```lean
+theorem exists_valid_step_with_positive_top_consumable_at_delayed_zero_residual
+```
+
+This does not refute the concrete `JInput k` specialization.  It narrows the
+next proof obligation: the final consumable simulations must use concrete
+`J`-row facts, or another row-strength hypothesis, rather than only the four
+axioms carried by `DiamondInput`.

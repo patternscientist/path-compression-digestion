@@ -4165,6 +4165,660 @@ theorem topDown_shift_step_of_rankThreshold_log_consumable_bounds
     topDownShiftStepTarget k :=
   sourceShiftStep_of_rankThreshold_log_consumable_bounds (JInput k) k hconsume
 
+/-- A delayed test row used to audit over-general `DiamondInput` packages. -/
+def delayedSubThree (r : Nat) : Nat :=
+  r - 3
+
+/--
+`r ↦ r - 3` is a valid `DiamondInput`, but it is not one of the concrete `J`
+rows.  It is useful for checking which source-shift packages genuinely hold for
+all diamond inputs and which only make sense for the concrete hierarchy.
+-/
+def delayedSubThreeInput : DiamondInput where
+  g := delayedSubThree
+  zero_eq := by
+    simp [delayedSubThree]
+  monotone := by
+    intro r s hrs
+    exact Nat.sub_le_sub_right hrs 3
+  unbounded := by
+    intro t
+    refine ⟨t + 3, ?_⟩
+    simp [delayedSubThree]
+  lt_self_pos := by
+    intro r hr
+    unfold delayedSubThree
+    omega
+
+@[simp]
+theorem delayedSubThreeInput_g_six :
+    delayedSubThreeInput.g 6 = 3 := by
+  rfl
+
+@[simp]
+theorem ceilLog2_delayedSubThreeInput_g_six :
+    ceilLog2 (delayedSubThreeInput.g 6) = 2 := by
+  native_decide
+
+/--
+For the delayed test row, the package's residual top row vanishes at the first
+rank where a nontrivial top projected path can exist.
+-/
+theorem delayedSubThreeInput_g_top_residual_six :
+    delayedSubThreeInput.g
+      (6 - ceilLog2 (delayedSubThreeInput.g 6) - 1) = 0 := by
+  native_decide
+
+/-- First vertex of the faithful delayed-row audit witness. -/
+def delayedAuditV0 : Fin 32 := ⟨0, by norm_num⟩
+
+/-- Middle vertex of the faithful delayed-row audit witness. -/
+def delayedAuditV1 : Fin 32 := ⟨1, by norm_num⟩
+
+/-- Top parent vertex of the faithful delayed-row audit witness. -/
+def delayedAuditV2 : Fin 32 := ⟨2, by norm_num⟩
+
+/-- A rank-packed three-node chain inside a 32-vertex ambient forest. -/
+def delayedAuditBefore : RawRankedForest 32 6 where
+  parent := fun v =>
+    if v.val = 0 then delayedAuditV1 else if v.val = 1 then delayedAuditV2 else v
+  rank := fun v =>
+    if v.val = 0 then ⟨3, by norm_num⟩
+    else if v.val = 1 then ⟨4, by norm_num⟩
+    else if v.val = 2 then ⟨5, by norm_num⟩
+    else ⟨0, by norm_num⟩
+
+/-- The two-slot path through the first edge of the delayed audit chain. -/
+def delayedAuditPath : RawCompressionPath 32 where
+  len := ⟨2, by norm_num⟩
+  node := fun i => if i.val = 0 then delayedAuditV0 else delayedAuditV1
+  target := delayedAuditV1
+
+/-- The forest after compressing `delayedAuditV0` to the old parent of the target. -/
+def delayedAuditAfter : RawRankedForest 32 6 where
+  parent := fun v =>
+    if v.val = 0 then delayedAuditV2 else if v.val = 1 then delayedAuditV2 else v
+  rank := delayedAuditBefore.rank
+
+/-- The faithful delayed-row audit step. -/
+def delayedAuditStep : RawCompressionStep 32 6 where
+  before := delayedAuditBefore
+  after := delayedAuditAfter
+  path := delayedAuditPath
+
+/-- The delayed audit step is a valid concrete compression step. -/
+theorem delayedAuditStep_isValid : delayedAuditStep.IsValid := by
+  classical
+  refine ⟨?hpath, ?hafterRank, ?hrank, ?hroot, ?hnonroot, ?hunchanged⟩
+  · refine ⟨?hrankValid, ?hlen, ?hchain, ?hlast⟩
+    · intro v hv
+      by_cases h0 : v.val = 0
+      · have hv0 : v = delayedAuditV0 := by
+          apply Fin.ext
+          simpa [delayedAuditV0] using h0
+        subst v
+        norm_num [delayedAuditStep, delayedAuditBefore, delayedAuditV0,
+          delayedAuditV1, delayedAuditV2, RawRankedForest.rankNat]
+      · by_cases h1 : v.val = 1
+        · have hv1 : v = delayedAuditV1 := by
+            apply Fin.ext
+            simpa [delayedAuditV1] using h1
+          subst v
+          norm_num [delayedAuditStep, delayedAuditBefore, delayedAuditV0,
+            delayedAuditV1, delayedAuditV2, RawRankedForest.rankNat]
+        · exfalso
+          apply hv
+          change delayedAuditBefore.parent v = v
+          have hvzero : v ≠ (0 : Fin 32) := by
+            intro hvz
+            apply h0
+            simpa using congrArg Fin.val hvz
+          simp [delayedAuditBefore, hvzero, h1]
+    · norm_num [delayedAuditStep, delayedAuditPath]
+    · intro i j hij hj
+      have hi0 : i.val = 0 := by
+        have hlen : delayedAuditStep.path.len.val = 2 := by
+          rfl
+        omega
+      have hj1 : j.val = 1 := by
+        omega
+      have hi_eq : i = ⟨0, by norm_num⟩ := Fin.ext hi0
+      have hj_eq : j = ⟨1, by norm_num⟩ := Fin.ext hj1
+      subst i
+      subst j
+      apply Fin.ext
+      norm_num [delayedAuditStep, delayedAuditPath, delayedAuditBefore,
+        delayedAuditV0, delayedAuditV1, delayedAuditV2]
+    · intro i hi
+      have hi1 : i.val = 1 := by
+        have hlen : delayedAuditStep.path.len.val = 2 := by
+          rfl
+        omega
+      have hi_eq : i = ⟨1, by norm_num⟩ := Fin.ext hi1
+      subst i
+      apply Fin.ext
+      norm_num [delayedAuditStep, delayedAuditPath, delayedAuditV0,
+        delayedAuditV1]
+  · intro v hv
+    by_cases h0 : v.val = 0
+    · have hv0 : v = delayedAuditV0 := by
+        apply Fin.ext
+        simpa [delayedAuditV0] using h0
+      subst v
+      norm_num [delayedAuditStep, delayedAuditAfter, delayedAuditBefore,
+        delayedAuditV0, delayedAuditV1, delayedAuditV2,
+        RawRankedForest.rankNat]
+    · by_cases h1 : v.val = 1
+      · have hv1 : v = delayedAuditV1 := by
+          apply Fin.ext
+          simpa [delayedAuditV1] using h1
+        subst v
+        norm_num [delayedAuditStep, delayedAuditAfter, delayedAuditBefore,
+          delayedAuditV0, delayedAuditV1, delayedAuditV2,
+          RawRankedForest.rankNat]
+      · exfalso
+        apply hv
+        change delayedAuditAfter.parent v = v
+        have hvzero : v ≠ (0 : Fin 32) := by
+          intro hvz
+          apply h0
+          simpa using congrArg Fin.val hvz
+        simp [delayedAuditAfter, hvzero, h1]
+  · intro v
+    rfl
+  · intro hroot
+    exfalso
+    have hnot :
+        delayedAuditBefore.parent delayedAuditPath.target ≠ delayedAuditPath.target := by
+      norm_num [delayedAuditBefore, delayedAuditPath, delayedAuditV1,
+        delayedAuditV2]
+    exact hnot hroot
+  · intro _hnonroot v hcomp
+    rcases hcomp with ⟨i, hi, hnode⟩
+    have hi0 : i.val = 0 := by
+      have hlen : delayedAuditStep.path.len.val = 2 := by
+        rfl
+      omega
+    have hi_eq : i = ⟨0, by norm_num⟩ := Fin.ext hi0
+    subst i
+    have hv0 : v = delayedAuditV0 := by
+      rw [← hnode]
+      apply Fin.ext
+      norm_num [delayedAuditStep, delayedAuditPath, delayedAuditV0]
+    rw [hv0]
+    apply Fin.ext
+    norm_num [delayedAuditStep, delayedAuditAfter, delayedAuditBefore,
+      delayedAuditPath, delayedAuditV0, delayedAuditV1, delayedAuditV2]
+  · intro v hnot
+    by_cases h0 : v.val = 0
+    · exfalso
+      apply hnot
+      refine ⟨⟨0, by norm_num⟩, ?_, ?_⟩
+      · norm_num [delayedAuditStep, delayedAuditPath]
+      · apply Fin.ext
+        norm_num [delayedAuditStep, delayedAuditPath, delayedAuditV0, h0]
+    · apply Fin.ext
+      by_cases h1 : v.val = 1
+      · have hv1 : v = delayedAuditV1 := by
+          apply Fin.ext
+          simpa [delayedAuditV1] using h1
+        subst v
+        norm_num [delayedAuditStep, delayedAuditAfter, delayedAuditBefore,
+          delayedAuditV1, delayedAuditV2]
+      · have hvzero : v ≠ (0 : Fin 32) := by
+          intro hvz
+          apply h0
+          simpa using congrArg Fin.val hvz
+        norm_num [delayedAuditStep, delayedAuditAfter, delayedAuditBefore,
+          delayedAuditV1, delayedAuditV2, hvzero, h1]
+
+/-- All positive-rank vertices in the delayed audit forest lie in the three-node chain. -/
+theorem delayedAuditBefore_highRank_card_le_three (s : Nat) :
+    (delayedAuditBefore.highRankFinset s).card <= 3 := by
+  classical
+  let support : Finset (Fin 32) :=
+    {delayedAuditV0, delayedAuditV1, delayedAuditV2}
+  have hsubset : delayedAuditBefore.highRankFinset s ⊆ support := by
+    intro v hv
+    have hvhigh : s < delayedAuditBefore.rankNat v := by
+      simpa [RawRankedForest.highRankFinset] using hv
+    by_cases h0 : v.val = 0
+    · have hv0 : v = delayedAuditV0 := by
+        apply Fin.ext
+        simpa [delayedAuditV0] using h0
+      simp [support, hv0]
+    · by_cases h1 : v.val = 1
+      · have hv1 : v = delayedAuditV1 := by
+          apply Fin.ext
+          simpa [delayedAuditV1] using h1
+        simp [support, hv1]
+      · by_cases h2 : v.val = 2
+        · have hv2 : v = delayedAuditV2 := by
+            apply Fin.ext
+            simpa [delayedAuditV2] using h2
+          simp [support, hv2]
+        · have hrank0 : delayedAuditBefore.rankNat v = 0 := by
+            have hvzero : v ≠ (0 : Fin 32) := by
+              intro hvz
+              apply h0
+              simpa using congrArg Fin.val hvz
+            simp [delayedAuditBefore, RawRankedForest.rankNat, hvzero, h1, h2]
+          omega
+  have hcard := Finset.card_le_card hsubset
+  have hsupport : support.card = 3 := by
+    norm_num [support, delayedAuditV0, delayedAuditV1, delayedAuditV2]
+  omega
+
+/-- Above threshold `3`, only the last two chain vertices can remain high-rank. -/
+theorem delayedAuditBefore_highRank_card_le_two_of_three_le
+    {s : Nat} (hs : 3 <= s) :
+    (delayedAuditBefore.highRankFinset s).card <= 2 := by
+  classical
+  let support : Finset (Fin 32) := {delayedAuditV1, delayedAuditV2}
+  have hsubset : delayedAuditBefore.highRankFinset s ⊆ support := by
+    intro v hv
+    have hvhigh : s < delayedAuditBefore.rankNat v := by
+      simpa [RawRankedForest.highRankFinset] using hv
+    by_cases h0 : v.val = 0
+    · have hrank3 : delayedAuditBefore.rankNat v = 3 := by
+        have hv0 : v = delayedAuditV0 := by
+          apply Fin.ext
+          simpa [delayedAuditV0] using h0
+        subst v
+        simp [delayedAuditBefore, RawRankedForest.rankNat, delayedAuditV0]
+      omega
+    · by_cases h1 : v.val = 1
+      · have hv1 : v = delayedAuditV1 := by
+          apply Fin.ext
+          simpa [delayedAuditV1] using h1
+        simp [support, hv1]
+      · by_cases h2 : v.val = 2
+        · have hv2 : v = delayedAuditV2 := by
+            apply Fin.ext
+            simpa [delayedAuditV2] using h2
+          simp [support, hv2]
+        · have hrank0 : delayedAuditBefore.rankNat v = 0 := by
+            have hvzero : v ≠ (0 : Fin 32) := by
+              intro hvz
+              apply h0
+              simpa using congrArg Fin.val hvz
+            simp [delayedAuditBefore, RawRankedForest.rankNat, hvzero, h1, h2]
+          omega
+  have hcard := Finset.card_le_card hsubset
+  have hsupport : support.card = 2 := by
+    norm_num [support, delayedAuditV1, delayedAuditV2]
+  omega
+
+/-- Above threshold `4`, only the rank-five chain vertex can remain high-rank. -/
+theorem delayedAuditBefore_highRank_card_le_one_of_four_le
+    {s : Nat} (hs : 4 <= s) :
+    (delayedAuditBefore.highRankFinset s).card <= 1 := by
+  classical
+  let support : Finset (Fin 32) := {delayedAuditV2}
+  have hsubset : delayedAuditBefore.highRankFinset s ⊆ support := by
+    intro v hv
+    have hvhigh : s < delayedAuditBefore.rankNat v := by
+      simpa [RawRankedForest.highRankFinset] using hv
+    by_cases h0 : v.val = 0
+    · have hrank3 : delayedAuditBefore.rankNat v = 3 := by
+        have hv0 : v = delayedAuditV0 := by
+          apply Fin.ext
+          simpa [delayedAuditV0] using h0
+        subst v
+        simp [delayedAuditBefore, RawRankedForest.rankNat, delayedAuditV0]
+      omega
+    · by_cases h1 : v.val = 1
+      · have hrank4 : delayedAuditBefore.rankNat v = 4 := by
+          have hv1 : v = delayedAuditV1 := by
+            apply Fin.ext
+            simpa [delayedAuditV1] using h1
+          subst v
+          simp [delayedAuditBefore, RawRankedForest.rankNat, delayedAuditV0,
+            delayedAuditV1]
+        omega
+      · by_cases h2 : v.val = 2
+        · have hv2 : v = delayedAuditV2 := by
+            apply Fin.ext
+            simpa [delayedAuditV2] using h2
+          simp [support, hv2]
+        · have hrank0 : delayedAuditBefore.rankNat v = 0 := by
+            have hvzero : v ≠ (0 : Fin 32) := by
+              intro hvz
+              apply h0
+              simpa using congrArg Fin.val hvz
+            simp [delayedAuditBefore, RawRankedForest.rankNat, hvzero, h1, h2]
+          omega
+  have hcard := Finset.card_le_card hsubset
+  have hsupport : support.card = 1 := by
+    norm_num [support, delayedAuditV2]
+  omega
+
+/-- Above threshold `5`, the delayed audit forest has no high-rank vertices. -/
+theorem delayedAuditBefore_highRank_card_eq_zero_of_five_le
+    {s : Nat} (hs : 5 <= s) :
+    (delayedAuditBefore.highRankFinset s).card = 0 := by
+  rw [Finset.card_eq_zero]
+  ext v
+  constructor
+  · intro hv
+    have hvhigh : s < delayedAuditBefore.rankNat v := by
+      simpa [RawRankedForest.highRankFinset] using hv
+    have hrank : delayedAuditBefore.rankNat v <= 5 := by
+      by_cases h0 : v.val = 0
+      · have hv0 : v = delayedAuditV0 := by
+          apply Fin.ext
+          simpa [delayedAuditV0] using h0
+        subst v
+        simp [delayedAuditBefore, RawRankedForest.rankNat, delayedAuditV0]
+      · by_cases h1 : v.val = 1
+        · have hv1 : v = delayedAuditV1 := by
+            apply Fin.ext
+            simpa [delayedAuditV1] using h1
+          subst v
+          simp [delayedAuditBefore, RawRankedForest.rankNat, delayedAuditV0,
+            delayedAuditV1]
+        · by_cases h2 : v.val = 2
+          · have hv2 : v = delayedAuditV2 := by
+              apply Fin.ext
+              simpa [delayedAuditV2] using h2
+            subst v
+            simp [delayedAuditBefore, RawRankedForest.rankNat, delayedAuditV0,
+              delayedAuditV1, delayedAuditV2]
+          · have hvzero : v ≠ (0 : Fin 32) := by
+              intro hvz
+              apply h0
+              simpa using congrArg Fin.val hvz
+            simp [delayedAuditBefore, RawRankedForest.rankNat, hvzero, h1, h2]
+    omega
+  · intro hv
+    simp at hv
+
+/-- The delayed audit before-forest satisfies the repaired rank-packing invariant. -/
+theorem delayedAuditBefore_hasRankThresholdPacking :
+    delayedAuditBefore.HasRankThresholdPacking := by
+  classical
+  intro s
+  by_cases hs2 : s <= 2
+  · interval_cases s
+    · have hcard := delayedAuditBefore_highRank_card_le_three 0
+      norm_num
+      omega
+    · have hcard := delayedAuditBefore_highRank_card_le_three 1
+      norm_num
+      omega
+    · have hcard := delayedAuditBefore_highRank_card_le_three 2
+      norm_num
+      omega
+  · have hs3 : 3 <= s := by omega
+    by_cases hs4 : s <= 3
+    · have hs : s = 3 := by omega
+      subst s
+      have hcard := delayedAuditBefore_highRank_card_le_two_of_three_le
+        (s := 3) (by norm_num)
+      norm_num
+      omega
+    · have hs4le : 4 <= s := by omega
+      by_cases hs5 : s <= 4
+      · have hs : s = 4 := by omega
+        subst s
+        have hcard := delayedAuditBefore_highRank_card_le_one_of_four_le
+          (s := 4) (by norm_num)
+        norm_num
+        omega
+      · have hs5le : 5 <= s := by omega
+        have hzero := delayedAuditBefore_highRank_card_eq_zero_of_five_le
+          (s := s) hs5le
+        rw [hzero]
+        simp
+
+/-- The delayed audit after-forest satisfies the repaired rank-packing invariant. -/
+theorem delayedAuditAfter_hasRankThresholdPacking :
+    delayedAuditAfter.HasRankThresholdPacking := by
+  intro s
+  simpa [delayedAuditAfter] using delayedAuditBefore_hasRankThresholdPacking s
+
+/-- One-slot faithful execution built from the delayed audit step. -/
+def delayedAuditExecution : RawCompressionExecution 1 32 6 where
+  step := fun _ => delayedAuditStep
+
+/-- The delayed audit step has exactly one ordinary source-cost unit. -/
+theorem delayedAuditStep_cost :
+    delayedAuditStep.cost = 1 := by
+  classical
+  norm_num [RawCompressionStep.cost, RawCompressionPath.sourceCost,
+    RawCompressionPath.cost, RawCompressionPath.IsRootPath, RawRankedForest.IsRoot,
+    delayedAuditStep, delayedAuditBefore, delayedAuditPath,
+    delayedAuditV1, delayedAuditV2]
+
+/-- The one-slot delayed audit execution is valid in the repaired faithful model. -/
+theorem delayedAuditExecution_isValid :
+    delayedAuditExecution.IsValid := by
+  classical
+  refine ⟨?hsteps, ?hstate, ?haccount⟩
+  · intro i
+    fin_cases i
+    exact delayedAuditStep_isValid
+  · intro i j hij
+    omega
+  · refine ⟨?hlegacy, ?hpack⟩
+    · let charge :
+          delayedAuditExecution.ChargeUnit -> Prod (Fin 32) (Fin (6 - 1)) :=
+        fun _ => (delayedAuditV0, ⟨0, by norm_num⟩)
+      refine ⟨charge, ?_⟩
+      intro a b _h
+      rcases a with ⟨i, ai⟩
+      rcases b with ⟨j, bj⟩
+      fin_cases i
+      fin_cases j
+      refine Sigma.ext rfl ?_
+      apply heq_of_eq
+      apply Fin.ext
+      have hcost :
+          (delayedAuditExecution.step ((fun i => i) ⟨0, by norm_num⟩)).cost = 1 := by
+        simpa [delayedAuditExecution] using delayedAuditStep_cost
+      have hai : ai.val = 0 := by
+        have hlt : ai.val < delayedAuditStep.cost := by
+          simpa [delayedAuditExecution] using ai.isLt
+        rw [delayedAuditStep_cost] at hlt
+        omega
+      have hbj : bj.val = 0 := by
+        have hlt : bj.val < delayedAuditStep.cost := by
+          simpa [delayedAuditExecution] using bj.isLt
+        rw [delayedAuditStep_cost] at hlt
+        omega
+      exact hai.trans hbj.symm
+    · intro i
+      fin_cases i
+      exact ⟨delayedAuditBefore_hasRankThresholdPacking,
+        delayedAuditAfter_hasRankThresholdPacking⟩
+
+/-- The canonical rank-threshold cut for the delayed audit execution is the top-only cut. -/
+theorem delayedAuditExecution_rankThresholdCut_eq_zero :
+    delayedAuditExecution.dissectionCut delayedAuditExecution_isValid.1
+      (delayedAuditExecution.rankThresholdDissectionFamily
+        delayedAuditExecution_isValid.1 2) ⟨0, by norm_num⟩ = 0 := by
+  classical
+  let i0 : Fin 1 := ⟨0, by norm_num⟩
+  let Dfam :=
+    delayedAuditExecution.rankThresholdDissectionFamily
+      delayedAuditExecution_isValid.1 2
+  let cut := delayedAuditExecution.dissectionCut delayedAuditExecution_isValid.1 Dfam i0
+  have hcut :
+      (delayedAuditExecution.step i0).path.HasDissectionCut (Dfam i0) cut := by
+    simpa [Dfam, cut, i0] using
+      delayedAuditExecution.dissectionCut_spec delayedAuditExecution_isValid.1 Dfam i0
+  by_contra hne
+  have hpos : 0 < cut := Nat.pos_of_ne_zero hne
+  have hbottom :
+      (Dfam i0).IsBottom ((delayedAuditExecution.step i0).path.node ⟨0, by norm_num⟩) :=
+    hcut.2.1 ⟨0, by norm_num⟩
+      (by norm_num [delayedAuditExecution, delayedAuditStep, delayedAuditPath, i0])
+      hpos
+  have htop :
+      (Dfam i0).IsTop ((delayedAuditExecution.step i0).path.node ⟨0, by norm_num⟩) := by
+    norm_num [Dfam, i0, rankThresholdDissectionFamily,
+      RankThresholdDissection.dissection, RankThresholdDissection.topPred,
+      RawDissection.IsTop, RawRankedForest.rankNat,
+      delayedAuditExecution, delayedAuditStep, delayedAuditBefore,
+      delayedAuditPath, delayedAuditV0]
+  exact hbottom htop
+
+/--
+Local semantic audit for the delayed row: at the same parameters where the
+package's residual top row is zero, the concrete step semantics allow a valid
+rank-threshold top projection with one consumable edge.
+-/
+theorem exists_valid_step_with_positive_top_consumable_at_delayed_zero_residual :
+    Exists fun S : RawCompressionStep 3 6 =>
+      Exists fun hS : S.IsValid =>
+        let s := ceilLog2 (delayedSubThreeInput.g 6)
+        Exists fun hcut :
+            S.path.HasDissectionCut
+              (RankThresholdDissection.dissection S.before hS.1.1 s) 0 =>
+          (S.topProjectedStep
+              (RankThresholdDissection.dissection S.before hS.1.1 s)
+              hS 0 hcut).consumableCost = 1 /\
+            delayedSubThreeInput.g (6 - s - 1) = 0 := by
+  classical
+  let v0 : Fin 3 := ⟨0, by norm_num⟩
+  let v1 : Fin 3 := ⟨1, by norm_num⟩
+  let v2 : Fin 3 := ⟨2, by norm_num⟩
+  let F : RawRankedForest 3 6 := {
+    parent := fun v =>
+      if v.val = 0 then v1 else if v.val = 1 then v2 else v
+    rank := fun v =>
+      if v.val = 0 then ⟨3, by norm_num⟩
+      else if v.val = 1 then ⟨4, by norm_num⟩
+      else if v.val = 2 then ⟨5, by norm_num⟩
+      else ⟨0, by norm_num⟩
+  }
+  let P : RawCompressionPath 3 := {
+    len := ⟨2, by norm_num⟩
+    node := fun i => if i.val = 0 then v0 else v1
+    target := v1
+  }
+  let A : RawRankedForest 3 6 := {
+    parent := fun v =>
+      if v.val = 0 then v2 else if v.val = 1 then v2 else v
+    rank := F.rank
+  }
+  let S : RawCompressionStep 3 6 := {
+    before := F
+    after := A
+    path := P
+  }
+  have hS : S.IsValid := by
+    refine ⟨?hpath, ?hafterRank, ?hrank, ?hroot, ?hnonroot, ?hunchanged⟩
+    · refine ⟨?hrankValid, ?hlen, ?hchain, ?hlast⟩
+      · intro v hv
+        fin_cases v
+        · norm_num [S, F, v0, v1, v2, RawRankedForest.rankNat]
+        · norm_num [S, F, v0, v1, v2, RawRankedForest.rankNat]
+        · exfalso
+          apply hv
+          norm_num [S, F, v0, v1, v2]
+      · norm_num [S, P]
+      · intro i j hij hj
+        have hi0 : i.val = 0 := by
+          norm_num [S, P] at hj
+          omega
+        have hj1 : j.val = 1 := by
+          omega
+        apply Fin.ext
+        norm_num [S, P, F, v0, v1, v2, hi0, hj1]
+      · intro i hi
+        have hi1 : i.val = 1 := by
+          norm_num [S, P] at hi
+          omega
+        apply Fin.ext
+        norm_num [S, P, v0, v1, hi1]
+    · intro v hv
+      fin_cases v
+      · norm_num [S, A, F, v0, v1, v2, RawRankedForest.rankNat]
+      · norm_num [S, A, F, v0, v1, v2, RawRankedForest.rankNat]
+      · exfalso
+        apply hv
+        norm_num [S, A, F, v0, v1, v2]
+    · intro v
+      rfl
+    · intro hroot
+      exfalso
+      have hnot : F.parent P.target ≠ P.target := by
+        norm_num [F, P, v1, v2]
+      exact hnot hroot
+    · intro _hnonroot v hcomp
+      rcases hcomp with ⟨i, hi, hnode⟩
+      have hi0 : i.val = 0 := by
+        have hlen : S.path.len.val = 2 := by
+          rfl
+        omega
+      have hv0 : v = v0 := by
+        rw [← hnode]
+        apply Fin.ext
+        norm_num [S, P, v0, hi0]
+      rw [hv0]
+      apply Fin.ext
+      norm_num [S, A, F, P, v0, v1, v2]
+    · intro v hnot
+      by_cases hv0 : v.val = 0
+      · exfalso
+        apply hnot
+        refine ⟨⟨0, by norm_num⟩, ?_, ?_⟩
+        · norm_num [S, P]
+        · apply Fin.ext
+          norm_num [S, P, v0, hv0]
+      · fin_cases v
+        · exfalso
+          exact hv0 rfl
+        · apply Fin.ext
+          norm_num [S, A, F]
+        · apply Fin.ext
+          norm_num [S, A, F]
+  let s := ceilLog2 (delayedSubThreeInput.g 6)
+  have hs : s = 2 := by
+    native_decide
+  let D := RankThresholdDissection.dissection S.before hS.1.1 s
+  have hcut : S.path.HasDissectionCut D 0 := by
+    constructor
+    · simp [S, P]
+    constructor
+    · intro i _hactive hi
+      omega
+    · intro i hactive _hi
+      have hival : i.val = 0 ∨ i.val = 1 := by
+        simp [S, P] at hactive
+        omega
+      rcases hival with hival | hival <;>
+        simp [D, s, hs, S, P, F, v0, v1, v2,
+          rankThresholdDissectionFamily, RankThresholdDissection.dissection,
+          RankThresholdDissection.topPred, RawDissection.IsTop,
+          RawRankedForest.rankNat, hival]
+  have hcost :
+      (S.topProjectedStep D hS 0 hcut).consumableCost = 1 := by
+    simp [D, s, hs, S, P, F, A, v0, v1, v2,
+      RawCompressionStep.topProjectedStep,
+      RawCompressionPath.topProjectionSegment,
+      RawCompressionPath.topProjectionLength,
+      RawCompressionPath.topProjectionNode,
+      RawCompressionPath.topProjectionIndex,
+      RawCompressionPath.ProjectedCompressionStep.consumableCost,
+      RawCompressionPath.ProjectedCompressionStep.IsCharged,
+      RawCompressionPath.ProjectedCompressionStep.IsNonrootPath,
+      RawCompressionPath.ProjectedCompressionStep.cost,
+      RawCompressionPath.ProjectedPathSegment.edgeCost,
+      RawCompressionPath.ProjectedPathSegment.IsNonrootPath,
+      RawCompressionPath.ProjectedPathSegment.lastIndex,
+      RawDissection.topParent,
+      RankThresholdDissection.dissection,
+      RankThresholdDissection.topPred,
+      RawDissection.IsTop,
+      RawRankedForest.rankNat]
+    intro h
+    cases h
+  refine ⟨S, hS, hcut, ?_⟩
+  exact ⟨by simpa [D, s] using hcost, by simpa [s, hs] using
+    delayedSubThreeInput_g_top_residual_six⟩
+
 /--
 The legacy finite skeleton, before rank-threshold packing was added to base
 accounting, accepted a one-vertex high-rank root that blocks `TopPacking`.
