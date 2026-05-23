@@ -115,12 +115,19 @@ under `ThresholdCoreAssumptions R`.
   defines a finite concrete source-model skeleton beneath `SourceModel`:
   ranked forests over `Fin n`, bounded compression paths, compression steps,
   finite executions, source-style rootpath/nonrootpath cost,
-  base-rank-accounting certificates, and `topDownCost : SourceCostFamily`. It
-  proves the base obligation for this base-accounted cost family; the
-  certificate derivation from raw step semantics and the shifting obligation
-  remain open. It also provides conditional wrappers showing that
+  base-rank-accounting certificates, direct rank-threshold packing, and
+  `topDownCost : SourceCostFamily`. It proves the base obligation for this
+  base-accounted cost family; the certificate derivation from raw step
+  semantics and the shifting obligation remain open. It also provides
+  conditional wrappers showing that
   `SourceModel`, `SourceRecurrence topDownCost`, and the finite paper-facing
   bound follow from the remaining shift theorem.
+- `formalization/lean/PathCompressionDigestion/SourceDissection.lean` and
+  `formalization/lean/PathCompressionDigestion/SourceProjection.lean` add the
+  dissection/projection layer beneath the shift target.  The current repair
+  derives rank-threshold `TopPacking` from the new direct rank-packing
+  invariant and preserves the old one-vertex high-rank-root obstruction only
+  for a legacy-without-packing predicate.
 - `formalization/lean/PathCompressionDigestion/PaperPipeline.lean` exposes the
   formalized direct-proof pipeline under paper-facing wrapper names, including
   the finite bound conditional on `SourceRecurrence` and the corresponding
@@ -178,12 +185,17 @@ under `ThresholdCoreAssumptions R`.
   `formalization/lean/PathCompressionDigestion/ConcreteSourceModel.lean`,
   including `topDownCost`, `topDownCost_le_base_budget`,
   `topDown_base_bound`, `topDown_base_sourceBound`, and the named remaining
-  target `topDownShiftStepTarget`. This proves the base field needed by
-  `SourceModel` for base-accounted executions, and includes conditional
-  wrappers `topDown_sourceModel_of_shift`,
+  target `topDownShiftStepTarget`. Faithful base/rank accounting now includes
+  direct rank-threshold packing, ruling out the old one-vertex high-rank-root
+  model defect. This proves the base field needed by `SourceModel` for
+  base-accounted executions, and includes conditional wrappers
+  `topDown_sourceModel_of_shift`,
   `sourceRecurrence_topDownCost_of_shift`, and
   `paper_finite_bound_topDownCost_of_shift`. It does not prove the shift field
   or an unconditional concrete `SourceModel`.
+- The rank-threshold top-packing field needed by the projected shift package is
+  now constructible from the faithful model's direct rank-threshold packing.
+  The bottom and top consumable-cost simulation fields remain open.
 - The paper-facing pipeline wrappers, including
   `paper_finite_bound_of_source_recurrence` and
   `paper_finite_bound_of_source_model`, in
@@ -193,8 +205,8 @@ under `ThresholdCoreAssumptions R`.
 ## Not Yet Proved in Lean
 
 - A concrete source/top-down path-compression model theorem, including proofs
-  that raw valid executions admit the base-rank-accounting certificate and the
-  shifting obligation for `ConcreteSourceModel.topDownCost`.
+  that raw valid executions admit the strengthened base/rank-accounting
+  certificate and the shifting obligation for `ConcreteSourceModel.topDownCost`.
 - Asymptotic Big-O packaging.
 - The unconditional full paper theorem for the actual source
   path-compression model.

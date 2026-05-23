@@ -17,19 +17,16 @@ This worker did not prove:
 RawCompressionExecution.RankThresholdLogConsumableBounds
 ```
 
-Instead, it proved that the package is not unconditional for the current
+Instead, it proved that the package was not unconditional for the pre-repair
 finite skeleton:
 
 ```lean
-theorem RawCompressionExecution.exists_validExecution_without_rankThresholdTopPacking_current_model :
+theorem RawCompressionExecution.exists_legacyValidExecution_without_rankThresholdTopPacking_current_model :
     Exists fun E : RawCompressionExecution 1 1 4 =>
-      Exists fun hE : E.IsValid =>
+      Exists fun hE : E.IsLegacyValidWithoutRankPacking =>
         let i0 : Fin 1 := { val := 0, isLt := by omega }
         RankThresholdDissection.TopPacking (E.step i0).before (hE.1 i0).1.1 1 ->
           False
-
-theorem RawCompressionExecution.not_rankThresholdLogConsumableBounds_J0_current_model :
-    RankThresholdLogConsumableBounds (JInput 0) 0 -> False
 ```
 
 Therefore this branch did not derive an unconditional:
@@ -166,14 +163,20 @@ Thus `IsRankValid` alone cannot produce `TopPacking`; the missing ingredient is
 source-faithful rank-size/subtree accounting, not a rearrangement of the shift
 arithmetic.
 
-The theorem
-`exists_validExecution_without_rankThresholdTopPacking_current_model` gives the
-standalone top-packing obstruction.  The theorem
-`not_rankThresholdLogConsumableBounds_J0_current_model` instantiates this
-obstruction with a one-vertex valid execution at rank bound `4`, using
-`JInput 0`.  The large-row condition holds because `J_0(4) = 2`, hence the
-log threshold is `s = 1`, but the single high-rank vertex lies in the top side
-and would require an injection from a four-element domain into `Fin 1`.
+After the model-repair branch, the theorem
+`exists_legacyValidExecution_without_rankThresholdTopPacking_current_model`
+keeps the standalone obstruction for the old skeleton without rank-threshold
+packing.  The repaired faithful model proves:
+
+```lean
+def RawCompressionExecution.rankThresholdDissectionFamily_topPacking
+
+theorem RawCompressionExecution.not_exists_validExecution_without_rankThresholdTopPacking_current_model
+```
+
+Thus the old one-vertex high-rank root is no longer accepted by the repaired
+`RawCompressionExecution.IsValid`; it remains accepted only by the explicitly
+named legacy predicate.
 
 ## Blocker Classification
 
@@ -211,10 +214,12 @@ prove the top-packing theorem from it while preserving the existing
 
 ## Verdict
 
-Ambition D achieved.  The exact package fields are identified, the downstream
-fields already consumed by existing lemmas are separated from the missing
-fields, and the first blocker is mechanically isolated as top packing.  In the
-current model, the full package is mechanically refuted at `JInput 0`.
+Ambition D achieved for the original worker.  The exact package fields are
+identified, the downstream fields already consumed by existing lemmas are
+separated from the missing fields, and the first blocker was mechanically
+isolated as top packing.  The later model-repair branch fixes that top-packing
+defect by adding direct rank-threshold packing to the faithful base/rank
+accounting layer.
 
 No unconditional `RankThresholdLogConsumableBounds`, `topDown_shift_step`,
 `SourceRecurrence topDownCost`, or paper-facing finite theorem is claimed.

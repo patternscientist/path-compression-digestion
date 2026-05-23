@@ -1441,6 +1441,29 @@ theorem top_card_mul_pow_le
     simpa [hTcard, Nat.mul_comm, Nat.mul_left_comm, Nat.mul_assoc] using hle
   simpa [T] using hle'
 
+/-- Construct top packing from the exact multiplicative top-cardinality bound. -/
+noncomputable def topPacking_of_top_card_mul_pow_le
+    (hF : F.IsRankValid)
+    (s : Nat)
+    (hpack : (dissection F hF s).topFinset.card * 2 ^ (s + 1) <= n) :
+    TopPacking F hF s := by
+  classical
+  let T := (dissection F hF s).topFinset
+  let A := T × Fin (2 ^ (s + 1))
+  have hcardA : Fintype.card A = T.card * 2 ^ (s + 1) := by
+    simp [A]
+  have hcard :
+      Fintype.card A <= Fintype.card (Fin n) := by
+    rw [hcardA]
+    simpa [T] using hpack
+  let e : A ↪ Fin n := Classical.choice (Function.Embedding.nonempty_of_card_le hcard)
+  exact {
+    pack := fun v j => e (v, j)
+    injective_pack := by
+      intro p q hpq
+      exact e.injective hpq
+  }
+
 /-- A failed multiplicative top-cardinality bound rules out `TopPacking`. -/
 theorem not_topPacking_of_top_card_mul_pow_gt
     (hF : F.IsRankValid)
@@ -1460,6 +1483,22 @@ theorem top_card_le_div
     top_card_mul_pow_le F hF s P
   have hpos : 0 < 2 ^ (s + 1) := Nat.pow_pos (by norm_num : 0 < 2)
   exact (Nat.le_div_iff_mul_le hpos).2 hmul
+
+/-- Direct rank-threshold packing supplies the `TopPacking` witness. -/
+noncomputable def topPacking_of_rankThresholdPacking
+    (hF : F.IsRankValid)
+    (hpack : F.HasRankThresholdPacking)
+    (s : Nat) :
+    TopPacking F hF s := by
+  have hcard :
+      (dissection F hF s).topFinset.card * 2 ^ (s + 1) <= n := by
+    have hfinset : (dissection F hF s).topFinset = F.highRankFinset s := by
+      ext v
+      simp [RawRankedForest.highRankFinset, RawDissection.topFinset,
+        RawDissection.IsTop, dissection, topPred]
+    rw [hfinset]
+    exact hpack s
+  exact topPacking_of_top_card_mul_pow_le F hF s hcard
 
 end RankThresholdDissection
 

@@ -2711,6 +2711,17 @@ theorem rankThresholdDissectionFamily_top_card_le_div
       n / 2 ^ (s + 1) := by
   exact RankThresholdDissection.top_card_le_div (E.step i).before (hsteps i).1.1 s P
 
+/-- Faithful rank-threshold packing supplies top packing at any execution slot. -/
+noncomputable def rankThresholdDissectionFamily_topPacking
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m) :
+    RankThresholdDissection.TopPacking (E.step i).before (hE.1 i).1.1 s := by
+  exact RankThresholdDissection.topPacking_of_rankThresholdPacking
+    (E.step i).before (hE.1 i).1.1
+    ((E.hasRankThresholdPacking_of_isValid hE i).1) s
+
 /--
 Top-side cardinality bound transported across the stable rank-threshold family
 from a packing witness at a chosen slot.
@@ -3650,14 +3661,12 @@ theorem topDown_shift_step_of_rankThreshold_log_consumable_bounds
   sourceShiftStep_of_rankThreshold_log_consumable_bounds (JInput k) k hconsume
 
 /--
-The current finite skeleton cannot prove the logarithmic consumable package
-unconditionally: `RawCompressionExecution.IsValid` has no rank-size/subtree
-packing invariant, so a one-vertex high-rank root blocks the required
-`TopPacking` field.
+The legacy finite skeleton, before rank-threshold packing was added to base
+accounting, accepted a one-vertex high-rank root that blocks `TopPacking`.
 -/
-theorem exists_validExecution_without_rankThresholdTopPacking_current_model :
+theorem exists_legacyValidExecution_without_rankThresholdTopPacking_current_model :
     Exists fun E : RawCompressionExecution 1 1 4 =>
-      Exists fun hE : E.IsValid =>
+      Exists fun hE : E.IsLegacyValidWithoutRankPacking =>
         let i0 : Fin 1 := ⟨0, by omega⟩
         RankThresholdDissection.TopPacking (E.step i0).before (hE.1 i0).1.1 1 ->
           False := by
@@ -3703,7 +3712,7 @@ theorem exists_validExecution_without_rankThresholdTopPacking_current_model :
       exact False.elim (hnonroot (Subsingleton.elim _ _))
     · intro v _hv
       exact Subsingleton.elim _ _
-  have hE : E.IsValid := by
+  have hE : E.IsLegacyValidWithoutRankPacking := by
     refine ⟨?hsteps, ?hstate, ?haccount⟩
     · intro i
       fin_cases i
@@ -3729,28 +3738,21 @@ theorem exists_validExecution_without_rankThresholdTopPacking_current_model :
   exact ⟨E, hE, hnotPacking⟩
 
 /--
-Consequently the full logarithmic consumable package is false for `JInput 0`
-in the current finite skeleton.
+The faithful model with rank-threshold packing excludes that old bad witness
+shape: every valid execution has the needed top-packing field.
 -/
-theorem not_rankThresholdLogConsumableBounds_J0_current_model :
-    RankThresholdLogConsumableBounds (JInput 0) 0 -> False := by
+theorem not_exists_validExecution_without_rankThresholdTopPacking_current_model :
+    Not (Exists fun E : RawCompressionExecution 1 1 4 =>
+      Exists fun hE : E.IsValid =>
+        let i0 : Fin 1 := ⟨0, by omega⟩
+        RankThresholdDissection.TopPacking (E.step i0).before (hE.1 i0).1.1 1 ->
+          False) := by
   classical
-  intro hconsume
-  rcases exists_validExecution_without_rankThresholdTopPacking_current_model with
+  intro hbad
+  rcases hbad with
     ⟨E, hE, hnotPacking⟩
-  have hlarge : 1 < (JInput 0).g 4 := by
-    norm_num [JInput, J0Input, J0]
   let i0 : Fin 1 := ⟨0, by omega⟩
-  rcases hconsume (m := 1) (n := 1) (r := 4)
-      (by norm_num) (by norm_num) E hE hlarge with
-    ⟨Ppack, _hbottom, _htop⟩
-  have hs : ceilLog2 ((JInput 0).g 4) = 1 := by
-    norm_num [JInput, J0Input, J0]
-  have Ppack_one :
-      RankThresholdDissection.TopPacking (E.step i0).before (hE.1 i0).1.1 1 := by
-    rw [hs] at Ppack
-    exact Ppack
-  exact hnotPacking Ppack_one
+  exact hnotPacking (E.rankThresholdDissectionFamily_topPacking hE 1 i0)
 
 /--
 Length-consumed form of direct rank-threshold source-relevant accounting.
