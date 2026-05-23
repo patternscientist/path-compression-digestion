@@ -130,7 +130,8 @@ under `ThresholdCoreAssumptions R`.
   for a legacy-without-packing predicate.  The projection layer also proves
   rank-range bounds for charged rank-threshold projections: bottom consumable
   cost is bounded by `s` per charged bottom projection, and top consumable cost
-  is bounded by `r - s - 1` per charged top projection.
+  is bounded by `r - s - 1` per charged top projection. Direct rank-packing is
+  also proved to localize to the rank-threshold bottom side.
 - `formalization/lean/PathCompressionDigestion/PaperPipeline.lean` exposes the
   formalized direct-proof pipeline under paper-facing wrapper names, including
   the finite bound conditional on `SourceRecurrence` and the corresponding
@@ -201,7 +202,9 @@ under `ThresholdCoreAssumptions R`.
   The bottom and top projected consumable costs are now bounded by their side
   rank ranges per charged projected step. The sharper recurrence-consumption
   fields with coefficients `k + 1` and `k` plus side-cardinality budgets remain
-  open.
+  open. Direct rank-threshold packing also localizes to the bottom side,
+  giving the bottom-side cardinality invariant needed for a future restricted
+  bottom simulation/comparison theorem.
 - The paper-facing pipeline wrappers, including
   `paper_finite_bound_of_source_recurrence` and
   `paper_finite_bound_of_source_model`, in

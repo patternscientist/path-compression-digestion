@@ -211,6 +211,29 @@ theorem RawCompressionExecution.rankThresholdTopProjectedExecution_consumableCos
           (E.rankThresholdDissectionFamily hE.1 s)).chargedCount
 ```
 
+It also proved that direct global rank-threshold packing localizes to the
+bottom side:
+
+```lean
+theorem RankThresholdDissection.bottom_highRank_card_mul_pow_le_bottom_card
+    (hF : F.IsRankValid)
+    (hpack : F.HasRankThresholdPacking)
+    (s t : Nat) :
+    (((dissection F hF s).bottomFinset.filter fun v => t < F.rankNat v).card) *
+        2 ^ (t + 1) <=
+      (dissection F hF s).bottomFinset.card
+
+theorem RawCompressionExecution.rankThresholdDissectionFamily_bottom_highRank_card_mul_pow_le_bottomFinset_card
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s t : Nat)
+    (i : Fin m) :
+    (((E.rankThresholdDissectionFamily hE.1 s i).bottomFinset.filter
+        fun v => t < RawRankedForest.rankNat (E.step i).before v).card) *
+        2 ^ (t + 1) <=
+      (E.rankThresholdDissectionFamily hE.1 s i).bottomFinset.card
+```
+
 These are structural projected-path bounds, not the final Seidel--Sharir
 recurrence consumption.  The package still needs the sharper bounds:
 

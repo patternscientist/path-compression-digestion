@@ -3210,6 +3210,24 @@ noncomputable def rankThresholdDissectionFamily_topPacking
     ((E.hasRankThresholdPacking_of_isValid hE i).1) s
 
 /--
+The direct rank-packing invariant localizes to the bottom side of every
+rank-threshold dissection in a faithful execution slot.
+-/
+theorem rankThresholdDissectionFamily_bottom_highRank_card_mul_pow_le_bottomFinset_card
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s t : Nat)
+    (i : Fin m) :
+    (((E.rankThresholdDissectionFamily hE.1 s i).bottomFinset.filter
+        fun v => t < RawRankedForest.rankNat (E.step i).before v).card) *
+        2 ^ (t + 1) <=
+      (E.rankThresholdDissectionFamily hE.1 s i).bottomFinset.card := by
+  simpa [rankThresholdDissectionFamily] using
+    RankThresholdDissection.bottom_highRank_card_mul_pow_le_bottom_card
+      (E.step i).before (hE.1 i).1.1
+      ((E.hasRankThresholdPacking_of_isValid hE i).1) s t
+
+/--
 Top-side cardinality bound transported across the stable rank-threshold family
 from a packing witness at a chosen slot.
 -/
