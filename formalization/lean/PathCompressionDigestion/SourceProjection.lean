@@ -1284,6 +1284,138 @@ theorem rankThresholdBottomProjectedExecution_isAdmissible
       (E.rankThresholdDissectionFamily hE.1 s)).IsAdmissible := by
   exact E.rankThresholdBottomProjectedExecution_isSemanticallyValid hE s
 
+/-- Bound a displayed bottom-boundary budget by any common bottom-card bound. -/
+theorem bottomBoundaryCard_le_of_forall_bottom_card_le
+    (E : RawCompressionExecution m n r)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    {b : Nat}
+    (hcard : forall i : Fin m, (D i).bottomFinset.card <= b) :
+    E.bottomBoundaryCard D <= b := by
+  classical
+  unfold bottomBoundaryCard
+  refine Finset.sup_le ?_
+  intro i _hi
+  exact hcard i
+
+/--
+In a semantically valid execution, rank-threshold dissections compute the same
+rank for a vertex at every slot, measured against any chosen slot.
+-/
+theorem rankThresholdDissectionFamily_rankNat_eq_of_slot
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (i0 i : Fin m)
+    (v : Fin n) :
+    RawRankedForest.rankNat (E.step i).before v =
+      RawRankedForest.rankNat (E.step i0).before v := by
+  have hm_pos : 0 < m := lt_of_le_of_lt (Nat.zero_le i0.val) i0.isLt
+  let first : Fin m := ⟨0, hm_pos⟩
+  have hto_first :
+      forall t : Nat, forall ht : t < m,
+        RawRankedForest.rankNat (E.step ⟨t, ht⟩).before v =
+          RawRankedForest.rankNat (E.step first).before v := by
+    intro t
+    induction t with
+    | zero =>
+        intro ht
+        rfl
+    | succ t ih =>
+        intro ht
+        let prev : Fin m := ⟨t, by omega⟩
+        let curr : Fin m := ⟨t + 1, ht⟩
+        have hadj : prev.val + 1 = curr.val := rfl
+        have hprev_curr :
+            RawRankedForest.rankNat (E.step prev).before v =
+              RawRankedForest.rankNat (E.step curr).before v :=
+          E.rankThresholdDissectionFamily_rankNat_eq_of_adjacent
+            hsteps hstate prev curr hadj v
+        calc
+          RawRankedForest.rankNat (E.step ⟨Nat.succ t, ht⟩).before v
+              = RawRankedForest.rankNat (E.step curr).before v := rfl
+          _ = RawRankedForest.rankNat (E.step prev).before v := hprev_curr.symm
+          _ = RawRankedForest.rankNat (E.step first).before v := ih (by omega)
+  calc
+    RawRankedForest.rankNat (E.step i).before v
+        = RawRankedForest.rankNat (E.step first).before v :=
+          hto_first i.val i.isLt
+    _ = RawRankedForest.rankNat (E.step i0).before v :=
+          (hto_first i0.val i0.isLt).symm
+
+/-- Rank-threshold bottom vertex sets are stable across all execution slots. -/
+theorem rankThresholdDissectionFamily_bottomFinset_eq_of_slot
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (s : Nat)
+    (i0 i : Fin m) :
+    (E.rankThresholdDissectionFamily hsteps s i).bottomFinset =
+      (E.rankThresholdDissectionFamily hsteps s i0).bottomFinset := by
+  classical
+  ext v
+  simp [rankThresholdDissectionFamily,
+    E.rankThresholdDissectionFamily_rankNat_eq_of_slot hsteps hstate i0 i v]
+
+/--
+For a nonempty valid execution, the finite `bottomBoundaryCard` of the
+rank-threshold family is bounded by the bottom side at any chosen slot.  This
+is the formal bridge between the supremum-shaped boundary budget and the
+stable paper-side `|X_b|`.
+-/
+theorem rankThreshold_bottomBoundaryCard_le_bottomFinset_card
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    E.bottomBoundaryCard (E.rankThresholdDissectionFamily hE.1 s) <=
+      ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) := by
+  refine E.bottomBoundaryCard_le_of_forall_bottom_card_le
+    (E.rankThresholdDissectionFamily hE.1 s) ?_
+  intro i
+  have hfinset :
+      (E.rankThresholdDissectionFamily hE.1 s i).bottomFinset =
+        (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset :=
+    E.rankThresholdDissectionFamily_bottomFinset_eq_of_slot hE.1 hE.2.1 s i0 i
+  rw [hfinset]
+
+/-- Slot-level bottom rank bound for the rank-threshold dissection family. -/
+theorem rankThresholdDissectionFamily_bottom_rank_le
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (v : (E.rankThresholdDissectionFamily hsteps s i).BottomNode) :
+    RawRankedForest.rankNat (E.step i).before v.1 <= s := by
+  exact RankThresholdDissection.bottom_rank_le (E.step i).before (hsteps i).1.1 s v
+
+/-- Slot-level shifted top rank bound for the rank-threshold dissection family. -/
+theorem rankThresholdDissectionFamily_top_shifted_rank_le
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (v : (E.rankThresholdDissectionFamily hsteps s i).TopNode) :
+    RankThresholdDissection.topShiftedRank (E.step i).before (hsteps i).1.1 s v <=
+      r - s - 1 := by
+  exact RankThresholdDissection.top_shifted_rank_le
+    (E.step i).before (hsteps i).1.1 s v
+
+/--
+Slot-level top cardinality bound for rank-threshold dissections, conditional
+on the existing packing witness carried by the concrete model.
+-/
+theorem rankThresholdDissectionFamily_top_card_le_div
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (P : RankThresholdDissection.TopPacking (E.step i).before (hsteps i).1.1 s) :
+    (E.rankThresholdDissectionFamily hsteps s i).topFinset.card <=
+      n / 2 ^ (s + 1) := by
+  exact RankThresholdDissection.top_card_le_div (E.step i).before (hsteps i).1.1 s P
+
 /-- The stepwise nonroot indicators sum to the execution nonroot count. -/
 theorem nonrootIndicator_sum_eq_nonrootCount
     (E : RawCompressionExecution m n r) :
