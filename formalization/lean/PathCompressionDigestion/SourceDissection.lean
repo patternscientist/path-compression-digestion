@@ -1441,6 +1441,15 @@ theorem top_card_mul_pow_le
     simpa [hTcard, Nat.mul_comm, Nat.mul_left_comm, Nat.mul_assoc] using hle
   simpa [T] using hle'
 
+/-- A failed multiplicative top-cardinality bound rules out `TopPacking`. -/
+theorem not_topPacking_of_top_card_mul_pow_gt
+    (hF : F.IsRankValid)
+    (s : Nat)
+    (hgt : n < (dissection F hF s).topFinset.card * 2 ^ (s + 1)) :
+    TopPacking F hF s -> False := by
+  intro P
+  exact (Nat.not_lt_of_ge (top_card_mul_pow_le F hF s P)) hgt
+
 /-- Divided form of the top-side size bound. -/
 theorem top_card_le_div
     (hF : F.IsRankValid)

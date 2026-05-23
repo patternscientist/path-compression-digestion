@@ -3650,6 +3650,109 @@ theorem topDown_shift_step_of_rankThreshold_log_consumable_bounds
   sourceShiftStep_of_rankThreshold_log_consumable_bounds (JInput k) k hconsume
 
 /--
+The current finite skeleton cannot prove the logarithmic consumable package
+unconditionally: `RawCompressionExecution.IsValid` has no rank-size/subtree
+packing invariant, so a one-vertex high-rank root blocks the required
+`TopPacking` field.
+-/
+theorem exists_validExecution_without_rankThresholdTopPacking_current_model :
+    Exists fun E : RawCompressionExecution 1 1 4 =>
+      Exists fun hE : E.IsValid =>
+        let i0 : Fin 1 := ⟨0, by omega⟩
+        RankThresholdDissection.TopPacking (E.step i0).before (hE.1 i0).1.1 1 ->
+          False := by
+  classical
+  let v0 : Fin 1 := ⟨0, by omega⟩
+  let F : RawRankedForest 1 4 := {
+    parent := fun _ => v0
+    rank := fun _ => ⟨2, by omega⟩
+  }
+  let P : RawCompressionPath 1 := {
+    len := ⟨2, by omega⟩
+    node := fun _ => v0
+    target := v0
+  }
+  let S : RawCompressionStep 1 4 := {
+    before := F
+    after := F
+    path := P
+  }
+  let E : RawCompressionExecution 1 1 4 := {
+    step := fun _ => S
+  }
+  have hS : S.IsValid := by
+    refine ⟨?hpath, ?hafterRank, ?hrank, ?hroot, ?hnonroot, ?hunchanged⟩
+    · refine ⟨?hrankValid, ?hlen, ?hchain, ?hlast⟩
+      · intro v hv
+        exfalso
+        exact hv (Subsingleton.elim _ _)
+      · norm_num [S, P]
+      · intro i j hij hj
+        exact Subsingleton.elim _ _
+      · intro i hi
+        exact Subsingleton.elim _ _
+    · intro v hv
+      exfalso
+      exact hv (Subsingleton.elim _ _)
+    · intro v
+      rfl
+    · intro _hroot
+      funext v
+      exact Subsingleton.elim _ _
+    · intro hnonroot
+      exact False.elim (hnonroot (Subsingleton.elim _ _))
+    · intro v _hv
+      exact Subsingleton.elim _ _
+  have hE : E.IsValid := by
+    refine ⟨?hsteps, ?hstate, ?haccount⟩
+    · intro i
+      fin_cases i
+      exact hS
+    · intro i j hij
+      omega
+    · have hcost : E.cost = 0 := by
+        exact E.cost_eq_zero_of_one_vertex
+      have hcard : Fintype.card E.ChargeUnit = 0 := by
+        simpa [RawCompressionExecution.cost] using hcost
+      haveI : IsEmpty E.ChargeUnit := Fintype.card_eq_zero_iff.mp hcard
+      refine ⟨fun q => False.elim (IsEmpty.false q), ?_⟩
+      intro q _q' _h
+      exact False.elim (IsEmpty.false q)
+  let i0 : Fin 1 := ⟨0, by omega⟩
+  have hnotPacking :
+      RankThresholdDissection.TopPacking (E.step i0).before (hE.1 i0).1.1 1 ->
+        False := by
+    apply RankThresholdDissection.not_topPacking_of_top_card_mul_pow_gt
+    norm_num [E, S, F, i0, v0, RawRankedForest.rankNat, RankThresholdDissection.dissection,
+      RankThresholdDissection.topPred, RawDissection.topFinset,
+      RawDissection.IsTop]
+  exact ⟨E, hE, hnotPacking⟩
+
+/--
+Consequently the full logarithmic consumable package is false for `JInput 0`
+in the current finite skeleton.
+-/
+theorem not_rankThresholdLogConsumableBounds_J0_current_model :
+    RankThresholdLogConsumableBounds (JInput 0) 0 -> False := by
+  classical
+  intro hconsume
+  rcases exists_validExecution_without_rankThresholdTopPacking_current_model with
+    ⟨E, hE, hnotPacking⟩
+  have hlarge : 1 < (JInput 0).g 4 := by
+    norm_num [JInput, J0Input, J0]
+  let i0 : Fin 1 := ⟨0, by omega⟩
+  rcases hconsume (m := 1) (n := 1) (r := 4)
+      (by norm_num) (by norm_num) E hE hlarge with
+    ⟨Ppack, _hbottom, _htop⟩
+  have hs : ceilLog2 ((JInput 0).g 4) = 1 := by
+    norm_num [JInput, J0Input, J0]
+  have Ppack_one :
+      RankThresholdDissection.TopPacking (E.step i0).before (hE.1 i0).1.1 1 := by
+    rw [hs] at Ppack
+    exact Ppack
+  exact hnotPacking Ppack_one
+
+/--
 Length-consumed form of direct rank-threshold source-relevant accounting.
 -/
 theorem rankThreshold_source_cost_le_projected_consumable_add_boundary_add_length
