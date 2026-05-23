@@ -97,6 +97,27 @@ theorem RawCompressionExecution.rankThreshold_projected_consumable_cost_main_lem
       Cb.projectedCost + Ct.consumableCost + |X_b| + m
 ```
 
+Continuing from this split, Lean also proves that the naive theorem
+`bottom exceptionalCost <= |X_b|` is false as stated, even for a valid
+rank-threshold-origin projected step:
+
+```lean
+theorem RawCompressionStep.exists_rankThreshold_bottomExceptionalCost_gt_bottomFinset_card :
+    Exists fun S : RawCompressionStep 2 1 =>
+      Exists fun hS : S.IsValid =>
+        let D := RankThresholdDissection.dissection S.before hS.1.1 0
+        Exists fun cut : Nat =>
+          Exists fun hcut : S.path.HasDissectionCut D cut =>
+            D.bottomFinset.card <
+              (S.bottomProjectedStep D hS cut hcut).exceptionalCost
+```
+
+The witness is a source rootpath.  Its source cost is zero, but its bottom
+projection can still have positive root-like projected edge cost.  Therefore
+the next bottom theorem must either ignore source-rootpath bottom exceptional
+costs or prove a direct source-cost accounting bound rather than a blanket
+bound on `Cb.exceptionalCost`.
+
 ## Exact Theorem Now Almost Proved
 
 The theorem needed before recurrence arithmetic is:
@@ -157,6 +178,11 @@ is the existing stable bottom-side term `|X_b|`, represented in Lean by
 `rankThreshold_bottomBoundaryCard_eq_bottomFinset_card`.  However, the current
 API has not yet proved the freshness/no-repeat/compression argument needed to
 charge the necessary bottom root-like projected work injectively to `X_b`.
+Moreover, the new theorem
+`RawCompressionStep.exists_rankThreshold_bottomExceptionalCost_gt_bottomFinset_card`
+shows that such a theorem cannot bound all bottom exceptional projected cost:
+source-rootpath bottom exceptional cost must be excluded or bypassed because
+it never contributes to the original source cost.
 
 ## Existing Additive Terms
 
@@ -183,8 +209,9 @@ exceptional bottom cost.
 
 ## Smallest Next Theorem
 
-The smallest next theorem is the bottom exceptional payment theorem for
-rank-threshold-origin projections, preferably in direct execution-level form:
+The smallest next theorem is not the blanket bottom exceptional payment theorem:
+the following statement is now mechanically refuted when interpreted over all
+bottom exceptional projected cost:
 
 ```lean
 theorem rankThreshold_bottomExceptionalCost_le_bottomFinset_card
@@ -197,8 +224,9 @@ theorem rankThreshold_bottomExceptionalCost_le_bottomFinset_card
       ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card)
 ```
 
-If source rootpath bottom exceptional costs must be ignored rather than paid,
-the exact theorem should instead be the direct accounting statement:
+The exact theorem should instead ignore source-rootpath-only projected bottom
+cost, either by defining a source-relevant bottom exceptional cost, or by
+proving the direct accounting statement:
 
 ```lean
 theorem rankThreshold_projected_consumable_cost_bound :

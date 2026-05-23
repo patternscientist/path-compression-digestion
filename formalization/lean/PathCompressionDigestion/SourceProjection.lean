@@ -819,6 +819,98 @@ theorem cost_le_bottomCost_add_topConsumable_add_topNonroot
     omega
 
 /--
+The raw bottom-exceptional cost is not itself bounded by the bottom side size,
+even for a valid rank-threshold-origin projected step.  Source rootpaths can
+produce root-like bottom projected edge cost that is irrelevant to source cost.
+-/
+theorem exists_rankThreshold_bottomExceptionalCost_gt_bottomFinset_card :
+    Exists fun S : RawCompressionStep 2 1 =>
+      Exists fun hS : S.IsValid =>
+        let D := RankThresholdDissection.dissection S.before hS.1.1 0
+        Exists fun cut : Nat =>
+          Exists fun hcut : S.path.HasDissectionCut D cut =>
+            D.bottomFinset.card <
+              (S.bottomProjectedStep D hS cut hcut).exceptionalCost := by
+  classical
+  let v0 : Fin 2 := ⟨0, by norm_num⟩
+  let F : RawRankedForest 2 1 := {
+    parent := fun v => v
+    rank := fun v =>
+      if v = v0 then ⟨0, by norm_num⟩ else ⟨1, by norm_num⟩
+  }
+  let P : RawCompressionPath 2 := {
+    len := ⟨3, by norm_num⟩
+    node := fun _ => v0
+    target := v0
+  }
+  let S : RawCompressionStep 2 1 := {
+    before := F
+    after := F
+    path := P
+  }
+  have hF : F.IsRankValid := by
+    intro v hv
+    exact False.elim (hv rfl)
+  have hP : P.IsValidFor F := by
+    refine ⟨hF, ?_, ?_, ?_⟩
+    · norm_num [P]
+    · intro i j _hij _hj
+      rfl
+    · intro i _hi
+      rfl
+  have hS : S.IsValid := by
+    refine ⟨hP, hF, ?_, ?_, ?_, ?_⟩
+    · intro v
+      rfl
+    · intro _hroot
+      rfl
+    · intro hnonroot _v _hcomp
+      exact False.elim (hnonroot rfl)
+    · intro _v _hnot
+      rfl
+  let D := RankThresholdDissection.dissection S.before hS.1.1 0
+  have hcut : S.path.HasDissectionCut D 3 := by
+    refine ⟨?_, ?_, ?_⟩
+    · norm_num [S, P]
+    · intro i _hia _hilt
+      simp [D, S, P, F, v0, RankThresholdDissection.dissection,
+        RankThresholdDissection.topPred, RawDissection.IsBottom,
+        RawDissection.IsTop, RawRankedForest.rankNat]
+    · intro i hia hcut_le
+      have : False := by
+        have hi_lt : i.val < 3 := i.isLt
+        omega
+      exact False.elim this
+  refine ⟨S, hS, 3, hcut, ?_⟩
+  have hroot : S.path.IsRootPath S.before := by
+    rfl
+  have hbottom_root :
+      (S.bottomProjectedStep D hS 3 hcut).IsRootLike := by
+    unfold RawCompressionPath.ProjectedCompressionStep.IsRootLike
+    exact S.path.bottomProjectionSegment_isRootPath_of_source_root_all_bottom
+      D hS.1.2.2.1 hS.1.2.2.2 hroot 3 hcut rfl
+  have hnot_charged : Not (S.bottomProjectedStep D hS 3 hcut).IsCharged :=
+    ((S.bottomProjectedStep D hS 3 hcut).not_charged_iff_rootLike).2 hbottom_root
+  rw [(S.bottomProjectedStep D hS 3 hcut).exceptionalCost_eq_cost_of_not_charged
+    hnot_charged]
+  have hcard : D.bottomFinset.card = 1 := by
+    have hset : D.bottomFinset = {v0} := by
+      ext v
+      fin_cases v <;>
+        simp [D, S, F, v0, RankThresholdDissection.dissection,
+          RankThresholdDissection.topPred, RawDissection.bottomFinset,
+          RawDissection.IsBottom, RawDissection.IsTop, RawRankedForest.rankNat]
+    rw [hset]
+    simp
+  have hcost : (S.bottomProjectedStep D hS 3 hcut).cost = 2 := by
+    change (S.path.bottomProjectionSegment D hS.1.2.2.1 3 hcut).edgeCost = 2
+    unfold RawCompressionPath.ProjectedPathSegment.edgeCost
+    rw [RawCompressionPath.bottomProjectionSegment_len]
+    rfl
+  rw [hcard, hcost]
+  norm_num
+
+/--
 Top restricted vertices are preserved by `afterDissection`, packaged as the
 identity-on-values equivalence needed for execution commutation.
 -/
