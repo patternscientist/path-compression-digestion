@@ -819,6 +819,107 @@ theorem cost_le_bottomCost_add_topConsumable_add_topNonroot
     omega
 
 /--
+Bottom exceptional projected cost that is relevant to the original source
+cost.  Source rootpaths have zero source cost, so their bottom projected
+exceptions are deliberately ignored.
+-/
+noncomputable def sourceRelevantBottomExceptionalCost
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) : Nat := by
+  classical
+  exact if S.path.IsNonrootPath S.before then
+    (S.bottomProjectedStep D hS cut hcut).exceptionalCost
+  else
+    0
+
+@[simp]
+theorem sourceRelevantBottomExceptionalCost_eq_exceptional_of_nonroot
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut)
+    (hnonroot : S.path.IsNonrootPath S.before) :
+    S.sourceRelevantBottomExceptionalCost D hS cut hcut =
+      (S.bottomProjectedStep D hS cut hcut).exceptionalCost := by
+  simp [sourceRelevantBottomExceptionalCost, hnonroot]
+
+@[simp]
+theorem sourceRelevantBottomExceptionalCost_eq_zero_of_not_nonroot
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut)
+    (hnot : Not (S.path.IsNonrootPath S.before)) :
+    S.sourceRelevantBottomExceptionalCost D hS cut hcut = 0 := by
+  simp [sourceRelevantBottomExceptionalCost, hnot]
+
+@[simp]
+theorem sourceRelevantBottomExceptionalCost_eq_zero_of_root
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut)
+    (hroot : S.path.IsRootPath S.before) :
+    S.sourceRelevantBottomExceptionalCost D hS cut hcut = 0 := by
+  apply S.sourceRelevantBottomExceptionalCost_eq_zero_of_not_nonroot
+  intro hnonroot
+  exact hnonroot hroot
+
+/--
+Step-level source-relevant accounting.  Bottom projected exceptional cost is
+kept only in the source-nonroot case; source-rootpath projected exceptions are
+bypassed because the original source cost is zero.
+-/
+theorem cost_le_sourceRelevantProjectedParts
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    S.cost <=
+      (S.bottomProjectedStep D hS cut hcut).consumableCost +
+        S.sourceRelevantBottomExceptionalCost D hS cut hcut +
+        (S.topProjectedStep D hS cut hcut).consumableCost +
+          (S.topProjectedStep D hS cut hcut).nonrootIndicator := by
+  classical
+  let B := S.bottomProjectedStep D hS cut hcut
+  by_cases hnonroot : S.path.IsNonrootPath S.before
+  · have hbase := S.cost_le_bottomCost_add_topConsumable_add_topNonroot D hS cut hcut
+    have hsplit : B.cost = B.consumableCost + B.exceptionalCost :=
+      B.cost_eq_consumableCost_add_exceptionalCost
+    have hrel :
+        S.sourceRelevantBottomExceptionalCost D hS cut hcut = B.exceptionalCost := by
+      simp [sourceRelevantBottomExceptionalCost, hnonroot, B]
+    calc
+      S.cost <=
+          B.cost +
+            (S.topProjectedStep D hS cut hcut).consumableCost +
+              (S.topProjectedStep D hS cut hcut).nonrootIndicator := by
+          simpa [B] using hbase
+      _ = B.consumableCost + B.exceptionalCost +
+            (S.topProjectedStep D hS cut hcut).consumableCost +
+              (S.topProjectedStep D hS cut hcut).nonrootIndicator := by
+          rw [hsplit]
+      _ = (S.bottomProjectedStep D hS cut hcut).consumableCost +
+            S.sourceRelevantBottomExceptionalCost D hS cut hcut +
+            (S.topProjectedStep D hS cut hcut).consumableCost +
+              (S.topProjectedStep D hS cut hcut).nonrootIndicator := by
+          rw [hrel]
+  · have hroot : S.path.IsRootPath S.before := by
+      unfold RawCompressionPath.IsRootPath RawRankedForest.IsRoot
+      unfold RawCompressionPath.IsNonrootPath at hnonroot
+      exact Decidable.not_not.mp hnonroot
+    unfold cost RawCompressionPath.sourceCost
+    rw [if_pos hroot]
+    omega
+
+/--
 The raw bottom-exceptional cost is not itself bounded by the bottom side size,
 even for a valid rank-threshold-origin projected step.  Source rootpaths can
 produce root-like bottom projected edge cost that is irrelevant to source cost.
@@ -1227,6 +1328,25 @@ noncomputable def topProjectedNonrootCount
     (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) : Nat :=
   Finset.sum (Finset.univ : Finset (Fin m)) fun i =>
     ((E.step i).topProjectedStep (D i) (hsteps i) (cut i) (hcut i)).nonrootIndicator
+
+/-- Sum of bottom projected exceptional costs that are relevant to source cost. -/
+noncomputable def bottomSourceRelevantExceptionalCostSum
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    Nat :=
+  Finset.sum (Finset.univ : Finset (Fin m)) fun i =>
+    (E.step i).sourceRelevantBottomExceptionalCost (D i) (hsteps i) (cut i) (hcut i)
+
+/-- Canonical-cut source-relevant bottom exceptional cost sum. -/
+noncomputable def canonicalBottomSourceRelevantExceptionalCostSum
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) : Nat :=
+  E.bottomSourceRelevantExceptionalCostSum hsteps D
+    (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
 
 /-- Dependent bottom projected execution for a chosen family of cuts. -/
 noncomputable def bottomProjectedExecution
@@ -1978,6 +2098,71 @@ theorem stepCostSum_le_bottomProjectedCostSum_add_topConsumableCost_add_topProje
               rfl
   exact le_trans hsum (le_of_eq hsplit)
 
+/--
+Execution-level source-relevant projected accounting.  The bottom exceptional
+term here omits source-rootpath-only projected artifacts.
+-/
+theorem stepCostSum_le_sourceRelevantProjectedParts
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    E.stepCostSum <=
+      (E.bottomProjectedExecution hsteps D cut hcut).consumableCost +
+        E.bottomSourceRelevantExceptionalCostSum hsteps D cut hcut +
+        (E.topProjectedExecution hsteps D cut hcut).consumableCost +
+          E.topProjectedNonrootCount hsteps D cut hcut := by
+  classical
+  unfold stepCostSum bottomSourceRelevantExceptionalCostSum topProjectedNonrootCount
+  unfold RawCompressionPath.ProjectedCompressionExecution.consumableCost
+  let B : Fin m -> Nat := fun i =>
+    ((E.step i).bottomProjectedStep (D i) (hsteps i) (cut i) (hcut i)).consumableCost
+  let R : Fin m -> Nat := fun i =>
+    (E.step i).sourceRelevantBottomExceptionalCost (D i) (hsteps i) (cut i) (hcut i)
+  let T : Fin m -> Nat := fun i =>
+    ((E.step i).topProjectedStep (D i) (hsteps i) (cut i) (hcut i)).consumableCost
+  let N : Fin m -> Nat := fun i =>
+    ((E.step i).topProjectedStep (D i) (hsteps i) (cut i) (hcut i)).nonrootIndicator
+  have hsum :
+      Finset.sum (Finset.univ : Finset (Fin m)) (fun i => (E.step i).cost) <=
+        Finset.sum (Finset.univ : Finset (Fin m)) (fun i => B i + R i + T i + N i) := by
+    exact Finset.sum_le_sum (by
+      intro i _hi
+      change (E.step i).cost <= B i + R i + T i + N i
+      exact (E.step i).cost_le_sourceRelevantProjectedParts
+        (D i) (hsteps i) (cut i) (hcut i))
+  have hsplit :
+      Finset.sum (Finset.univ : Finset (Fin m)) (fun i => B i + R i + T i + N i) =
+        Finset.sum (Finset.univ : Finset (Fin m)) B +
+          Finset.sum (Finset.univ : Finset (Fin m)) R +
+          Finset.sum (Finset.univ : Finset (Fin m)) T +
+            Finset.sum (Finset.univ : Finset (Fin m)) N := by
+    have hgroup :
+        Finset.sum (Finset.univ : Finset (Fin m)) (fun i => B i + R i + T i + N i) =
+          Finset.sum (Finset.univ : Finset (Fin m)) (fun i => (B i + R i) + (T i + N i)) := by
+      apply Finset.sum_congr rfl
+      intro i _hi
+      omega
+    calc
+      Finset.sum (Finset.univ : Finset (Fin m)) (fun i => B i + R i + T i + N i)
+          = Finset.sum (Finset.univ : Finset (Fin m)) (fun i => (B i + R i) + (T i + N i)) :=
+              hgroup
+      _ = Finset.sum (Finset.univ : Finset (Fin m)) (fun i => B i + R i) +
+              Finset.sum (Finset.univ : Finset (Fin m)) (fun i => T i + N i) := by
+              rw [Finset.sum_add_distrib]
+      _ = (Finset.sum (Finset.univ : Finset (Fin m)) B +
+              Finset.sum (Finset.univ : Finset (Fin m)) R) +
+            (Finset.sum (Finset.univ : Finset (Fin m)) T +
+              Finset.sum (Finset.univ : Finset (Fin m)) N) := by
+              rw [Finset.sum_add_distrib, Finset.sum_add_distrib]
+      _ = Finset.sum (Finset.univ : Finset (Fin m)) B +
+            Finset.sum (Finset.univ : Finset (Fin m)) R +
+            Finset.sum (Finset.univ : Finset (Fin m)) T +
+              Finset.sum (Finset.univ : Finset (Fin m)) N := by
+              omega
+  exact le_trans hsum (le_of_eq hsplit)
+
 /-- Canonical-cut form of the sharper execution-level projected cost bound. -/
 theorem stepCostSum_le_canonicalProjectedCostSums_add_topProjectedNonrootCount
     (E : RawCompressionExecution m n r)
@@ -2074,6 +2259,24 @@ theorem cost_le_projectedExecutions_bottomCost_add_topConsumableCost_add_topNonr
     E.stepCostSum_le_bottomProjectedCostSum_add_topConsumableCost_add_topProjectedNonrootCount
       hsteps D cut hcut
 
+/--
+Source-relevant accounting for first-class projected executions.  The explicit
+middle term is the only bottom exceptional cost still relevant to `E.cost`.
+-/
+theorem cost_le_sourceRelevantProjectedExecutions
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    E.cost <=
+      (E.bottomProjectedExecution hsteps D cut hcut).consumableCost +
+        E.bottomSourceRelevantExceptionalCostSum hsteps D cut hcut +
+        (E.topProjectedExecution hsteps D cut hcut).consumableCost +
+          (E.topProjectedExecution hsteps D cut hcut).nonrootCount := by
+  rw [E.cost_eq_stepCostSum]
+  exact E.stepCostSum_le_sourceRelevantProjectedParts hsteps D cut hcut
+
 /-- Canonical-cut form of the projected-execution cost inequality. -/
 theorem cost_le_canonicalProjectedExecutions_cost_add_topNonrootCount
     (E : RawCompressionExecution m n r)
@@ -2101,6 +2304,19 @@ theorem cost_le_canonicalProjectedExecutions_bottomCost_add_topConsumableCost_ad
           (E.canonicalTopProjectedExecution hsteps D).nonrootCount := by
   exact E.cost_le_projectedExecutions_bottomCost_add_topConsumableCost_add_topNonrootCount
     hsteps D (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
+
+/-- Canonical-cut form of source-relevant projected accounting. -/
+theorem cost_le_canonicalSourceRelevantProjectedExecutions
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hsteps D).consumableCost +
+        E.canonicalBottomSourceRelevantExceptionalCostSum hsteps D +
+        (E.canonicalTopProjectedExecution hsteps D).consumableCost +
+          (E.canonicalTopProjectedExecution hsteps D).nonrootCount := by
+  exact E.cost_le_sourceRelevantProjectedExecutions hsteps D
+    (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
 
 /--
 Paper-facing projected nonroot-count inequality for first-class projected
@@ -2238,6 +2454,63 @@ theorem rankThreshold_projected_consumable_cost_main_lemma
       hE.1 (E.rankThresholdDissectionFamily hE.1 s)
   simp [RawCompressionPath.ProjectedCompressionExecution.projectedCost,
     RawCompressionPath.ProjectedCompressionExecution.chargedCount] at *
+  omega
+
+/--
+Rank-threshold source-relevant projected accounting.  This is the direct
+accounting theorem up to the still-missing bound on the displayed
+source-relevant bottom exceptional sum.
+-/
+theorem rankThreshold_sourceRelevant_projected_accounting
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+        E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) +
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+          (E.canonicalTopProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)).chargedCount := by
+  have hmain :
+      E.cost <=
+        (E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+          E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+            (E.rankThresholdDissectionFamily hE.1 s) +
+          (E.canonicalTopProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+            (E.canonicalTopProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).nonrootCount :=
+    E.cost_le_canonicalSourceRelevantProjectedExecutions hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  simpa [RawCompressionPath.ProjectedCompressionExecution.chargedCount] using hmain
+
+/--
+Conditional rank-threshold source-cost accounting with the boundary term
+displayed.  The sole extra hypothesis is the exact source-relevant bottom
+exceptional charging theorem still missing from the current model.
+-/
+theorem rankThreshold_source_cost_le_projected_consumable_add_boundary_of_relevant_bound
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hrel :
+      E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) <=
+        ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card)) :
+    E.cost <=
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+          ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) +
+            (E.canonicalTopProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).chargedCount := by
+  have hmain := E.rankThreshold_sourceRelevant_projected_accounting hE s
   omega
 
 /--
