@@ -4715,6 +4715,87 @@ theorem rankThresholdTopChargedProjectedExecution_cost_eq_consumableCost
     Ct, Dfam, canonicalTopProjectedExecution, topProjectedExecution]
     using Ct.chargedSubexecution_cost_eq_consumableCost
 
+/--
+At a compacted charged top slot, a zero projected edge cost is exactly the
+case that can be skipped at the projected parent-map level: the projected
+after-parent is the same function as the projected before-parent.
+-/
+theorem rankThresholdTopChargedSlot_zero_cost_afterParent_eq_beforeParent
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin
+      ((E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount))
+    (hcost :
+      ((E.rankThresholdTopChargedProjectedExecution hE s).step q).cost = 0) :
+    ((E.rankThresholdTopChargedProjectedExecution hE s).step q).afterParent =
+      ((E.rankThresholdTopChargedProjectedExecution hE s).step q).beforeParent := by
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let i := E.rankThresholdTopChargedSlot hE s q
+  have hcost_i :
+      ((E.step i).topProjectedStep
+        (Dfam i) (hE.1 i)
+        (E.dissectionCut hE.1 Dfam i)
+        (E.dissectionCut_spec hE.1 Dfam i)).cost = 0 := by
+    simpa [rankThresholdTopChargedProjectedExecution, Dfam, i] using hcost
+  have hidentity :=
+    (E.step i).topProjectedStep_afterParent_eq_beforeParent_of_cost_eq_zero
+      (Dfam i) (hE.1 i)
+      (E.dissectionCut hE.1 Dfam i)
+      (E.dissectionCut_spec hE.1 Dfam i) hcost_i
+  simpa [rankThresholdTopChargedProjectedExecution, Dfam, i] using hidentity
+
+/--
+Positive-cost compacted charged top slots lift to valid ordinary padded source
+steps over the external top budget.  This is the charged-slot-indexed wrapper
+around the local positive-step realization theorem.
+-/
+theorem rankThresholdTopChargedSlot_positive_lifts_to_padded_valid_step
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin
+      ((E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount))
+    (hpos :
+      0 <
+        ((E.rankThresholdTopChargedProjectedExecution hE s).step q).cost) :
+    let i := E.rankThresholdTopChargedSlot hE s q
+    let N := RankThresholdDissection.topRestrictedBudget (n := n) s
+    let G :=
+      RankThresholdDissection.topRestrictedForestFin
+        (E.step i).before (hE.1 i).1.1 s
+    let hN :=
+      RankThresholdDissection.topRestrictedForestFin_card_le_budget
+        (E.step i).before (hE.1 i).1.1
+        ((E.hasRankThresholdPacking_of_isValid hE i).1) s
+    Exists fun S : RawCompressionStep N (r - s - 1) =>
+      S.IsValid /\
+        S.before = G.padRight hN /\
+          S.cost =
+            ((E.rankThresholdTopChargedProjectedExecution hE s).step q).cost /\
+            S.before.HasRankThresholdPacking /\
+              S.after.HasRankThresholdPacking := by
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let i := E.rankThresholdTopChargedSlot hE s q
+  have hcharged :
+      ((E.step i).topProjectedStep
+        (Dfam i) (hE.1 i)
+        (E.dissectionCut hE.1 Dfam i)
+        (E.dissectionCut_spec hE.1 Dfam i)).IsCharged := by
+    simpa [Dfam, i] using E.rankThresholdTopChargedSlot_isCharged hE s q
+  have hpos_i :
+      0 <
+        ((E.step i).topProjectedStep
+          (Dfam i) (hE.1 i)
+          (E.dissectionCut hE.1 Dfam i)
+          (E.dissectionCut_spec hE.1 Dfam i)).cost := by
+    simpa [rankThresholdTopChargedProjectedExecution, Dfam, i] using hpos
+  simpa [rankThresholdTopChargedProjectedExecution, Dfam, i] using
+    E.rankThreshold_topProjected_charged_positive_step_lifts_to_padded_valid_step
+      hE s i hcharged hpos_i
+
 /-- Empty rank-threshold top side forces zero top consumable cost. -/
 theorem rankThresholdTopProjectedExecution_consumableCost_eq_zero_of_topFinset_card_eq_zero
     (E : RawCompressionExecution m n r)
