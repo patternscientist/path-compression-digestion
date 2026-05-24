@@ -133,6 +133,18 @@ theorem RawCompressionExecution
 
 theorem RawCompressionExecution
     .rankThresholdTopChargedProjectedExecution_cost_eq_consumableCost
+
+theorem RankThresholdDissection
+    .topRestrictedForestFin_padded_parent_of_topNode
+
+theorem RawCompressionExecution
+    .rankThreshold_topProjected_charged_path_lifts_to_padded_valid_path
+
+theorem RawCompressionStep
+    .topProjectedStep_afterParent_eq_beforeParent_of_cost_eq_zero
+
+theorem RawCompressionExecution
+    .rankThreshold_topProjected_charged_positive_path_lifts_to_padded_valid_path
 ```
 
 Thus the compacted top slots now have an increasing map
@@ -173,6 +185,44 @@ with:
 
 This is still a dependent projected execution, not yet the ordinary padded
 `RawCompressionExecution` over `Fin topRestrictedBudget`.
+
+The next continuation pass added the first ordinary padded-forest transport
+facts. Embedded top restricted vertices now commute with the padded top parent
+map, and every charged top projected path can be lifted to a valid ordinary
+`RawCompressionPath` over `Fin topRestrictedBudget` with cost at least the
+charged projected-step cost:
+
+```lean
+RankThresholdDissection.topRestrictedForestFin_padded_parent_of_topNode
+
+RawCompressionExecution
+  .rankThreshold_topProjected_charged_path_lifts_to_padded_valid_path
+```
+
+This path lift appends the top parent of the projected target to meet the
+ordinary source-path validity requirement `2 <= P.len.val`. It is therefore a
+valid cost-dominating path lift, but not yet a full step-realization theorem.
+
+The latest continuation split off the semantic edge case. A zero-cost top
+projected step is now proved to be identity on the top restricted parent map:
+
+```lean
+RawCompressionStep.topProjectedStep_afterParent_eq_beforeParent_of_cost_eq_zero
+```
+
+And charged top projected paths with positive cost now lift directly, without
+the appended parent, to valid ordinary paths over the padded top budget with
+exactly matching cost:
+
+```lean
+RawCompressionExecution
+  .rankThreshold_topProjected_charged_positive_path_lifts_to_padded_valid_path
+```
+
+This removes the earlier ambiguity around whether every charged path must use
+the appended-parent construction. The appended lift remains useful for coarse
+cost domination; the exact positive-cost lift is the one intended for ordinary
+step realization.
 
 ## Exact Top Projected Execution
 
@@ -265,10 +315,11 @@ RawCompressionExecution
 
 The remaining sub-obstructions are:
 
-- Path lifting: the cost-only `RawCompressionPath` packaging is now proved.
-  The remaining work is to strengthen it to parent-chain validity against the
-  padded top forest, identify the padded target, and handle the length-one
-  charged projected path case if ordinary validity requires a two-slot path.
+- Path lifting: a valid cost-dominating `RawCompressionPath` over the padded
+  top forest is now proved. Positive-cost charged paths also have an exact
+  valid lift without appending the projected target's parent. Zero-cost top
+  projected steps are proved identity on top parents. The remaining work is to
+  package these two cases into a single padded ordinary step construction.
 - Semantic validity: prove the transported padded top step satisfies
   `RawCompressionStep.IsValid`, including the nonroot rewiring field.
 - Base accounting: build the legacy injection for the charged top execution,
@@ -362,19 +413,31 @@ theorem rankThreshold_topProjected_charged_path_lifts_to_padded_path
             (E.rankThresholdDissectionFamily hE.1 s) i)).cost
 ```
 
-The smallest next theorem is now a padded-parent transport lemma for the
-top restricted forest, followed by a validity-strengthened path lift:
+The padded-parent transport lemma and validity-strengthened path lift are now
+proved:
 
 ```lean
-theorem rankThreshold_topRestrictedForestFin_padded_parent_of_topNode
+theorem topRestrictedForestFin_padded_parent_of_topNode
 
 theorem rankThreshold_topProjected_charged_path_lifts_to_padded_valid_path
+
+theorem topProjectedStep_afterParent_eq_beforeParent_of_cost_eq_zero
+
+theorem rankThreshold_topProjected_charged_positive_path_lifts_to_padded_valid_path
 ```
 
-The second theorem should produce a `RawCompressionPath` over
-`RankThresholdDissection.topRestrictedBudget (n := n) s` with
-`IsValidFor` against the padded top restricted before-forest and cost at least
-the charged projected step cost.
+The smallest next theorem is now a padded step-realization theorem that
+separates the positive-cost projected paths from the zero-cost length-one
+charged paths, or otherwise constructs a valid ordinary step whose after-parent
+map matches the charged projected subexecution:
+
+```lean
+theorem rankThreshold_topProjected_charged_step_lifts_to_padded_valid_step
+```
+
+This theorem should be stated so adjacent charged steps can use
+`rankThresholdTopChargedProjectedExecution_hasConsecutiveStates` to prove
+ordinary `RawCompressionExecution.HasConsecutiveStates`.
 
 The target source-realization theorem remains:
 
@@ -397,5 +460,8 @@ theorem rankThreshold_topProjectedExecution_consumableCost_le_topDownCost_topBud
 
 Ambition C-minus/D-plus achieved: the charged-only dependent projected top
 execution is constructed, semantically valid in the projected API, and has
-cost exactly `Ct.consumableCost`. The ordinary padded `RawCompressionExecution`
+cost exactly `Ct.consumableCost`. In addition, charged top projected paths now
+lift to valid cost-dominating ordinary paths over the padded top budget;
+positive-cost charged paths lift with exact cost, and zero-cost top projected
+steps are identity on top parents. The ordinary padded `RawCompressionExecution`
 over `Fin topRestrictedBudget` is still not constructed.
