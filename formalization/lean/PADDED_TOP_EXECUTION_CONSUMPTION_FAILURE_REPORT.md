@@ -145,6 +145,18 @@ theorem RawCompressionStep
 
 theorem RawCompressionExecution
     .rankThreshold_topProjected_charged_positive_path_lifts_to_padded_valid_path
+
+theorem RawRankedForest
+    .hasRankThresholdPacking_of_rankNat_eq
+
+theorem RawCompressionPath
+    .rankNat_lt_parent_target_of_compressedVertex_of_nonroot
+
+theorem RawCompressionPath
+    .exists_valid_step_of_valid_nonroot_path
+
+theorem RawCompressionExecution
+    .rankThreshold_topProjected_charged_positive_step_lifts_to_padded_valid_step
 ```
 
 Thus the compacted top slots now have an increasing map
@@ -223,6 +235,27 @@ This removes the earlier ambiguity around whether every charged path must use
 the appended-parent construction. The appended lift remains useful for coarse
 cost domination; the exact positive-cost lift is the one intended for ordinary
 step realization.
+
+The current continuation added the first actual ordinary step realization:
+
+```lean
+RawCompressionExecution
+  .rankThreshold_topProjected_charged_positive_step_lifts_to_padded_valid_step
+```
+
+For a positive-cost charged top projected step, this produces a valid
+`RawCompressionStep` over `Fin topRestrictedBudget`, with matching source cost
+and rank-threshold packing on both the before and after forests.  The proof is
+factored through the generic source-model constructor:
+
+```lean
+RawCompressionPath.exists_valid_step_of_valid_nonroot_path
+```
+
+which builds the standard compressed after-forest for any valid nonroot source
+path.  Thus the positive-cost semantic step case is solved locally.  The
+ordinary execution is still not assembled, because zero-cost charged slots and
+cross-slot exact before/after coordinates still need to be packaged.
 
 ## Exact Top Projected Execution
 
@@ -318,10 +351,12 @@ The remaining sub-obstructions are:
 - Path lifting: a valid cost-dominating `RawCompressionPath` over the padded
   top forest is now proved. Positive-cost charged paths also have an exact
   valid lift without appending the projected target's parent. Zero-cost top
-  projected steps are proved identity on top parents. The remaining work is to
-  package these two cases into a single padded ordinary step construction.
-- Semantic validity: prove the transported padded top step satisfies
-  `RawCompressionStep.IsValid`, including the nonroot rewiring field.
+  projected steps are proved identity on top parents.
+- Semantic validity: positive-cost charged projected paths now produce valid
+  ordinary padded source steps with matching cost and before/after
+  rank-packing. The remaining semantic work is to package zero-cost charged
+  slots as no-ops/skips and align exact consecutive padded coordinates across
+  the assembled execution.
 - Base accounting: build the legacy injection for the charged top execution,
   not just rank-threshold packing. The existing padding lemmas supply the
   rank-packing part, but not the charge-unit injection.
@@ -424,20 +459,26 @@ theorem rankThreshold_topProjected_charged_path_lifts_to_padded_valid_path
 theorem topProjectedStep_afterParent_eq_beforeParent_of_cost_eq_zero
 
 theorem rankThreshold_topProjected_charged_positive_path_lifts_to_padded_valid_path
+
+theorem exists_valid_step_of_valid_nonroot_path
+
+theorem rankThreshold_topProjected_charged_positive_step_lifts_to_padded_valid_step
 ```
 
-The smallest next theorem is now a padded step-realization theorem that
-separates the positive-cost projected paths from the zero-cost length-one
-charged paths, or otherwise constructs a valid ordinary step whose after-parent
-map matches the charged projected subexecution:
+The smallest next theorem is now a zero-cost/no-op padding theorem, followed
+by an assembled execution theorem combining no-op slots with the already
+proved positive-cost padded steps:
 
 ```lean
-theorem rankThreshold_topProjected_charged_step_lifts_to_padded_valid_step
+theorem rankThreshold_topProjected_charged_zero_cost_lifts_to_padded_noop_step
+
+theorem rankThreshold_topProjected_charged_execution_lifts_to_padded_valid_execution
 ```
 
-This theorem should be stated so adjacent charged steps can use
+The assembled theorem should be stated so adjacent charged steps can use
 `rankThresholdTopChargedProjectedExecution_hasConsecutiveStates` to prove
-ordinary `RawCompressionExecution.HasConsecutiveStates`.
+ordinary `RawCompressionExecution.HasConsecutiveStates`, and it must also
+construct the legacy base-accounting injection for the resulting execution.
 
 The target source-realization theorem remains:
 
@@ -463,5 +504,7 @@ execution is constructed, semantically valid in the projected API, and has
 cost exactly `Ct.consumableCost`. In addition, charged top projected paths now
 lift to valid cost-dominating ordinary paths over the padded top budget;
 positive-cost charged paths lift with exact cost, and zero-cost top projected
-steps are identity on top parents. The ordinary padded `RawCompressionExecution`
-over `Fin topRestrictedBudget` is still not constructed.
+steps are identity on top parents. Positive-cost charged projected steps now
+also realize as valid ordinary padded source steps with before/after
+rank-packing. The ordinary padded `RawCompressionExecution` over
+`Fin topRestrictedBudget` is still not constructed.

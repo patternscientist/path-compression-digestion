@@ -36,6 +36,18 @@ theorem hasRankThresholdPackingWithBudget_self
   intro s
   exact hpack s
 
+/-- Rank-threshold packing is invariant under pointwise rank equality. -/
+theorem hasRankThresholdPacking_of_rankNat_eq
+    (G : RawRankedForest n r)
+    (hrank : forall v : Fin n, G.rankNat v = F.rankNat v)
+    (hpack : F.HasRankThresholdPacking) :
+    G.HasRankThresholdPacking := by
+  intro s
+  have hset : G.highRankFinset s = F.highRankFinset s := by
+    ext v
+    simp [RawRankedForest.mem_highRankFinset, hrank v]
+  simpa [hset] using hpack s
+
 /-- Pad a forest into a larger finite vertex budget by adding rank-zero roots. -/
 noncomputable def padRight
     {N : Nat}
@@ -1535,6 +1547,94 @@ theorem topProjectionSegment_edgeCost_le_rankThreshold
       exact RankThresholdDissection.top_shifted_rank_le F hF s
         ((P.topProjectionSegment D hchain cut hcut).node i))
     hnonroot
+
+/--
+On a valid source nonroot path, every compressed vertex has smaller rank than
+the old parent of the target.  This is the rank-validity fact behind the
+standard one-step compression after-forest.
+-/
+theorem rankNat_lt_parent_target_of_compressedVertex_of_nonroot
+    {n r : Nat}
+    {F : RawRankedForest n r}
+    (P : RawCompressionPath n)
+    (hvalid : P.IsValidFor F)
+    (hnonroot : P.IsNonrootPath F)
+    {v : Fin n}
+    (hcomp : P.IsCompressedVertex v) :
+    F.rankNat v < F.rankNat (F.parent P.target) := by
+  rcases hcomp with ⟨i, hi_before_target, hnode⟩
+  have hlen_one : 1 <= P.len.val := by
+    omega
+  let last := P.lastIndex hlen_one
+  have hlast_active : last.val < P.len.val := P.lastIndex_active hlen_one
+  have hi_lt_last : i.val < last.val := by
+    simp [last, RawCompressionPath.lastIndex]
+    omega
+  have htarget : P.node last = P.target :=
+    hvalid.2.2.2 last (P.lastIndex_succ hlen_one)
+  have hrank_to_target :
+      F.rankNat v < F.rankNat P.target := by
+    have hlt :=
+      P.rankNat_lt_of_lt_active_of_nonroot hvalid hnonroot hi_lt_last hlast_active
+    simpa [hnode, htarget] using hlt
+  have htarget_parent :
+      F.rankNat P.target < F.rankNat (F.parent P.target) :=
+    hvalid.1 P.target hnonroot
+  exact hrank_to_target.trans htarget_parent
+
+/--
+The standard after-forest obtained by compressing a valid source nonroot path
+is a valid raw compression step.  This packages the generic semantic
+construction used by padded top-step realizations.
+-/
+theorem exists_valid_step_of_valid_nonroot_path
+    {n r : Nat}
+    (F : RawRankedForest n r)
+    (P : RawCompressionPath n)
+    (hvalid : P.IsValidFor F)
+    (hnonroot : P.IsNonrootPath F) :
+    Exists fun S : RawCompressionStep n r =>
+      S.before = F /\ S.path = P /\ S.IsValid /\ S.cost = P.cost := by
+  classical
+  let A : RawRankedForest n r := {
+    parent := fun v =>
+      if P.IsCompressedVertex v then F.parent P.target else F.parent v
+    rank := F.rank
+  }
+  let S : RawCompressionStep n r := {
+    before := F
+    after := A
+    path := P
+  }
+  have hA_rank : A.IsRankValid := by
+    intro v hneq
+    by_cases hcomp : P.IsCompressedVertex v
+    · have hlt :=
+        P.rankNat_lt_parent_target_of_compressedVertex_of_nonroot
+          hvalid hnonroot hcomp
+      simpa [A, RawRankedForest.rankNat, hcomp] using hlt
+    · have hneqF : F.parent v ≠ v := by
+        intro hv
+        apply hneq
+        simp [A, hcomp, hv]
+      have hlt := hvalid.1 v hneqF
+      simpa [A, RawRankedForest.rankNat, hcomp] using hlt
+  have hS_valid : S.IsValid := by
+    refine ⟨hvalid, hA_rank, ?hrank, ?hroot, ?hnonroot, ?hunchanged⟩
+    · intro v
+      rfl
+    · intro hroot
+      exact False.elim (hnonroot hroot)
+    · intro _hnonroot v hcomp
+      simp [S, A, hcomp]
+    · intro v hnot
+      simp [S, A, hnot]
+  have hS_cost : S.cost = P.cost := by
+    unfold S RawCompressionStep.cost RawCompressionPath.sourceCost
+    rw [if_neg]
+    intro hroot
+    exact hnonroot hroot
+  exact ⟨S, rfl, rfl, hS_valid, hS_cost⟩
 
 end RawCompressionPath
 
@@ -3794,6 +3894,192 @@ theorem rankThreshold_topProjected_charged_positive_path_lifts_to_padded_valid_p
             (E.rankThresholdDissectionFamily hE.1 s) i)).cost := by
           simp [seg, D, Dfam, cut, RawCompressionStep.topProjectedStep,
             RawCompressionPath.ProjectedCompressionStep.cost]
+
+/--
+Positive-cost charged rank-threshold top projected steps realize as valid
+ordinary compression steps over the padded top budget.  The constructed step
+uses the exact lifted projected path, so its source cost matches the projected
+top cost.
+-/
+theorem rankThreshold_topProjected_charged_positive_step_lifts_to_padded_valid_step
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hcharged :
+      ((E.step i).topProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged)
+    (hpos :
+      0 <
+        ((E.step i).topProjectedStep
+          (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+          (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+          (E.dissectionCut_spec hE.1
+            (E.rankThresholdDissectionFamily hE.1 s) i)).cost) :
+    let N := RankThresholdDissection.topRestrictedBudget (n := n) s
+    let G :=
+      RankThresholdDissection.topRestrictedForestFin
+        (E.step i).before (hE.1 i).1.1 s
+    let hN :=
+      RankThresholdDissection.topRestrictedForestFin_card_le_budget
+        (E.step i).before (hE.1 i).1.1
+        ((E.hasRankThresholdPacking_of_isValid hE i).1) s
+    Exists fun S : RawCompressionStep N (r - s - 1) =>
+      S.IsValid /\
+        S.before = G.padRight hN /\
+          S.cost =
+            ((E.step i).topProjectedStep
+              (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+              (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+              (E.dissectionCut_spec hE.1
+                (E.rankThresholdDissectionFamily hE.1 s) i)).cost /\
+            S.before.HasRankThresholdPacking /\
+              S.after.HasRankThresholdPacking := by
+  classical
+  let N := RankThresholdDissection.topRestrictedBudget (n := n) s
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  let D := Dfam i
+  let F := (E.step i).before
+  let hF : F.IsRankValid := (hE.1 i).1.1
+  let hpack : F.HasRankThresholdPacking :=
+    (E.hasRankThresholdPacking_of_isValid hE i).1
+  let G := RankThresholdDissection.topRestrictedForestFin F hF s
+  let hN := RankThresholdDissection.topRestrictedForestFin_card_le_budget
+    F hF hpack s
+  let Gpad := G.padRight hN
+  let seg := (E.step i).path.topProjectionSegment D (hE.1 i).1.2.2.1
+    (cut i) (hcut i)
+  have hseg_nonroot : seg.IsNonrootPath := by
+    simpa [seg, D, Dfam, cut, hcut, RawCompressionStep.topProjectedStep,
+      RawCompressionPath.ProjectedCompressionStep.IsCharged,
+      RawCompressionPath.ProjectedCompressionStep.IsNonrootPath] using hcharged
+  rcases hseg_nonroot with ⟨hseg_pos, hseg_last_ne⟩
+  have hpos_edge : 0 < seg.edgeCost := by
+    simpa [seg, D, Dfam, cut, hcut, RawCompressionStep.topProjectedStep,
+      RawCompressionPath.ProjectedCompressionStep.cost] using hpos
+  have hseg_len_two : 2 <= seg.len := by
+    unfold RawCompressionPath.ProjectedPathSegment.edgeCost at hpos_edge
+    omega
+  have hlen_budget : seg.len <= N := by
+    have hraw :=
+      E.rankThresholdTopProjectedStep_topProjectionLength_le_topBudget_of_charged
+        hE s i hcharged
+    simpa [N, seg, D, Dfam, cut, hcut, RawCompressionPath.topProjectionSegment]
+      using hraw
+  have hcard_le_budget : D.topFinset.card <= N := by
+    simpa [N, D, Dfam, F, hF, hpack, G] using hN
+  let e := D.topNodeEquivFin
+  let embed : D.TopNode -> Fin N := fun v =>
+    ⟨(e v).val, (e v).isLt.trans_le hcard_le_budget⟩
+  let last : Fin seg.len := seg.lastIndex hseg_pos
+  let targetNode : Fin N := embed (seg.node last)
+  let P : RawCompressionPath N := {
+    len := ⟨seg.len, by omega⟩
+    node := fun j =>
+      if hj : j.val < seg.len then embed (seg.node ⟨j.val, hj⟩)
+      else targetNode
+    target := targetNode
+  }
+  have hP_valid : P.IsValidFor Gpad := by
+    refine ⟨?hrank, ?hlen, ?hchain, ?hlast⟩
+    · simpa [Gpad, G, hN, F, hF, hpack] using
+        RankThresholdDissection.topRestrictedForestFin_padded_isRankValid
+          F hF hpack s
+    · simp [P]
+      exact hseg_len_two
+    · intro a b hab hb
+      have hbseg : b.val < seg.len := by simpa [P] using hb
+      have haseg : a.val < seg.len := by omega
+      let aa : Fin seg.len := ⟨a.val, haseg⟩
+      let bb : Fin seg.len := ⟨b.val, hbseg⟩
+      have hparent_seg : D.topParent (seg.node aa) = seg.node bb := by
+        exact seg.parent_chain (by simpa [aa, bb] using hab)
+      have hparent_embed :
+          Gpad.parent (embed (seg.node aa)) =
+            embed (D.topParent (seg.node aa)) := by
+        simpa [Gpad, G, hN, F, hF, hpack, D, e, embed] using
+          RankThresholdDissection.topRestrictedForestFin_padded_parent_of_topNode
+            F hF hpack s (seg.node aa)
+      calc
+        Gpad.parent (P.node a)
+            = Gpad.parent (embed (seg.node aa)) := by
+                simp [P, aa, haseg]
+        _ = embed (D.topParent (seg.node aa)) := hparent_embed
+        _ = embed (seg.node bb) := by rw [hparent_seg]
+        _ = P.node b := by
+                simp [P, bb, hbseg]
+    · intro a ha
+      have ha_seg : a.val + 1 = seg.len := by
+        simpa [P] using ha
+      have haseg : a.val < seg.len := by
+        omega
+      let aa : Fin seg.len := ⟨a.val, haseg⟩
+      have haa_last : aa = last := by
+        apply Fin.ext
+        simp [aa, last, RawCompressionPath.ProjectedPathSegment.lastIndex]
+        omega
+      simp [P, aa, haseg, targetNode, haa_last]
+  have hP_cost :
+      P.cost =
+        ((E.step i).topProjectedStep
+          (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+          (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+          (E.dissectionCut_spec hE.1
+            (E.rankThresholdDissectionFamily hE.1 s) i)).cost := by
+    calc
+      P.cost = seg.edgeCost := by
+          simp [P, RawCompressionPath.cost,
+            RawCompressionPath.ProjectedPathSegment.edgeCost]
+      _ =
+        ((E.step i).topProjectedStep
+          (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+          (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+          (E.dissectionCut_spec hE.1
+            (E.rankThresholdDissectionFamily hE.1 s) i)).cost := by
+          simp [seg, D, Dfam, cut, RawCompressionStep.topProjectedStep,
+            RawCompressionPath.ProjectedCompressionStep.cost]
+  have htarget_parent :
+      Gpad.parent targetNode = embed (D.topParent (seg.node last)) := by
+    simpa [Gpad, G, hN, F, hF, hpack, D, e, embed, targetNode, last] using
+      RankThresholdDissection.topRestrictedForestFin_padded_parent_of_topNode
+        F hF hpack s (seg.node last)
+  have htarget_ne : Gpad.parent targetNode ≠ targetNode := by
+    intro hroot
+    have hembed :
+        embed (D.topParent (seg.node last)) = embed (seg.node last) := by
+      simpa [targetNode] using htarget_parent.symm.trans hroot
+    have htop_eq : D.topParent (seg.node last) = seg.node last := by
+      apply e.injective
+      apply Fin.ext
+      change (e (D.topParent (seg.node last))).val = (e (seg.node last)).val
+      exact congrArg (fun x : Fin N => x.val) hembed
+    exact hseg_last_ne htop_eq
+  have hP_nonroot : P.IsNonrootPath Gpad := by
+    simpa [RawCompressionPath.IsNonrootPath, P, targetNode] using htarget_ne
+  rcases RawCompressionPath.exists_valid_step_of_valid_nonroot_path
+      Gpad P hP_valid hP_nonroot with ⟨S, hbefore, _hpath, hSvalid, hScost⟩
+  refine ⟨S, ?_, ?_, ?_, ?_, ?_⟩
+  · exact hSvalid
+  · simpa [Gpad, G, hN, F, hF, hpack] using hbefore
+  · exact hScost.trans hP_cost
+  · have hbeforePack : S.before.HasRankThresholdPacking := by
+      simpa [hbefore, Gpad, G, hN, F, hF, hpack] using
+        RankThresholdDissection.topRestrictedForestFin_padded_hasRankThresholdPacking
+          F hF hpack s
+    exact hbeforePack
+  · have hbeforePack : S.before.HasRankThresholdPacking := by
+      simpa [hbefore, Gpad, G, hN, F, hF, hpack] using
+        RankThresholdDissection.topRestrictedForestFin_padded_hasRankThresholdPacking
+          F hF hpack s
+    exact S.before.hasRankThresholdPacking_of_rankNat_eq S.after
+      (fun v => by
+        simp [RawRankedForest.rankNat, hSvalid.2.2.1 v])
+      hbeforePack
 
 /--
 A charged rank-threshold top projected path lifts to a valid ordinary
