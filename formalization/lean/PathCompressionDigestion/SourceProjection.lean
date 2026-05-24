@@ -730,6 +730,42 @@ theorem edgeCost_le_rankBound_of_nonroot
   unfold edgeCost
   omega
 
+/-- A nonroot projected path has no repeated vertices. -/
+theorem node_injective_of_nonroot
+    (S : ProjectedPathSegment alpha parent)
+    (rank : alpha -> Nat)
+    (hparent_lt : forall v : alpha, parent v ≠ v -> rank v < rank (parent v))
+    (hnonroot : S.IsNonrootPath) :
+    Function.Injective S.node := by
+  intro i j hij
+  apply Fin.ext
+  by_cases hlt : i.val < j.val
+  · have hrank_lt : rank (S.node i) < rank (S.node j) :=
+      S.rank_lt_of_lt_of_nonroot rank hparent_lt hnonroot hlt
+    rw [hij] at hrank_lt
+    exact False.elim ((Nat.lt_irrefl _) hrank_lt)
+  · by_cases hgt : j.val < i.val
+    · have hrank_lt : rank (S.node j) < rank (S.node i) :=
+        S.rank_lt_of_lt_of_nonroot rank hparent_lt hnonroot hgt
+      rw [hij] at hrank_lt
+      exact False.elim ((Nat.lt_irrefl _) hrank_lt)
+    · omega
+
+/-- A nonroot projected path has length at most its ambient finite vertex set. -/
+theorem len_le_card_of_nonroot
+    [Fintype alpha]
+    (S : ProjectedPathSegment alpha parent)
+    (rank : alpha -> Nat)
+    (hparent_lt : forall v : alpha, parent v ≠ v -> rank v < rank (parent v))
+    (hnonroot : S.IsNonrootPath) :
+    S.len <= Fintype.card alpha := by
+  have hinj : Function.Injective S.node :=
+    S.node_injective_of_nonroot rank hparent_lt hnonroot
+  have hcard :
+      Fintype.card (Fin S.len) <= Fintype.card alpha :=
+    Fintype.card_le_of_injective S.node hinj
+  simpa using hcard
+
 end ProjectedPathSegment
 
 namespace ProjectedCompressionStep
@@ -751,6 +787,27 @@ def IsCharged (S : ProjectedCompressionStep alpha) : Prop :=
 /-- Indicator for projected-step nonrootpaths. -/
 noncomputable def nonrootIndicator (S : ProjectedCompressionStep alpha) : Nat :=
   S.path.nonrootIndicator
+
+/-- Charged projected steps have nonroot indicator one. -/
+theorem nonrootIndicator_eq_one_of_charged
+    (S : ProjectedCompressionStep alpha)
+    (h : S.IsCharged) :
+    S.nonrootIndicator = 1 := by
+  have hseg : S.path.IsNonrootPath := by
+    simpa [IsCharged, IsNonrootPath] using h
+  exact S.path.nonrootIndicator_eq_one_of_nonroot hseg
+
+/-- Uncharged projected steps have nonroot indicator zero. -/
+theorem nonrootIndicator_eq_zero_of_not_charged
+    (S : ProjectedCompressionStep alpha)
+    (h : Not S.IsCharged) :
+    S.nonrootIndicator = 0 := by
+  classical
+  have hnot : Not S.path.IsNonrootPath := by
+    intro hseg
+    exact h (by simpa [IsCharged, IsNonrootPath] using hseg)
+  unfold nonrootIndicator ProjectedPathSegment.nonrootIndicator
+  rw [if_neg hnot]
 
 /-- Boundary charge carried by a projected step in the projected accounting API. -/
 noncomputable def boundaryCharge (S : ProjectedCompressionStep alpha) : Nat :=
@@ -893,6 +950,70 @@ noncomputable def nonrootCount (E : ProjectedCompressionExecution m) : Nat :=
 /-- Number of charged projected steps. -/
 noncomputable def chargedCount (E : ProjectedCompressionExecution m) : Nat :=
   E.nonrootCount
+
+/-- Finset of charged projected execution slots. -/
+noncomputable def chargedFinset (E : ProjectedCompressionExecution m) :
+    Finset (Fin m) := by
+  classical
+  exact Finset.univ.filter fun i => (E.step i).IsCharged
+
+@[simp]
+theorem mem_chargedFinset
+    (E : ProjectedCompressionExecution m)
+    (i : Fin m) :
+    i ∈ E.chargedFinset ↔ (E.step i).IsCharged := by
+  classical
+  simp [chargedFinset]
+
+/-- The charged slot finset has cardinality `chargedCount`. -/
+theorem chargedFinset_card_eq_chargedCount
+    (E : ProjectedCompressionExecution m) :
+    E.chargedFinset.card = E.chargedCount := by
+  classical
+  unfold chargedFinset chargedCount nonrootCount
+  rw [Finset.card_eq_sum_ones]
+  rw [Finset.sum_filter]
+  apply Finset.sum_congr rfl
+  intro i _hi
+  by_cases h : (E.step i).IsCharged
+  · rw [if_pos h, (E.step i).nonrootIndicator_eq_one_of_charged h]
+  · rw [if_neg h, (E.step i).nonrootIndicator_eq_zero_of_not_charged h]
+
+/--
+Increasing enumeration of the charged projected execution slots.
+
+This is the compacted slot map needed to build ordinary executions over
+`Fin E.chargedCount` from charged projected slots.
+-/
+noncomputable def chargedSlot
+    (E : ProjectedCompressionExecution m) :
+    Fin E.chargedCount → Fin m :=
+  E.chargedFinset.orderEmbOfFin E.chargedFinset_card_eq_chargedCount
+
+@[simp]
+theorem chargedSlot_mem_chargedFinset
+    (E : ProjectedCompressionExecution m)
+    (q : Fin E.chargedCount) :
+    E.chargedSlot q ∈ E.chargedFinset := by
+  simpa [chargedSlot] using
+    Finset.orderEmbOfFin_mem E.chargedFinset
+      E.chargedFinset_card_eq_chargedCount q
+
+/-- Every compacted charged slot is charged. -/
+theorem chargedSlot_isCharged
+    (E : ProjectedCompressionExecution m)
+    (q : Fin E.chargedCount) :
+    (E.step (E.chargedSlot q)).IsCharged := by
+  exact (E.mem_chargedFinset (E.chargedSlot q)).1
+    (E.chargedSlot_mem_chargedFinset q)
+
+/-- The compacted charged-slot enumeration is strictly increasing. -/
+theorem chargedSlot_strictMono
+    (E : ProjectedCompressionExecution m) :
+    StrictMono E.chargedSlot := by
+  intro q q' hlt
+  exact (E.chargedFinset.orderEmbOfFin
+    E.chargedFinset_card_eq_chargedCount).strictMono hlt
 
 /-- Projected nonroot counts are bounded by the number of projected slots. -/
 theorem nonrootCount_le_length (E : ProjectedCompressionExecution m) :
@@ -3201,6 +3322,175 @@ theorem rankThresholdTopProjectedExecution_isAdmissible
     (E.canonicalTopProjectedExecution hE.1
       (E.rankThresholdDissectionFamily hE.1 s)).IsAdmissible := by
   exact E.rankThresholdTopProjectedExecution_isSemanticallyValid hE s
+
+/--
+Increasing enumeration of the charged slots of the rank-threshold top
+projected execution.
+-/
+noncomputable def rankThresholdTopChargedSlot
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    Fin
+      ((E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount) →
+      Fin m :=
+  (E.canonicalTopProjectedExecution hE.1
+    (E.rankThresholdDissectionFamily hE.1 s)).chargedSlot
+
+/-- Every rank-threshold top compacted slot is charged. -/
+theorem rankThresholdTopChargedSlot_isCharged
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin
+      ((E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount)) :
+    ((E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).step
+        (E.rankThresholdTopChargedSlot hE s q)).IsCharged := by
+  let Ct :=
+    E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  simpa [rankThresholdTopChargedSlot, Ct] using Ct.chargedSlot_isCharged q
+
+/-- The rank-threshold top compacted-slot enumeration is strictly increasing. -/
+theorem rankThresholdTopChargedSlot_strictMono
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    StrictMono (E.rankThresholdTopChargedSlot hE s) := by
+  let Ct :=
+    E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  simpa [rankThresholdTopChargedSlot, Ct] using Ct.chargedSlot_strictMono
+
+/--
+A charged rank-threshold top projected step has active path length bounded by
+the external padded top budget.  This is the size fact needed to realize the
+projected segment as a `RawCompressionPath` over `Fin topRestrictedBudget`.
+-/
+theorem rankThresholdTopProjectedStep_topProjectionLength_le_topBudget_of_charged
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hcharged :
+      ((E.step i).topProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged) :
+    (E.step i).path.topProjectionLength
+        (E.rankThresholdDissectionFamily hE.1 s i)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i) <=
+      RankThresholdDissection.topRestrictedBudget (n := n) s := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  let D := Dfam i
+  let seg := (E.step i).path.topProjectionSegment D (hE.1 i).1.2.2.1
+    (cut i) (hcut i)
+  letI : Fintype D.TopNode := Fintype.ofEquiv D.topFinset D.topNodeEquivTopFinset.symm
+  have hseg_nonroot : seg.IsNonrootPath := by
+    simpa [seg, D, Dfam, cut, hcut, RawCompressionStep.topProjectedStep,
+      RawCompressionPath.ProjectedCompressionStep.IsCharged,
+      RawCompressionPath.ProjectedCompressionStep.IsNonrootPath] using hcharged
+  have hlen_card :
+      seg.len <= Fintype.card D.TopNode := by
+    exact seg.len_le_card_of_nonroot
+      (RankThresholdDissection.topShiftedRank
+        (E.step i).before (hE.1 i).1.1 s)
+      (fun v hneq =>
+        RankThresholdDissection.topParent_shiftedRank_lt_of_not_root
+          (E.step i).before (hE.1 i).1.1 s v hneq)
+      hseg_nonroot
+  have hcard_eq : Fintype.card D.TopNode = D.topFinset.card := by
+    exact (Fintype.card_congr D.topNodeEquivTopFinset).trans
+      (Fintype.card_coe D.topFinset)
+  have hlen_top : seg.len <= D.topFinset.card := by
+    simpa [hcard_eq] using hlen_card
+  have htop_budget :
+      D.topFinset.card <= RankThresholdDissection.topRestrictedBudget (n := n) s := by
+    simpa [D, Dfam, rankThresholdDissectionFamily] using
+      RankThresholdDissection.topRestrictedForestFin_card_le_budget
+        (E.step i).before (hE.1 i).1.1
+        ((E.hasRankThresholdPacking_of_isValid hE i).1) s
+  have hlen_budget :
+      seg.len <= RankThresholdDissection.topRestrictedBudget (n := n) s :=
+    hlen_top.trans htop_budget
+  simpa [seg, D, Dfam, cut, hcut, RawCompressionPath.topProjectionSegment] using
+    hlen_budget
+
+/--
+Cost-only lift of a charged rank-threshold top projected path into the padded
+top budget.  The lifted path is not yet claimed to be valid for the padded
+top forest; it only packages the active projected segment into the ordinary
+`RawCompressionPath` shape with matching edge cost.
+-/
+theorem rankThreshold_topProjected_charged_path_lifts_to_padded_path
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hcharged :
+      ((E.step i).topProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged) :
+    Exists fun P :
+      RawCompressionPath
+        (RankThresholdDissection.topRestrictedBudget (n := n) s) =>
+      P.cost =
+        ((E.step i).topProjectedStep
+          (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+          (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+          (E.dissectionCut_spec hE.1
+            (E.rankThresholdDissectionFamily hE.1 s) i)).cost := by
+  classical
+  let N := RankThresholdDissection.topRestrictedBudget (n := n) s
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  let D := Dfam i
+  let seg := (E.step i).path.topProjectionSegment D (hE.1 i).1.2.2.1
+    (cut i) (hcut i)
+  have hseg_nonroot : seg.IsNonrootPath := by
+    simpa [seg, D, Dfam, cut, hcut, RawCompressionStep.topProjectedStep,
+      RawCompressionPath.ProjectedCompressionStep.IsCharged,
+      RawCompressionPath.ProjectedCompressionStep.IsNonrootPath] using hcharged
+  rcases hseg_nonroot with ⟨hpos, _hne⟩
+  have hlen_budget : seg.len <= N := by
+    have hraw :=
+      E.rankThresholdTopProjectedStep_topProjectionLength_le_topBudget_of_charged
+        hE s i hcharged
+    simpa [N, seg, D, Dfam, cut, hcut, RawCompressionPath.topProjectionSegment]
+      using hraw
+  have hcard_le_budget : D.topFinset.card <= N := by
+    simpa [N, D, Dfam, rankThresholdDissectionFamily] using
+      RankThresholdDissection.topRestrictedForestFin_card_le_budget
+        (E.step i).before (hE.1 i).1.1
+        ((E.hasRankThresholdPacking_of_isValid hE i).1) s
+  let e := D.topNodeEquivFin
+  let embed : D.TopNode -> Fin N := fun v =>
+    ⟨(e v).val, (e v).isLt.trans_le hcard_le_budget⟩
+  let defaultNode : Fin N := embed (seg.node ⟨0, hpos⟩)
+  let P : RawCompressionPath N := {
+    len := ⟨seg.len, by omega⟩
+    node := fun j =>
+      if hj : j.val < seg.len then embed (seg.node ⟨j.val, hj⟩)
+      else defaultNode
+    target := embed (seg.node (seg.lastIndex hpos))
+  }
+  refine ⟨P, ?_⟩
+  simp [P, seg, D, Dfam, cut, RawCompressionPath.cost,
+    RawCompressionStep.topProjectedStep,
+    RawCompressionPath.ProjectedCompressionStep.cost,
+    RawCompressionPath.ProjectedPathSegment.edgeCost]
 
 /--
 The canonical bottom projected execution for a rank-threshold dissection is
