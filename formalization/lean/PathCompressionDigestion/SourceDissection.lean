@@ -1383,6 +1383,122 @@ theorem bottom_rank_le
     F.rankNat v.1 <= s := by
   simpa using v.2
 
+/-- Bottom and top cardinalities partition the ambient vertex set. -/
+theorem bottom_card_add_top_card
+    (D : RawDissection F) :
+    D.bottomFinset.card + D.topFinset.card = n := by
+  classical
+  have hdisj : Disjoint D.bottomFinset D.topFinset := by
+    rw [Finset.disjoint_left]
+    intro v hb ht
+    exact (D.mem_bottomFinset v).1 hb ((D.mem_topFinset v).1 ht)
+  have hunion : D.bottomFinset ∪ D.topFinset = Finset.univ := by
+    ext v
+    constructor
+    · intro _hv
+      simp
+    · intro _hv
+      rcases D.bottom_or_top v with hb | ht
+      · exact Finset.mem_union.mpr (Or.inl ((D.mem_bottomFinset v).2 hb))
+      · exact Finset.mem_union.mpr (Or.inr ((D.mem_topFinset v).2 ht))
+  have hcard :
+      (D.bottomFinset ∪ D.topFinset).card =
+        D.bottomFinset.card + D.topFinset.card :=
+    Finset.card_union_of_disjoint hdisj
+  calc
+    D.bottomFinset.card + D.topFinset.card =
+        (D.bottomFinset ∪ D.topFinset).card := hcard.symm
+    _ = (Finset.univ : Finset (Fin n)).card := by rw [hunion]
+    _ = n := by simp
+
+/--
+Direct rank-threshold packing localizes to the bottom side of a
+rank-threshold dissection.
+
+This is the cardinality part needed by any recursive bottom-side simulation:
+inside `{v | rank v <= s}`, vertices above a lower threshold `t` still have
+enough bottom-side cardinality to pay blocks of size `2 ^ (t + 1)`.
+-/
+theorem bottom_highRank_card_mul_pow_le_bottom_card
+    (hF : F.IsRankValid)
+    (hpack : F.HasRankThresholdPacking)
+    (s t : Nat) :
+    (((dissection F hF s).bottomFinset.filter fun v => t < F.rankNat v).card) *
+        2 ^ (t + 1) <=
+      (dissection F hF s).bottomFinset.card := by
+  classical
+  let D := dissection F hF s
+  let BH := D.bottomFinset.filter fun v => t < F.rankNat v
+  let T := D.topFinset
+  let H := F.highRankFinset t
+  let p := 2 ^ (t + 1)
+  by_cases hts : t < s
+  · have hT_subset_H : T ⊆ H := by
+      intro v hv
+      have ht : s < F.rankNat v := by
+        simpa [D, T] using hv
+      exact (RawRankedForest.mem_highRankFinset F t v).2 (lt_trans hts ht)
+    have hBH_subset_H : BH ⊆ H := by
+      intro v hv
+      exact (RawRankedForest.mem_highRankFinset F t v).2
+        ((Finset.mem_filter.mp hv).2)
+    have hdisj : Disjoint T BH := by
+      rw [Finset.disjoint_left]
+      intro v hvT hvBH
+      have hb : D.IsBottom v := by
+        simpa using (Finset.mem_filter.mp hvBH).1
+      have ht : D.IsTop v := by
+        simpa [T] using hvT
+      exact hb ht
+    have hcard_union :
+        (T ∪ BH).card = T.card + BH.card := by
+      exact Finset.card_union_of_disjoint hdisj
+    have hunion_subset : T ∪ BH ⊆ H := by
+      intro v hv
+      rcases Finset.mem_union.mp hv with hvT | hvBH
+      · exact hT_subset_H hvT
+      · exact hBH_subset_H hvBH
+    have hsum_le_H : T.card + BH.card <= H.card := by
+      rw [← hcard_union]
+      exact Finset.card_le_card hunion_subset
+    have hpack_t : H.card * p <= n := by
+      simpa [H, p] using hpack t
+    have hsum_p : (T.card + BH.card) * p <= n :=
+      (Nat.mul_le_mul_right p hsum_le_H).trans hpack_t
+    have hpartition : D.bottomFinset.card + T.card = n := by
+      simpa [D, T] using bottom_card_add_top_card (F := F) D
+    have hp_pos : 1 <= p := by
+      have hp0 : 0 < p := by
+        unfold p
+        positivity
+      omega
+    have hT_le_Tp : T.card <= T.card * p := by
+      simpa using Nat.mul_le_mul_left T.card hp_pos
+    have hmain : BH.card * p + T.card <= D.bottomFinset.card + T.card := by
+      calc
+        BH.card * p + T.card <= BH.card * p + T.card * p := by
+          exact Nat.add_le_add_left hT_le_Tp (BH.card * p)
+        _ = (T.card + BH.card) * p := by ring
+        _ <= D.bottomFinset.card + T.card := by
+          simpa [hpartition] using hsum_p
+    have hcancel : BH.card * p <= D.bottomFinset.card := by
+      exact Nat.add_le_add_iff_right.mp hmain
+    simpa [BH, D, p] using hcancel
+  · have hle : s <= t := by omega
+    have hBH_empty : BH = ∅ := by
+      ext v
+      constructor
+      · intro hv
+        have hv_bottom : D.IsBottom v := by
+          simpa using (Finset.mem_filter.mp hv).1
+        have hv_high : t < F.rankNat v := (Finset.mem_filter.mp hv).2
+        have hv_rank : F.rankNat v <= s := by
+          simpa [D] using hv_bottom
+        omega
+      · intro hv
+        simp at hv
+    simpa [D, BH, hBH_empty]
+
 /-- Shifted top rank, subtracting the threshold boundary. -/
 def topShiftedRank
     (hF : F.IsRankValid)
@@ -1441,6 +1557,29 @@ theorem top_card_mul_pow_le
     simpa [hTcard, Nat.mul_comm, Nat.mul_left_comm, Nat.mul_assoc] using hle
   simpa [T] using hle'
 
+/-- Construct top packing from the exact multiplicative top-cardinality bound. -/
+noncomputable def topPacking_of_top_card_mul_pow_le
+    (hF : F.IsRankValid)
+    (s : Nat)
+    (hpack : (dissection F hF s).topFinset.card * 2 ^ (s + 1) <= n) :
+    TopPacking F hF s := by
+  classical
+  let T := (dissection F hF s).topFinset
+  let A := T × Fin (2 ^ (s + 1))
+  have hcardA : Fintype.card A = T.card * 2 ^ (s + 1) := by
+    simp [A]
+  have hcard :
+      Fintype.card A <= Fintype.card (Fin n) := by
+    rw [hcardA]
+    simpa [T] using hpack
+  let e : A ↪ Fin n := Classical.choice (Function.Embedding.nonempty_of_card_le hcard)
+  exact {
+    pack := fun v j => e (v, j)
+    injective_pack := by
+      intro p q hpq
+      exact e.injective hpq
+  }
+
 /-- A failed multiplicative top-cardinality bound rules out `TopPacking`. -/
 theorem not_topPacking_of_top_card_mul_pow_gt
     (hF : F.IsRankValid)
@@ -1460,6 +1599,22 @@ theorem top_card_le_div
     top_card_mul_pow_le F hF s P
   have hpos : 0 < 2 ^ (s + 1) := Nat.pow_pos (by norm_num : 0 < 2)
   exact (Nat.le_div_iff_mul_le hpos).2 hmul
+
+/-- Direct rank-threshold packing supplies the `TopPacking` witness. -/
+noncomputable def topPacking_of_rankThresholdPacking
+    (hF : F.IsRankValid)
+    (hpack : F.HasRankThresholdPacking)
+    (s : Nat) :
+    TopPacking F hF s := by
+  have hcard :
+      (dissection F hF s).topFinset.card * 2 ^ (s + 1) <= n := by
+    have hfinset : (dissection F hF s).topFinset = F.highRankFinset s := by
+      ext v
+      simp [RawRankedForest.highRankFinset, RawDissection.topFinset,
+        RawDissection.IsTop, dissection, topPred]
+    rw [hfinset]
+    exact hpack s
+  exact topPacking_of_top_card_mul_pow_le F hF s hcard
 
 end RankThresholdDissection
 

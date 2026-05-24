@@ -59,6 +59,33 @@ future source-model proof.
 def IsRankValid (F : RawRankedForest n r) : Prop :=
   forall v : Fin n, Not (F.parent v = v) -> F.rankNat v < F.rankNat (F.parent v)
 
+/--
+Vertices whose rank lies strictly above a threshold.  This is the direct
+rank-packing side of the faithful source model; a future subtree-size
+formalization should imply the same predicate.
+-/
+noncomputable def highRankFinset (F : RawRankedForest n r) (s : Nat) :
+    Finset (Fin n) := by
+  classical
+  exact Finset.univ.filter fun v => s < F.rankNat v
+
+@[simp]
+theorem mem_highRankFinset (F : RawRankedForest n r) (s : Nat) (v : Fin n) :
+    v ∈ F.highRankFinset s ↔ s < F.rankNat v := by
+  classical
+  simp [highRankFinset]
+
+/--
+Direct rank-threshold packing invariant for faithful rank forests.
+
+For every threshold `s`, the vertices above that threshold can each pay for a
+block of size `2 ^ (s + 1)` inside the ambient `n` vertices.  This captures the
+source rank-size fact needed by rank-threshold top packing without yet
+formalizing subtree sizes.
+-/
+def HasRankThresholdPacking (F : RawRankedForest n r) : Prop :=
+  forall s : Nat, (F.highRankFinset s).card * 2 ^ (s + 1) <= n
+
 end RawRankedForest
 
 /--
@@ -173,9 +200,24 @@ Base-case rank accounting certificate. Each charged unit is assigned
 injectively to a vertex and one of that vertex's possible parent-rank increases
 below the global bound `r`.
 -/
-def HasBaseRankAccounting (E : RawCompressionExecution m n r) : Prop :=
+def HasLegacyBaseRankAccounting (E : RawCompressionExecution m n r) : Prop :=
   Exists fun charge : E.ChargeUnit -> Prod (Fin n) (Fin (r - 1)) =>
     Function.Injective charge
+
+/-- Every before/after forest in an execution carries the rank-threshold packing invariant. -/
+def HasRankThresholdPacking (E : RawCompressionExecution m n r) : Prop :=
+  forall i : Fin m,
+    (E.step i).before.HasRankThresholdPacking /\
+      (E.step i).after.HasRankThresholdPacking
+
+/--
+Faithful base/rank accounting certificate.
+
+It retains the old charge-unit injection used by the base-cost proof and adds
+the direct rank-threshold packing invariant needed for source top-packing.
+-/
+def HasBaseRankAccounting (E : RawCompressionExecution m n r) : Prop :=
+  E.HasLegacyBaseRankAccounting /\ E.HasRankThresholdPacking
 
 /-- Every slot of an execution is a valid concrete compression step. -/
 def HasValidSteps (E : RawCompressionExecution m n r) : Prop :=
@@ -192,6 +234,16 @@ certificate used by the base-bound proof.
 -/
 def IsSemanticallyValid (E : RawCompressionExecution m n r) : Prop :=
   E.HasValidSteps /\ E.HasConsecutiveStates
+
+/--
+The old skeleton-validity predicate before rank-threshold packing was added.
+Kept only to document the previous model defect; faithful clients should use
+`IsValid`.
+-/
+def IsLegacyValidWithoutRankPacking (E : RawCompressionExecution m n r) : Prop :=
+  E.HasValidSteps /\
+    E.HasConsecutiveStates /\
+    E.HasLegacyBaseRankAccounting
 
 /-- Valid executions have semantic validity and base accounting. -/
 def IsValid (E : RawCompressionExecution m n r) : Prop :=
@@ -223,6 +275,13 @@ theorem hasBaseRankAccounting_of_isValid
     E.HasBaseRankAccounting :=
   (E.isValid_iff_semantic_and_rank).1 h |>.2
 
+/-- Valid executions carry the rank-threshold packing certificate. -/
+theorem hasRankThresholdPacking_of_isValid
+    (E : RawCompressionExecution m n r)
+    (h : E.IsValid) :
+    E.HasRankThresholdPacking :=
+  (E.hasBaseRankAccounting_of_isValid h).2
+
 /-- Semantic validity plus base/rank accounting reconstructs the old validity predicate. -/
 theorem isValid_of_semantic_and_rank
     (E : RawCompressionExecution m n r)
@@ -244,7 +303,7 @@ theorem cost_le_base_budget
     (h : E.HasBaseRankAccounting) :
     E.cost <= n * (r - 1) := by
   classical
-  cases h with
+  cases h.1 with
   | intro charge hcharge =>
       have hcard :
           E.cost <= Fintype.card (Prod (Fin n) (Fin (r - 1))) := by

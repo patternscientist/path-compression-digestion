@@ -17,19 +17,16 @@ This worker did not prove:
 RawCompressionExecution.RankThresholdLogConsumableBounds
 ```
 
-Instead, it proved that the package is not unconditional for the current
+Instead, it proved that the package was not unconditional for the pre-repair
 finite skeleton:
 
 ```lean
-theorem RawCompressionExecution.exists_validExecution_without_rankThresholdTopPacking_current_model :
+theorem RawCompressionExecution.exists_legacyValidExecution_without_rankThresholdTopPacking_current_model :
     Exists fun E : RawCompressionExecution 1 1 4 =>
-      Exists fun hE : E.IsValid =>
+      Exists fun hE : E.IsLegacyValidWithoutRankPacking =>
         let i0 : Fin 1 := { val := 0, isLt := by omega }
         RankThresholdDissection.TopPacking (E.step i0).before (hE.1 i0).1.1 1 ->
           False
-
-theorem RawCompressionExecution.not_rankThresholdLogConsumableBounds_J0_current_model :
-    RankThresholdLogConsumableBounds (JInput 0) 0 -> False
 ```
 
 Therefore this branch did not derive an unconditional:
@@ -166,23 +163,87 @@ Thus `IsRankValid` alone cannot produce `TopPacking`; the missing ingredient is
 source-faithful rank-size/subtree accounting, not a rearrangement of the shift
 arithmetic.
 
-The theorem
-`exists_validExecution_without_rankThresholdTopPacking_current_model` gives the
-standalone top-packing obstruction.  The theorem
-`not_rankThresholdLogConsumableBounds_J0_current_model` instantiates this
-obstruction with a one-vertex valid execution at rank bound `4`, using
-`JInput 0`.  The large-row condition holds because `J_0(4) = 2`, hence the
-log threshold is `s = 1`, but the single high-rank vertex lies in the top side
-and would require an injection from a four-element domain into `Fin 1`.
+After the model-repair branch, the theorem
+`exists_legacyValidExecution_without_rankThresholdTopPacking_current_model`
+keeps the standalone obstruction for the old skeleton without rank-threshold
+packing.  The repaired faithful model proves:
 
-## Blocker Classification
+```lean
+def RawCompressionExecution.rankThresholdDissectionFamily_topPacking
 
-Blocker: top packing first.
+theorem RawCompressionExecution.not_exists_validExecution_without_rankThresholdTopPacking_current_model
+```
 
-Secondary blockers, after top packing is supplied:
+Thus the old one-vertex high-rank root is no longer accepted by the repaired
+`RawCompressionExecution.IsValid`; it remains accepted only by the explicitly
+named legacy predicate.
+
+## Current Blocker Classification
+
+The original first blocker, top packing, is repaired in the faithful model.
+The remaining blockers are now exactly the two recurrence-consumable simulation
+fields:
 
 - bottom consumable-cost simulation;
 - top consumable-cost simulation.
+
+A follow-up worker proved the rank-range part of these simulations:
+
+```lean
+theorem RawCompressionExecution.rankThresholdBottomProjectedExecution_consumableCost_le_threshold_mul_chargedCount
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+      s *
+        (E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount
+
+theorem RawCompressionExecution.rankThresholdTopProjectedExecution_consumableCost_le_shiftedRank_mul_chargedCount
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+      (r - s - 1) *
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount
+```
+
+It also proved that direct global rank-threshold packing localizes to the
+bottom side:
+
+```lean
+theorem RankThresholdDissection.bottom_highRank_card_mul_pow_le_bottom_card
+    (hF : F.IsRankValid)
+    (hpack : F.HasRankThresholdPacking)
+    (s t : Nat) :
+    (((dissection F hF s).bottomFinset.filter fun v => t < F.rankNat v).card) *
+        2 ^ (t + 1) <=
+      (dissection F hF s).bottomFinset.card
+
+theorem RawCompressionExecution.rankThresholdDissectionFamily_bottom_highRank_card_mul_pow_le_bottomFinset_card
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s t : Nat)
+    (i : Fin m) :
+    (((E.rankThresholdDissectionFamily hE.1 s i).bottomFinset.filter
+        fun v => t < RawRankedForest.rankNat (E.step i).before v).card) *
+        2 ^ (t + 1) <=
+      (E.rankThresholdDissectionFamily hE.1 s i).bottomFinset.card
+```
+
+These are structural projected-path bounds, not the final Seidel--Sharir
+recurrence consumption.  The package still needs the sharper bounds:
+
+```lean
+Cb.consumableCost <= (k + 1) * Cb.chargedCount
+  + 2 * |X_b| * Drow.diamond s
+
+Ct.consumableCost <= k * Ct.chargedCount
+  + 2 * |X_t| * Drow.g (r - s - 1)
+```
 
 The charged-count bookkeeping needed by the existing log/diamond budget theorem
 is already present.  The failure is not in the packaged source-shift arithmetic
@@ -190,31 +251,82 @@ and not in the existing finite paper theorem bridge.
 
 ## Smallest Next Theorem Statement
 
-The smallest theorem over the current package shape is:
+The smallest next theorem should consume one side's projected recurrence, not
+just its rank range.  For the bottom side:
 
 ```lean
-theorem rankThresholdLogTopPacking
+theorem rankThreshold_bottom_consumableCost_le_recurrence_budget
+    (Drow : DiamondInput)
+    (k : Nat)
     (E : RawCompressionExecution m n r)
     (hE : E.IsValid)
     (s : Nat)
     (i0 : Fin m) :
-    RankThresholdDissection.TopPacking (E.step i0).before
-      (hE.1 i0).1.1 s
+    (E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+      (k + 1) *
+        (E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+        2 * ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) *
+          Drow.diamond s
 ```
 
-However, the new counterexample theorem shows that this statement is not sound
-for the present concrete model unless `RawCompressionExecution.IsValid` is
-strengthened, or accompanied, by a source-faithful rank-size/subtree packing
-invariant.  A sound next step should first add and audit that invariant, then
-prove the top-packing theorem from it while preserving the existing
-`RankThresholdLogConsumableBounds` wrapper.
+The analogous top-side theorem has coefficient `k` and budget
+`Drow.g (r - s - 1)`.  Proving either theorem likely requires a valid
+restricted-projection simulation/comparison theorem, not more Nat arithmetic.
 
 ## Verdict
 
-Ambition D achieved.  The exact package fields are identified, the downstream
-fields already consumed by existing lemmas are separated from the missing
-fields, and the first blocker is mechanically isolated as top packing.  In the
-current model, the full package is mechanically refuted at `JInput 0`.
+Ambition D achieved for the original worker.  The exact package fields are
+identified, the downstream fields already consumed by existing lemmas are
+separated from the missing fields, and the first blocker was mechanically
+isolated as top packing.  The later model-repair branch fixes that top-packing
+defect by adding direct rank-threshold packing to the faithful base/rank
+accounting layer.
 
 No unconditional `RankThresholdLogConsumableBounds`, `topDown_shift_step`,
 `SourceRecurrence topDownCost`, or paper-facing finite theorem is claimed.
+
+## Follow-up: Delayed-Row Audit Witness
+
+The model-repair follow-up also audited whether the remaining package can be
+proved from the bare `DiamondInput` interface.  It cannot be attacked that
+generically: the file now contains a concrete delayed row
+
+```lean
+def delayedSubThreeInput : DiamondInput
+```
+
+with
+
+```lean
+delayedSubThreeInput.g 6 = 3
+ceilLog2 (delayedSubThreeInput.g 6) = 2
+delayedSubThreeInput.g (6 - ceilLog2 (delayedSubThreeInput.g 6) - 1) = 0
+```
+
+and a faithful 32-vertex audit execution:
+
+```lean
+theorem delayedAuditStep_isValid
+theorem delayedAuditBefore_hasRankThresholdPacking
+theorem delayedAuditAfter_hasRankThresholdPacking
+theorem delayedAuditExecution_isValid
+theorem delayedAuditExecution_rankThresholdCut_eq_zero
+```
+
+This shows the old top-packing defect is not the issue for the delayed audit
+witness: it is accepted by the repaired faithful model.  The remaining missing
+mechanical step is to compute the canonical top projected consumable sum from
+the chosen-cut proof and use it to refute the over-general delayed-row package
+at `k = 0`.  A smaller local step-level theorem already proves the positive
+top consumable edge at the zero residual row:
+
+```lean
+theorem exists_valid_step_with_positive_top_consumable_at_delayed_zero_residual
+```
+
+This does not refute the concrete `JInput k` specialization.  It narrows the
+next proof obligation: the final consumable simulations must use concrete
+`J`-row facts, or another row-strength hypothesis, rather than only the four
+axioms carried by `DiamondInput`.

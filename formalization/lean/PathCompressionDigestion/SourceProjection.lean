@@ -17,6 +17,72 @@ namespace PathCompressionDigestion
 
 namespace ConcreteSourceModel
 
+namespace RawDissection
+
+variable {n r : Nat} {F : RawRankedForest n r}
+
+/-- The inherited bottom rank strictly increases across non-root bottom-parent edges. -/
+theorem bottomParent_rank_lt_of_not_root
+    (D : RawDissection F)
+    (hF : F.IsRankValid)
+    (v : D.BottomNode)
+    (hneq : D.bottomParent v ≠ v) :
+    D.bottomRankNat v < D.bottomRankNat (D.bottomParent v) := by
+  classical
+  by_cases hparent : D.IsBottom (F.parent v.1)
+  · have hraw_ne : F.parent v.1 ≠ v.1 := by
+      intro hraw
+      apply hneq
+      apply Subtype.ext
+      simpa [D.bottomParent_val_of_parent_bottom v hparent, hraw]
+    have hlt : F.rankNat v.1 < F.rankNat (F.parent v.1) :=
+      hF v.1 hraw_ne
+    simpa [bottomRankNat, D.bottomParent_val_of_parent_bottom v hparent] using hlt
+  · exfalso
+    apply hneq
+    apply Subtype.ext
+    simp [bottomParent, hparent]
+
+/-- The inherited top rank strictly increases across non-root top-parent edges. -/
+theorem topParent_rank_lt_of_not_root
+    (D : RawDissection F)
+    (hF : F.IsRankValid)
+    (v : D.TopNode)
+    (hneq : D.topParent v ≠ v) :
+    D.topRankNat v < D.topRankNat (D.topParent v) := by
+  have hraw_ne : F.parent v.1 ≠ v.1 := by
+    intro hraw
+    apply hneq
+    apply Subtype.ext
+    simpa [topParent, hraw]
+  simpa [topRankNat, topParent] using hF v.1 hraw_ne
+
+end RawDissection
+
+namespace RankThresholdDissection
+
+variable {n r : Nat} (F : RawRankedForest n r)
+
+/-- Shifted top rank strictly increases across non-root top-parent edges. -/
+theorem topParent_shiftedRank_lt_of_not_root
+    (hF : F.IsRankValid)
+    (s : Nat)
+    (v : (dissection F hF s).TopNode)
+    (hneq : (dissection F hF s).topParent v ≠ v) :
+    topShiftedRank F hF s v <
+      topShiftedRank F hF s ((dissection F hF s).topParent v) := by
+  have hraw :
+      F.rankNat v.1 <
+        F.rankNat (((dissection F hF s).topParent v).1) := by
+    simpa [RawDissection.topRankNat] using
+      (dissection F hF s).topParent_rank_lt_of_not_root hF v hneq
+  have hv : s + 1 <= F.rankNat v.1 := by
+    exact Nat.succ_le_of_lt v.2
+  unfold topShiftedRank
+  omega
+
+end RankThresholdDissection
+
 namespace RawCompressionPath
 
 namespace ProjectedPathSegment
@@ -92,6 +158,156 @@ theorem nonrootIndicator_eq_one_of_nonroot
   classical
   unfold nonrootIndicator
   rw [if_pos hnonroot]
+
+/--
+If a projected segment ever reaches a self-parent vertex, all later slots in
+the segment stay at that vertex.
+-/
+theorem node_eq_of_parent_self_of_le
+    (S : ProjectedPathSegment alpha parent)
+    {i j : Fin S.len}
+    (hij : i.val <= j.val)
+    (hself : parent (S.node i) = S.node i) :
+    S.node j = S.node i := by
+  rcases Nat.exists_eq_add_of_le hij with ⟨d, hd⟩
+  revert i j
+  induction d with
+  | zero =>
+      intro i j _hij hself hd
+      have hvals : i.val = j.val := by omega
+      exact (congrArg S.node (Fin.ext hvals)).symm
+  | succ d ih =>
+      intro i j _hij hself hd
+      let mid : Fin S.len := ⟨i.val + d, by omega⟩
+      have hi_mid : i.val <= mid.val := by
+        simp [mid]
+      have hmid_val : mid.val = i.val + d := rfl
+      have hmid_j : mid.val + 1 = j.val := by
+        simp [mid]
+        omega
+      have hnode_mid : S.node mid = S.node i :=
+        ih hi_mid hself hmid_val
+      have hparent_mid : parent (S.node mid) = S.node mid := by
+        rw [hnode_mid, hself]
+      have hchain : parent (S.node mid) = S.node j :=
+        S.parent_chain hmid_j
+      calc
+        S.node j = parent (S.node mid) := hchain.symm
+        _ = S.node mid := hparent_mid
+        _ = S.node i := hnode_mid
+
+/-- Ranks are nondecreasing along a projected path when they are nondecreasing
+along the projected parent map. -/
+theorem rank_le_of_le
+    (S : ProjectedPathSegment alpha parent)
+    (rank : alpha -> Nat)
+    (hparent_le : forall v : alpha, rank v <= rank (parent v))
+    {i j : Fin S.len}
+    (hij : i.val <= j.val) :
+    rank (S.node i) <= rank (S.node j) := by
+  rcases Nat.exists_eq_add_of_le hij with ⟨d, hd⟩
+  revert i j
+  induction d with
+  | zero =>
+      intro i j _hij hd
+      have hvals : i.val = j.val := by omega
+      have hfin : i = j := Fin.ext hvals
+      simpa [hfin]
+  | succ d ih =>
+      intro i j _hij hd
+      let mid : Fin S.len := ⟨i.val + d, by omega⟩
+      have hi_mid : i.val <= mid.val := by
+        simp [mid]
+      have hmid_val : mid.val = i.val + d := rfl
+      have hmid_j : mid.val + 1 = j.val := by
+        simp [mid]
+        omega
+      have hle_mid : rank (S.node i) <= rank (S.node mid) :=
+        ih hi_mid hmid_val
+      have hstep : parent (S.node mid) = S.node j :=
+        S.parent_chain hmid_j
+      exact hle_mid.trans (by simpa [hstep] using hparent_le (S.node mid))
+
+/--
+On a projected nonroot path, any rank function that strictly increases across
+non-root parent edges strictly increases between earlier and later slots.
+-/
+theorem rank_lt_of_lt_of_nonroot
+    (S : ProjectedPathSegment alpha parent)
+    (rank : alpha -> Nat)
+    (hparent_lt : forall v : alpha, parent v ≠ v -> rank v < rank (parent v))
+    (hnonroot : S.IsNonrootPath)
+    {i j : Fin S.len}
+    (hij : i.val < j.val) :
+    rank (S.node i) < rank (S.node j) := by
+  rcases hnonroot with ⟨hlen, hlast_ne⟩
+  let next : Fin S.len := ⟨i.val + 1, by omega⟩
+  have hi_next : i.val + 1 = next.val := rfl
+  have hnext_le_j : next.val <= j.val := by
+    simp [next]
+    omega
+  have hparent_i : parent (S.node i) = S.node next :=
+    S.parent_chain hi_next
+  have hnot_self : parent (S.node i) ≠ S.node i := by
+    intro hself
+    let last := S.lastIndex hlen
+    have hi_last : i.val <= last.val := by
+      simp [last, lastIndex]
+      omega
+    have hlast_node : S.node last = S.node i :=
+      S.node_eq_of_parent_self_of_le hi_last hself
+    have hparent_last : parent (S.node last) = S.node last := by
+      rw [hlast_node, hself]
+    exact hlast_ne hparent_last
+  have hlt_next : rank (S.node i) < rank (S.node next) := by
+    simpa [hparent_i] using hparent_lt (S.node i) hnot_self
+  have hparent_le : forall v : alpha, rank v <= rank (parent v) := by
+    intro v
+    by_cases hv : parent v = v
+    · rw [hv]
+    · exact le_of_lt (hparent_lt v hv)
+  have hle_j : rank (S.node next) <= rank (S.node j) :=
+    S.rank_le_of_le rank hparent_le hnext_le_j
+  exact hlt_next.trans_le hle_j
+
+/--
+A nonroot projected path whose node ranks all lie in `0..B` has at most `B`
+edges.
+-/
+theorem edgeCost_le_rankBound_of_nonroot
+    (S : ProjectedPathSegment alpha parent)
+    (rank : alpha -> Nat)
+    (B : Nat)
+    (hparent_lt : forall v : alpha, parent v ≠ v -> rank v < rank (parent v))
+    (hrank_bound : forall i : Fin S.len, rank (S.node i) <= B)
+    (hnonroot : S.IsNonrootPath) :
+    S.edgeCost <= B := by
+  classical
+  let rankFin : Fin S.len -> Fin (B + 1) := fun i =>
+    ⟨rank (S.node i), Nat.lt_succ_of_le (hrank_bound i)⟩
+  have hinj : Function.Injective rankFin := by
+    intro i j hij
+    apply Fin.ext
+    by_cases hlt : i.val < j.val
+    · have hrank_lt : rank (S.node i) < rank (S.node j) :=
+        S.rank_lt_of_lt_of_nonroot rank hparent_lt hnonroot hlt
+      have hrank_eq : rank (S.node i) = rank (S.node j) := by
+        exact congrArg Fin.val hij
+      omega
+    · by_cases hgt : j.val < i.val
+      · have hrank_lt : rank (S.node j) < rank (S.node i) :=
+          S.rank_lt_of_lt_of_nonroot rank hparent_lt hnonroot hgt
+        have hrank_eq : rank (S.node i) = rank (S.node j) := by
+          exact congrArg Fin.val hij
+        omega
+      · omega
+  have hcard :
+      Fintype.card (Fin S.len) <= Fintype.card (Fin (B + 1)) :=
+    Fintype.card_le_of_injective rankFin hinj
+  have hlen_le : S.len <= B + 1 := by
+    simpa using hcard
+  unfold edgeCost
+  omega
 
 end ProjectedPathSegment
 
@@ -567,6 +783,59 @@ theorem sourceCost_le_projection_edgeCosts_add_topNonrootIndicator
       simp [bottomProjectionSegment, topProjectionSegment, bottomProjectionLength,
         topProjectionLength, hcut_eq]
 
+/-- A charged bottom rank-threshold projection has at most `s` edges. -/
+theorem bottomProjectionSegment_edgeCost_le_rankThreshold
+    {n r : Nat}
+    {F : RawRankedForest n r}
+    (hF : F.IsRankValid)
+    (s : Nat)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut (RankThresholdDissection.dissection F hF s) cut)
+    (hnonroot :
+      (P.bottomProjectionSegment
+        (RankThresholdDissection.dissection F hF s) hchain cut hcut).IsNonrootPath) :
+    (P.bottomProjectionSegment
+      (RankThresholdDissection.dissection F hF s) hchain cut hcut).edgeCost <= s := by
+  let D := RankThresholdDissection.dissection F hF s
+  exact (P.bottomProjectionSegment D hchain cut hcut).edgeCost_le_rankBound_of_nonroot
+    D.bottomRankNat s
+    (fun v hneq => D.bottomParent_rank_lt_of_not_root hF v hneq)
+    (fun i => by
+      exact RankThresholdDissection.bottom_rank_le F hF s
+        ((P.bottomProjectionSegment D hchain cut hcut).node i))
+    hnonroot
+
+/--
+A charged top rank-threshold projection has at most `r - s - 1` edges after
+shifting ranks down by the threshold boundary.
+-/
+theorem topProjectionSegment_edgeCost_le_rankThreshold
+    {n r : Nat}
+    {F : RawRankedForest n r}
+    (hF : F.IsRankValid)
+    (s : Nat)
+    (P : RawCompressionPath n)
+    (hchain : P.IsParentChain F)
+    (cut : Nat)
+    (hcut : P.HasDissectionCut (RankThresholdDissection.dissection F hF s) cut)
+    (hnonroot :
+      (P.topProjectionSegment
+        (RankThresholdDissection.dissection F hF s) hchain cut hcut).IsNonrootPath) :
+    (P.topProjectionSegment
+      (RankThresholdDissection.dissection F hF s) hchain cut hcut).edgeCost <=
+        r - s - 1 := by
+  let D := RankThresholdDissection.dissection F hF s
+  exact (P.topProjectionSegment D hchain cut hcut).edgeCost_le_rankBound_of_nonroot
+    (RankThresholdDissection.topShiftedRank F hF s) (r - s - 1)
+    (fun v hneq =>
+      RankThresholdDissection.topParent_shiftedRank_lt_of_not_root F hF s v hneq)
+    (fun i => by
+      exact RankThresholdDissection.top_shifted_rank_le F hF s
+        ((P.topProjectionSegment D hchain cut hcut).node i))
+    hnonroot
+
 end RawCompressionPath
 
 namespace RawDissection
@@ -634,6 +903,129 @@ theorem cost_eq_zero_of_one_vertex (S : RawCompressionStep 1 r) :
     exact Subsingleton.elim _ _
   unfold cost RawCompressionPath.sourceCost
   rw [if_pos hroot]
+
+/-- A charged bottom rank-threshold projected step has at most `s` consumable edges. -/
+theorem bottomProjectedStep_consumableCost_le_rankThreshold
+    (S : RawCompressionStep n r)
+    (hS : S.IsValid)
+    (s : Nat)
+    (cut : Nat)
+    (hcut :
+      S.path.HasDissectionCut
+        (RankThresholdDissection.dissection S.before hS.1.1 s) cut) :
+    (S.bottomProjectedStep
+      (RankThresholdDissection.dissection S.before hS.1.1 s) hS cut hcut).consumableCost <=
+      s := by
+  classical
+  let D := RankThresholdDissection.dissection S.before hS.1.1 s
+  let B := S.bottomProjectedStep D hS cut hcut
+  by_cases hcharged : B.IsCharged
+  · have hseg :
+        (S.path.bottomProjectionSegment D hS.1.2.2.1 cut hcut).IsNonrootPath := by
+      simpa [B, RawCompressionStep.bottomProjectedStep,
+        RawCompressionPath.ProjectedCompressionStep.IsCharged,
+        RawCompressionPath.ProjectedCompressionStep.IsNonrootPath] using hcharged
+    have hcost :
+        (S.path.bottomProjectionSegment D hS.1.2.2.1 cut hcut).edgeCost <= s :=
+      S.path.bottomProjectionSegment_edgeCost_le_rankThreshold
+        hS.1.1 s hS.1.2.2.1 cut hcut hseg
+    rw [B.consumableCost_eq_cost_of_charged hcharged]
+    simpa [B, RawCompressionStep.bottomProjectedStep,
+      RawCompressionPath.ProjectedCompressionStep.cost] using hcost
+  · rw [B.consumableCost_eq_zero_of_not_charged hcharged]
+    omega
+
+/--
+Charged-count form of the bottom rank-threshold projected-step range bound.
+-/
+theorem bottomProjectedStep_consumableCost_le_rankThreshold_mul_indicator
+    (S : RawCompressionStep n r)
+    (hS : S.IsValid)
+    (s : Nat)
+    (cut : Nat)
+    (hcut :
+      S.path.HasDissectionCut
+        (RankThresholdDissection.dissection S.before hS.1.1 s) cut) :
+    (S.bottomProjectedStep
+      (RankThresholdDissection.dissection S.before hS.1.1 s) hS cut hcut).consumableCost <=
+      s *
+        (S.bottomProjectedStep
+          (RankThresholdDissection.dissection S.before hS.1.1 s) hS cut hcut).nonrootIndicator := by
+  classical
+  let D := RankThresholdDissection.dissection S.before hS.1.1 s
+  let B := S.bottomProjectedStep D hS cut hcut
+  by_cases hcharged : B.IsCharged
+  · have hcost := S.bottomProjectedStep_consumableCost_le_rankThreshold hS s cut hcut
+    have hind : B.nonrootIndicator = 1 := by
+      have hseg : B.path.IsNonrootPath := by
+        simpa [RawCompressionPath.ProjectedCompressionStep.IsCharged,
+          RawCompressionPath.ProjectedCompressionStep.IsNonrootPath] using hcharged
+      exact B.path.nonrootIndicator_eq_one_of_nonroot hseg
+    simpa [B, D, hind] using hcost
+  · rw [B.consumableCost_eq_zero_of_not_charged hcharged]
+    omega
+
+/--
+A charged top rank-threshold projected step has at most `r - s - 1` consumable
+edges after shifting top ranks down by the threshold boundary.
+-/
+theorem topProjectedStep_consumableCost_le_rankThreshold
+    (S : RawCompressionStep n r)
+    (hS : S.IsValid)
+    (s : Nat)
+    (cut : Nat)
+    (hcut :
+      S.path.HasDissectionCut
+        (RankThresholdDissection.dissection S.before hS.1.1 s) cut) :
+    (S.topProjectedStep
+      (RankThresholdDissection.dissection S.before hS.1.1 s) hS cut hcut).consumableCost <=
+      r - s - 1 := by
+  classical
+  let D := RankThresholdDissection.dissection S.before hS.1.1 s
+  let T := S.topProjectedStep D hS cut hcut
+  by_cases hcharged : T.IsCharged
+  · have hseg :
+        (S.path.topProjectionSegment D hS.1.2.2.1 cut hcut).IsNonrootPath := by
+      simpa [T, RawCompressionStep.topProjectedStep,
+        RawCompressionPath.ProjectedCompressionStep.IsCharged,
+        RawCompressionPath.ProjectedCompressionStep.IsNonrootPath] using hcharged
+    have hcost :
+        (S.path.topProjectionSegment D hS.1.2.2.1 cut hcut).edgeCost <= r - s - 1 :=
+      S.path.topProjectionSegment_edgeCost_le_rankThreshold
+        hS.1.1 s hS.1.2.2.1 cut hcut hseg
+    rw [T.consumableCost_eq_cost_of_charged hcharged]
+    simpa [T, RawCompressionStep.topProjectedStep,
+      RawCompressionPath.ProjectedCompressionStep.cost] using hcost
+  · rw [T.consumableCost_eq_zero_of_not_charged hcharged]
+    omega
+
+/-- Charged-count form of the top rank-threshold projected-step range bound. -/
+theorem topProjectedStep_consumableCost_le_rankThreshold_mul_indicator
+    (S : RawCompressionStep n r)
+    (hS : S.IsValid)
+    (s : Nat)
+    (cut : Nat)
+    (hcut :
+      S.path.HasDissectionCut
+        (RankThresholdDissection.dissection S.before hS.1.1 s) cut) :
+    (S.topProjectedStep
+      (RankThresholdDissection.dissection S.before hS.1.1 s) hS cut hcut).consumableCost <=
+      (r - s - 1) *
+        (S.topProjectedStep
+          (RankThresholdDissection.dissection S.before hS.1.1 s) hS cut hcut).nonrootIndicator := by
+  classical
+  let D := RankThresholdDissection.dissection S.before hS.1.1 s
+  let T := S.topProjectedStep D hS cut hcut
+  by_cases hcharged : T.IsCharged
+  · have hcost := S.topProjectedStep_consumableCost_le_rankThreshold hS s cut hcut
+    have hind : T.nonrootIndicator = 1 := by
+      have hseg : T.path.IsNonrootPath := by
+        simpa [RawCompressionPath.ProjectedCompressionStep.IsCharged,
+          RawCompressionPath.ProjectedCompressionStep.IsNonrootPath] using hcharged
+      exact T.path.nonrootIndicator_eq_one_of_nonroot hseg
+    simpa [T, D, hind] using hcost
+  · rw [T.consumableCost_eq_zero_of_not_charged hcharged]
+    omega
 
 /-- Indicator for source nonrootpaths. -/
 noncomputable def nonrootIndicator (S : RawCompressionStep n r) : Nat := by
@@ -2128,6 +2520,101 @@ theorem rankThresholdBottomProjectedExecution_isAdmissible
       (E.rankThresholdDissectionFamily hE.1 s)).IsAdmissible := by
   exact E.rankThresholdBottomProjectedExecution_isSemanticallyValid hE s
 
+/--
+Bottom rank-threshold projections are range-bounded stepwise: the total
+consumable bottom cost is at most `s` times the bottom projected charged count.
+-/
+theorem rankThresholdBottomProjectedExecution_consumableCost_le_threshold_mul_chargedCount
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+      s *
+        (E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  have hsum :
+      Finset.sum (Finset.univ : Finset (Fin m)) (fun i =>
+        ((E.step i).bottomProjectedStep (Dfam i) (hE.1 i) (cut i) (hcut i)).consumableCost)
+        <=
+      Finset.sum (Finset.univ : Finset (Fin m)) (fun i =>
+        s * ((E.step i).bottomProjectedStep
+          (Dfam i) (hE.1 i) (cut i) (hcut i)).nonrootIndicator) := by
+    exact Finset.sum_le_sum (by
+      intro i _hi
+      have hstep :=
+        (E.step i).bottomProjectedStep_consumableCost_le_rankThreshold_mul_indicator
+          (hE.1 i) s (cut i) (by
+            simpa [Dfam, rankThresholdDissectionFamily] using hcut i)
+      simpa [Dfam, rankThresholdDissectionFamily] using hstep)
+  have hsum_eq :
+      Finset.sum (Finset.univ : Finset (Fin m)) (fun i =>
+        s * ((E.step i).bottomProjectedStep
+          (Dfam i) (hE.1 i) (cut i) (hcut i)).nonrootIndicator)
+        =
+      s *
+        Finset.sum (Finset.univ : Finset (Fin m)) (fun i =>
+          ((E.step i).bottomProjectedStep
+            (Dfam i) (hE.1 i) (cut i) (hcut i)).nonrootIndicator) := by
+    rw [Finset.mul_sum]
+  have hfinal := hsum.trans (le_of_eq hsum_eq)
+  simpa [RawCompressionPath.ProjectedCompressionExecution.consumableCost,
+    RawCompressionPath.ProjectedCompressionExecution.chargedCount,
+    RawCompressionPath.ProjectedCompressionExecution.nonrootCount,
+    canonicalBottomProjectedExecution, bottomProjectedExecution, Dfam, cut, hcut] using hfinal
+
+/--
+Top rank-threshold projections are range-bounded after the threshold shift:
+the total consumable top cost is at most `(r - s - 1)` times the top projected
+charged count.
+-/
+theorem rankThresholdTopProjectedExecution_consumableCost_le_shiftedRank_mul_chargedCount
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+      (r - s - 1) *
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  have hsum :
+      Finset.sum (Finset.univ : Finset (Fin m)) (fun i =>
+        ((E.step i).topProjectedStep (Dfam i) (hE.1 i) (cut i) (hcut i)).consumableCost)
+        <=
+      Finset.sum (Finset.univ : Finset (Fin m)) (fun i =>
+        (r - s - 1) * ((E.step i).topProjectedStep
+          (Dfam i) (hE.1 i) (cut i) (hcut i)).nonrootIndicator) := by
+    exact Finset.sum_le_sum (by
+      intro i _hi
+      have hstep :=
+        (E.step i).topProjectedStep_consumableCost_le_rankThreshold_mul_indicator
+          (hE.1 i) s (cut i) (by
+            simpa [Dfam, rankThresholdDissectionFamily] using hcut i)
+      simpa [Dfam, rankThresholdDissectionFamily] using hstep)
+  have hsum_eq :
+      Finset.sum (Finset.univ : Finset (Fin m)) (fun i =>
+        (r - s - 1) * ((E.step i).topProjectedStep
+          (Dfam i) (hE.1 i) (cut i) (hcut i)).nonrootIndicator)
+        =
+      (r - s - 1) *
+        Finset.sum (Finset.univ : Finset (Fin m)) (fun i =>
+          ((E.step i).topProjectedStep
+            (Dfam i) (hE.1 i) (cut i) (hcut i)).nonrootIndicator) := by
+    rw [Finset.mul_sum]
+  have hfinal := hsum.trans (le_of_eq hsum_eq)
+  simpa [RawCompressionPath.ProjectedCompressionExecution.consumableCost,
+    RawCompressionPath.ProjectedCompressionExecution.chargedCount,
+    RawCompressionPath.ProjectedCompressionExecution.nonrootCount,
+    canonicalTopProjectedExecution, topProjectedExecution, Dfam, cut, hcut] using hfinal
+
 /-- Bound a displayed bottom-boundary budget by any common bottom-card bound. -/
 theorem bottomBoundaryCard_le_of_forall_bottom_card_le
     (E : RawCompressionExecution m n r)
@@ -2710,6 +3197,35 @@ theorem rankThresholdDissectionFamily_top_card_le_div
     (E.rankThresholdDissectionFamily hsteps s i).topFinset.card <=
       n / 2 ^ (s + 1) := by
   exact RankThresholdDissection.top_card_le_div (E.step i).before (hsteps i).1.1 s P
+
+/-- Faithful rank-threshold packing supplies top packing at any execution slot. -/
+noncomputable def rankThresholdDissectionFamily_topPacking
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m) :
+    RankThresholdDissection.TopPacking (E.step i).before (hE.1 i).1.1 s := by
+  exact RankThresholdDissection.topPacking_of_rankThresholdPacking
+    (E.step i).before (hE.1 i).1.1
+    ((E.hasRankThresholdPacking_of_isValid hE i).1) s
+
+/--
+The direct rank-packing invariant localizes to the bottom side of every
+rank-threshold dissection in a faithful execution slot.
+-/
+theorem rankThresholdDissectionFamily_bottom_highRank_card_mul_pow_le_bottomFinset_card
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s t : Nat)
+    (i : Fin m) :
+    (((E.rankThresholdDissectionFamily hE.1 s i).bottomFinset.filter
+        fun v => t < RawRankedForest.rankNat (E.step i).before v).card) *
+        2 ^ (t + 1) <=
+      (E.rankThresholdDissectionFamily hE.1 s i).bottomFinset.card := by
+  simpa [rankThresholdDissectionFamily] using
+    RankThresholdDissection.bottom_highRank_card_mul_pow_le_bottom_card
+      (E.step i).before (hE.1 i).1.1
+      ((E.hasRankThresholdPacking_of_isValid hE i).1) s t
 
 /--
 Top-side cardinality bound transported across the stable rank-threshold family
@@ -3649,15 +4165,667 @@ theorem topDown_shift_step_of_rankThreshold_log_consumable_bounds
     topDownShiftStepTarget k :=
   sourceShiftStep_of_rankThreshold_log_consumable_bounds (JInput k) k hconsume
 
+/-- A delayed test row used to audit over-general `DiamondInput` packages. -/
+def delayedSubThree (r : Nat) : Nat :=
+  r - 3
+
 /--
-The current finite skeleton cannot prove the logarithmic consumable package
-unconditionally: `RawCompressionExecution.IsValid` has no rank-size/subtree
-packing invariant, so a one-vertex high-rank root blocks the required
-`TopPacking` field.
+`r ↦ r - 3` is a valid `DiamondInput`, but it is not one of the concrete `J`
+rows.  It is useful for checking which source-shift packages genuinely hold for
+all diamond inputs and which only make sense for the concrete hierarchy.
 -/
-theorem exists_validExecution_without_rankThresholdTopPacking_current_model :
+def delayedSubThreeInput : DiamondInput where
+  g := delayedSubThree
+  zero_eq := by
+    simp [delayedSubThree]
+  monotone := by
+    intro r s hrs
+    exact Nat.sub_le_sub_right hrs 3
+  unbounded := by
+    intro t
+    refine ⟨t + 3, ?_⟩
+    simp [delayedSubThree]
+  lt_self_pos := by
+    intro r hr
+    unfold delayedSubThree
+    omega
+
+@[simp]
+theorem delayedSubThreeInput_g_six :
+    delayedSubThreeInput.g 6 = 3 := by
+  rfl
+
+@[simp]
+theorem ceilLog2_delayedSubThreeInput_g_six :
+    ceilLog2 (delayedSubThreeInput.g 6) = 2 := by
+  native_decide
+
+/--
+For the delayed test row, the package's residual top row vanishes at the first
+rank where a nontrivial top projected path can exist.
+-/
+theorem delayedSubThreeInput_g_top_residual_six :
+    delayedSubThreeInput.g
+      (6 - ceilLog2 (delayedSubThreeInput.g 6) - 1) = 0 := by
+  native_decide
+
+/-- First vertex of the faithful delayed-row audit witness. -/
+def delayedAuditV0 : Fin 32 := ⟨0, by norm_num⟩
+
+/-- Middle vertex of the faithful delayed-row audit witness. -/
+def delayedAuditV1 : Fin 32 := ⟨1, by norm_num⟩
+
+/-- Top parent vertex of the faithful delayed-row audit witness. -/
+def delayedAuditV2 : Fin 32 := ⟨2, by norm_num⟩
+
+/-- A rank-packed three-node chain inside a 32-vertex ambient forest. -/
+def delayedAuditBefore : RawRankedForest 32 6 where
+  parent := fun v =>
+    if v.val = 0 then delayedAuditV1 else if v.val = 1 then delayedAuditV2 else v
+  rank := fun v =>
+    if v.val = 0 then ⟨3, by norm_num⟩
+    else if v.val = 1 then ⟨4, by norm_num⟩
+    else if v.val = 2 then ⟨5, by norm_num⟩
+    else ⟨0, by norm_num⟩
+
+/-- The two-slot path through the first edge of the delayed audit chain. -/
+def delayedAuditPath : RawCompressionPath 32 where
+  len := ⟨2, by norm_num⟩
+  node := fun i => if i.val = 0 then delayedAuditV0 else delayedAuditV1
+  target := delayedAuditV1
+
+/-- The forest after compressing `delayedAuditV0` to the old parent of the target. -/
+def delayedAuditAfter : RawRankedForest 32 6 where
+  parent := fun v =>
+    if v.val = 0 then delayedAuditV2 else if v.val = 1 then delayedAuditV2 else v
+  rank := delayedAuditBefore.rank
+
+/-- The faithful delayed-row audit step. -/
+def delayedAuditStep : RawCompressionStep 32 6 where
+  before := delayedAuditBefore
+  after := delayedAuditAfter
+  path := delayedAuditPath
+
+/-- The delayed audit step is a valid concrete compression step. -/
+theorem delayedAuditStep_isValid : delayedAuditStep.IsValid := by
+  classical
+  refine ⟨?hpath, ?hafterRank, ?hrank, ?hroot, ?hnonroot, ?hunchanged⟩
+  · refine ⟨?hrankValid, ?hlen, ?hchain, ?hlast⟩
+    · intro v hv
+      by_cases h0 : v.val = 0
+      · have hv0 : v = delayedAuditV0 := by
+          apply Fin.ext
+          simpa [delayedAuditV0] using h0
+        subst v
+        norm_num [delayedAuditStep, delayedAuditBefore, delayedAuditV0,
+          delayedAuditV1, delayedAuditV2, RawRankedForest.rankNat]
+      · by_cases h1 : v.val = 1
+        · have hv1 : v = delayedAuditV1 := by
+            apply Fin.ext
+            simpa [delayedAuditV1] using h1
+          subst v
+          norm_num [delayedAuditStep, delayedAuditBefore, delayedAuditV0,
+            delayedAuditV1, delayedAuditV2, RawRankedForest.rankNat]
+        · exfalso
+          apply hv
+          change delayedAuditBefore.parent v = v
+          have hvzero : v ≠ (0 : Fin 32) := by
+            intro hvz
+            apply h0
+            simpa using congrArg Fin.val hvz
+          simp [delayedAuditBefore, hvzero, h1]
+    · norm_num [delayedAuditStep, delayedAuditPath]
+    · intro i j hij hj
+      have hi0 : i.val = 0 := by
+        have hlen : delayedAuditStep.path.len.val = 2 := by
+          rfl
+        omega
+      have hj1 : j.val = 1 := by
+        omega
+      have hi_eq : i = ⟨0, by norm_num⟩ := Fin.ext hi0
+      have hj_eq : j = ⟨1, by norm_num⟩ := Fin.ext hj1
+      subst i
+      subst j
+      apply Fin.ext
+      norm_num [delayedAuditStep, delayedAuditPath, delayedAuditBefore,
+        delayedAuditV0, delayedAuditV1, delayedAuditV2]
+    · intro i hi
+      have hi1 : i.val = 1 := by
+        have hlen : delayedAuditStep.path.len.val = 2 := by
+          rfl
+        omega
+      have hi_eq : i = ⟨1, by norm_num⟩ := Fin.ext hi1
+      subst i
+      apply Fin.ext
+      norm_num [delayedAuditStep, delayedAuditPath, delayedAuditV0,
+        delayedAuditV1]
+  · intro v hv
+    by_cases h0 : v.val = 0
+    · have hv0 : v = delayedAuditV0 := by
+        apply Fin.ext
+        simpa [delayedAuditV0] using h0
+      subst v
+      norm_num [delayedAuditStep, delayedAuditAfter, delayedAuditBefore,
+        delayedAuditV0, delayedAuditV1, delayedAuditV2,
+        RawRankedForest.rankNat]
+    · by_cases h1 : v.val = 1
+      · have hv1 : v = delayedAuditV1 := by
+          apply Fin.ext
+          simpa [delayedAuditV1] using h1
+        subst v
+        norm_num [delayedAuditStep, delayedAuditAfter, delayedAuditBefore,
+          delayedAuditV0, delayedAuditV1, delayedAuditV2,
+          RawRankedForest.rankNat]
+      · exfalso
+        apply hv
+        change delayedAuditAfter.parent v = v
+        have hvzero : v ≠ (0 : Fin 32) := by
+          intro hvz
+          apply h0
+          simpa using congrArg Fin.val hvz
+        simp [delayedAuditAfter, hvzero, h1]
+  · intro v
+    rfl
+  · intro hroot
+    exfalso
+    have hnot :
+        delayedAuditBefore.parent delayedAuditPath.target ≠ delayedAuditPath.target := by
+      norm_num [delayedAuditBefore, delayedAuditPath, delayedAuditV1,
+        delayedAuditV2]
+    exact hnot hroot
+  · intro _hnonroot v hcomp
+    rcases hcomp with ⟨i, hi, hnode⟩
+    have hi0 : i.val = 0 := by
+      have hlen : delayedAuditStep.path.len.val = 2 := by
+        rfl
+      omega
+    have hi_eq : i = ⟨0, by norm_num⟩ := Fin.ext hi0
+    subst i
+    have hv0 : v = delayedAuditV0 := by
+      rw [← hnode]
+      apply Fin.ext
+      norm_num [delayedAuditStep, delayedAuditPath, delayedAuditV0]
+    rw [hv0]
+    apply Fin.ext
+    norm_num [delayedAuditStep, delayedAuditAfter, delayedAuditBefore,
+      delayedAuditPath, delayedAuditV0, delayedAuditV1, delayedAuditV2]
+  · intro v hnot
+    by_cases h0 : v.val = 0
+    · exfalso
+      apply hnot
+      refine ⟨⟨0, by norm_num⟩, ?_, ?_⟩
+      · norm_num [delayedAuditStep, delayedAuditPath]
+      · apply Fin.ext
+        norm_num [delayedAuditStep, delayedAuditPath, delayedAuditV0, h0]
+    · apply Fin.ext
+      by_cases h1 : v.val = 1
+      · have hv1 : v = delayedAuditV1 := by
+          apply Fin.ext
+          simpa [delayedAuditV1] using h1
+        subst v
+        norm_num [delayedAuditStep, delayedAuditAfter, delayedAuditBefore,
+          delayedAuditV1, delayedAuditV2]
+      · have hvzero : v ≠ (0 : Fin 32) := by
+          intro hvz
+          apply h0
+          simpa using congrArg Fin.val hvz
+        norm_num [delayedAuditStep, delayedAuditAfter, delayedAuditBefore,
+          delayedAuditV1, delayedAuditV2, hvzero, h1]
+
+/-- All positive-rank vertices in the delayed audit forest lie in the three-node chain. -/
+theorem delayedAuditBefore_highRank_card_le_three (s : Nat) :
+    (delayedAuditBefore.highRankFinset s).card <= 3 := by
+  classical
+  let support : Finset (Fin 32) :=
+    {delayedAuditV0, delayedAuditV1, delayedAuditV2}
+  have hsubset : delayedAuditBefore.highRankFinset s ⊆ support := by
+    intro v hv
+    have hvhigh : s < delayedAuditBefore.rankNat v := by
+      simpa [RawRankedForest.highRankFinset] using hv
+    by_cases h0 : v.val = 0
+    · have hv0 : v = delayedAuditV0 := by
+        apply Fin.ext
+        simpa [delayedAuditV0] using h0
+      simp [support, hv0]
+    · by_cases h1 : v.val = 1
+      · have hv1 : v = delayedAuditV1 := by
+          apply Fin.ext
+          simpa [delayedAuditV1] using h1
+        simp [support, hv1]
+      · by_cases h2 : v.val = 2
+        · have hv2 : v = delayedAuditV2 := by
+            apply Fin.ext
+            simpa [delayedAuditV2] using h2
+          simp [support, hv2]
+        · have hrank0 : delayedAuditBefore.rankNat v = 0 := by
+            have hvzero : v ≠ (0 : Fin 32) := by
+              intro hvz
+              apply h0
+              simpa using congrArg Fin.val hvz
+            simp [delayedAuditBefore, RawRankedForest.rankNat, hvzero, h1, h2]
+          omega
+  have hcard := Finset.card_le_card hsubset
+  have hsupport : support.card = 3 := by
+    norm_num [support, delayedAuditV0, delayedAuditV1, delayedAuditV2]
+  omega
+
+/-- Above threshold `3`, only the last two chain vertices can remain high-rank. -/
+theorem delayedAuditBefore_highRank_card_le_two_of_three_le
+    {s : Nat} (hs : 3 <= s) :
+    (delayedAuditBefore.highRankFinset s).card <= 2 := by
+  classical
+  let support : Finset (Fin 32) := {delayedAuditV1, delayedAuditV2}
+  have hsubset : delayedAuditBefore.highRankFinset s ⊆ support := by
+    intro v hv
+    have hvhigh : s < delayedAuditBefore.rankNat v := by
+      simpa [RawRankedForest.highRankFinset] using hv
+    by_cases h0 : v.val = 0
+    · have hrank3 : delayedAuditBefore.rankNat v = 3 := by
+        have hv0 : v = delayedAuditV0 := by
+          apply Fin.ext
+          simpa [delayedAuditV0] using h0
+        subst v
+        simp [delayedAuditBefore, RawRankedForest.rankNat, delayedAuditV0]
+      omega
+    · by_cases h1 : v.val = 1
+      · have hv1 : v = delayedAuditV1 := by
+          apply Fin.ext
+          simpa [delayedAuditV1] using h1
+        simp [support, hv1]
+      · by_cases h2 : v.val = 2
+        · have hv2 : v = delayedAuditV2 := by
+            apply Fin.ext
+            simpa [delayedAuditV2] using h2
+          simp [support, hv2]
+        · have hrank0 : delayedAuditBefore.rankNat v = 0 := by
+            have hvzero : v ≠ (0 : Fin 32) := by
+              intro hvz
+              apply h0
+              simpa using congrArg Fin.val hvz
+            simp [delayedAuditBefore, RawRankedForest.rankNat, hvzero, h1, h2]
+          omega
+  have hcard := Finset.card_le_card hsubset
+  have hsupport : support.card = 2 := by
+    norm_num [support, delayedAuditV1, delayedAuditV2]
+  omega
+
+/-- Above threshold `4`, only the rank-five chain vertex can remain high-rank. -/
+theorem delayedAuditBefore_highRank_card_le_one_of_four_le
+    {s : Nat} (hs : 4 <= s) :
+    (delayedAuditBefore.highRankFinset s).card <= 1 := by
+  classical
+  let support : Finset (Fin 32) := {delayedAuditV2}
+  have hsubset : delayedAuditBefore.highRankFinset s ⊆ support := by
+    intro v hv
+    have hvhigh : s < delayedAuditBefore.rankNat v := by
+      simpa [RawRankedForest.highRankFinset] using hv
+    by_cases h0 : v.val = 0
+    · have hrank3 : delayedAuditBefore.rankNat v = 3 := by
+        have hv0 : v = delayedAuditV0 := by
+          apply Fin.ext
+          simpa [delayedAuditV0] using h0
+        subst v
+        simp [delayedAuditBefore, RawRankedForest.rankNat, delayedAuditV0]
+      omega
+    · by_cases h1 : v.val = 1
+      · have hrank4 : delayedAuditBefore.rankNat v = 4 := by
+          have hv1 : v = delayedAuditV1 := by
+            apply Fin.ext
+            simpa [delayedAuditV1] using h1
+          subst v
+          simp [delayedAuditBefore, RawRankedForest.rankNat, delayedAuditV0,
+            delayedAuditV1]
+        omega
+      · by_cases h2 : v.val = 2
+        · have hv2 : v = delayedAuditV2 := by
+            apply Fin.ext
+            simpa [delayedAuditV2] using h2
+          simp [support, hv2]
+        · have hrank0 : delayedAuditBefore.rankNat v = 0 := by
+            have hvzero : v ≠ (0 : Fin 32) := by
+              intro hvz
+              apply h0
+              simpa using congrArg Fin.val hvz
+            simp [delayedAuditBefore, RawRankedForest.rankNat, hvzero, h1, h2]
+          omega
+  have hcard := Finset.card_le_card hsubset
+  have hsupport : support.card = 1 := by
+    norm_num [support, delayedAuditV2]
+  omega
+
+/-- Above threshold `5`, the delayed audit forest has no high-rank vertices. -/
+theorem delayedAuditBefore_highRank_card_eq_zero_of_five_le
+    {s : Nat} (hs : 5 <= s) :
+    (delayedAuditBefore.highRankFinset s).card = 0 := by
+  rw [Finset.card_eq_zero]
+  ext v
+  constructor
+  · intro hv
+    have hvhigh : s < delayedAuditBefore.rankNat v := by
+      simpa [RawRankedForest.highRankFinset] using hv
+    have hrank : delayedAuditBefore.rankNat v <= 5 := by
+      by_cases h0 : v.val = 0
+      · have hv0 : v = delayedAuditV0 := by
+          apply Fin.ext
+          simpa [delayedAuditV0] using h0
+        subst v
+        simp [delayedAuditBefore, RawRankedForest.rankNat, delayedAuditV0]
+      · by_cases h1 : v.val = 1
+        · have hv1 : v = delayedAuditV1 := by
+            apply Fin.ext
+            simpa [delayedAuditV1] using h1
+          subst v
+          simp [delayedAuditBefore, RawRankedForest.rankNat, delayedAuditV0,
+            delayedAuditV1]
+        · by_cases h2 : v.val = 2
+          · have hv2 : v = delayedAuditV2 := by
+              apply Fin.ext
+              simpa [delayedAuditV2] using h2
+            subst v
+            simp [delayedAuditBefore, RawRankedForest.rankNat, delayedAuditV0,
+              delayedAuditV1, delayedAuditV2]
+          · have hvzero : v ≠ (0 : Fin 32) := by
+              intro hvz
+              apply h0
+              simpa using congrArg Fin.val hvz
+            simp [delayedAuditBefore, RawRankedForest.rankNat, hvzero, h1, h2]
+    omega
+  · intro hv
+    simp at hv
+
+/-- The delayed audit before-forest satisfies the repaired rank-packing invariant. -/
+theorem delayedAuditBefore_hasRankThresholdPacking :
+    delayedAuditBefore.HasRankThresholdPacking := by
+  classical
+  intro s
+  by_cases hs2 : s <= 2
+  · interval_cases s
+    · have hcard := delayedAuditBefore_highRank_card_le_three 0
+      norm_num
+      omega
+    · have hcard := delayedAuditBefore_highRank_card_le_three 1
+      norm_num
+      omega
+    · have hcard := delayedAuditBefore_highRank_card_le_three 2
+      norm_num
+      omega
+  · have hs3 : 3 <= s := by omega
+    by_cases hs4 : s <= 3
+    · have hs : s = 3 := by omega
+      subst s
+      have hcard := delayedAuditBefore_highRank_card_le_two_of_three_le
+        (s := 3) (by norm_num)
+      norm_num
+      omega
+    · have hs4le : 4 <= s := by omega
+      by_cases hs5 : s <= 4
+      · have hs : s = 4 := by omega
+        subst s
+        have hcard := delayedAuditBefore_highRank_card_le_one_of_four_le
+          (s := 4) (by norm_num)
+        norm_num
+        omega
+      · have hs5le : 5 <= s := by omega
+        have hzero := delayedAuditBefore_highRank_card_eq_zero_of_five_le
+          (s := s) hs5le
+        rw [hzero]
+        simp
+
+/-- The delayed audit after-forest satisfies the repaired rank-packing invariant. -/
+theorem delayedAuditAfter_hasRankThresholdPacking :
+    delayedAuditAfter.HasRankThresholdPacking := by
+  intro s
+  simpa [delayedAuditAfter] using delayedAuditBefore_hasRankThresholdPacking s
+
+/-- One-slot faithful execution built from the delayed audit step. -/
+def delayedAuditExecution : RawCompressionExecution 1 32 6 where
+  step := fun _ => delayedAuditStep
+
+/-- The delayed audit step has exactly one ordinary source-cost unit. -/
+theorem delayedAuditStep_cost :
+    delayedAuditStep.cost = 1 := by
+  classical
+  norm_num [RawCompressionStep.cost, RawCompressionPath.sourceCost,
+    RawCompressionPath.cost, RawCompressionPath.IsRootPath, RawRankedForest.IsRoot,
+    delayedAuditStep, delayedAuditBefore, delayedAuditPath,
+    delayedAuditV1, delayedAuditV2]
+
+/-- The one-slot delayed audit execution is valid in the repaired faithful model. -/
+theorem delayedAuditExecution_isValid :
+    delayedAuditExecution.IsValid := by
+  classical
+  refine ⟨?hsteps, ?hstate, ?haccount⟩
+  · intro i
+    fin_cases i
+    exact delayedAuditStep_isValid
+  · intro i j hij
+    omega
+  · refine ⟨?hlegacy, ?hpack⟩
+    · let charge :
+          delayedAuditExecution.ChargeUnit -> Prod (Fin 32) (Fin (6 - 1)) :=
+        fun _ => (delayedAuditV0, ⟨0, by norm_num⟩)
+      refine ⟨charge, ?_⟩
+      intro a b _h
+      rcases a with ⟨i, ai⟩
+      rcases b with ⟨j, bj⟩
+      fin_cases i
+      fin_cases j
+      refine Sigma.ext rfl ?_
+      apply heq_of_eq
+      apply Fin.ext
+      have hcost :
+          (delayedAuditExecution.step ((fun i => i) ⟨0, by norm_num⟩)).cost = 1 := by
+        simpa [delayedAuditExecution] using delayedAuditStep_cost
+      have hai : ai.val = 0 := by
+        have hlt : ai.val < delayedAuditStep.cost := by
+          simpa [delayedAuditExecution] using ai.isLt
+        rw [delayedAuditStep_cost] at hlt
+        omega
+      have hbj : bj.val = 0 := by
+        have hlt : bj.val < delayedAuditStep.cost := by
+          simpa [delayedAuditExecution] using bj.isLt
+        rw [delayedAuditStep_cost] at hlt
+        omega
+      exact hai.trans hbj.symm
+    · intro i
+      fin_cases i
+      exact ⟨delayedAuditBefore_hasRankThresholdPacking,
+        delayedAuditAfter_hasRankThresholdPacking⟩
+
+/-- The canonical rank-threshold cut for the delayed audit execution is the top-only cut. -/
+theorem delayedAuditExecution_rankThresholdCut_eq_zero :
+    delayedAuditExecution.dissectionCut delayedAuditExecution_isValid.1
+      (delayedAuditExecution.rankThresholdDissectionFamily
+        delayedAuditExecution_isValid.1 2) ⟨0, by norm_num⟩ = 0 := by
+  classical
+  let i0 : Fin 1 := ⟨0, by norm_num⟩
+  let Dfam :=
+    delayedAuditExecution.rankThresholdDissectionFamily
+      delayedAuditExecution_isValid.1 2
+  let cut := delayedAuditExecution.dissectionCut delayedAuditExecution_isValid.1 Dfam i0
+  have hcut :
+      (delayedAuditExecution.step i0).path.HasDissectionCut (Dfam i0) cut := by
+    simpa [Dfam, cut, i0] using
+      delayedAuditExecution.dissectionCut_spec delayedAuditExecution_isValid.1 Dfam i0
+  by_contra hne
+  have hpos : 0 < cut := Nat.pos_of_ne_zero hne
+  have hbottom :
+      (Dfam i0).IsBottom ((delayedAuditExecution.step i0).path.node ⟨0, by norm_num⟩) :=
+    hcut.2.1 ⟨0, by norm_num⟩
+      (by norm_num [delayedAuditExecution, delayedAuditStep, delayedAuditPath, i0])
+      hpos
+  have htop :
+      (Dfam i0).IsTop ((delayedAuditExecution.step i0).path.node ⟨0, by norm_num⟩) := by
+    norm_num [Dfam, i0, rankThresholdDissectionFamily,
+      RankThresholdDissection.dissection, RankThresholdDissection.topPred,
+      RawDissection.IsTop, RawRankedForest.rankNat,
+      delayedAuditExecution, delayedAuditStep, delayedAuditBefore,
+      delayedAuditPath, delayedAuditV0]
+  exact hbottom htop
+
+/--
+Local semantic audit for the delayed row: at the same parameters where the
+package's residual top row is zero, the concrete step semantics allow a valid
+rank-threshold top projection with one consumable edge.
+-/
+theorem exists_valid_step_with_positive_top_consumable_at_delayed_zero_residual :
+    Exists fun S : RawCompressionStep 3 6 =>
+      Exists fun hS : S.IsValid =>
+        let s := ceilLog2 (delayedSubThreeInput.g 6)
+        Exists fun hcut :
+            S.path.HasDissectionCut
+              (RankThresholdDissection.dissection S.before hS.1.1 s) 0 =>
+          (S.topProjectedStep
+              (RankThresholdDissection.dissection S.before hS.1.1 s)
+              hS 0 hcut).consumableCost = 1 /\
+            delayedSubThreeInput.g (6 - s - 1) = 0 := by
+  classical
+  let v0 : Fin 3 := ⟨0, by norm_num⟩
+  let v1 : Fin 3 := ⟨1, by norm_num⟩
+  let v2 : Fin 3 := ⟨2, by norm_num⟩
+  let F : RawRankedForest 3 6 := {
+    parent := fun v =>
+      if v.val = 0 then v1 else if v.val = 1 then v2 else v
+    rank := fun v =>
+      if v.val = 0 then ⟨3, by norm_num⟩
+      else if v.val = 1 then ⟨4, by norm_num⟩
+      else if v.val = 2 then ⟨5, by norm_num⟩
+      else ⟨0, by norm_num⟩
+  }
+  let P : RawCompressionPath 3 := {
+    len := ⟨2, by norm_num⟩
+    node := fun i => if i.val = 0 then v0 else v1
+    target := v1
+  }
+  let A : RawRankedForest 3 6 := {
+    parent := fun v =>
+      if v.val = 0 then v2 else if v.val = 1 then v2 else v
+    rank := F.rank
+  }
+  let S : RawCompressionStep 3 6 := {
+    before := F
+    after := A
+    path := P
+  }
+  have hS : S.IsValid := by
+    refine ⟨?hpath, ?hafterRank, ?hrank, ?hroot, ?hnonroot, ?hunchanged⟩
+    · refine ⟨?hrankValid, ?hlen, ?hchain, ?hlast⟩
+      · intro v hv
+        fin_cases v
+        · norm_num [S, F, v0, v1, v2, RawRankedForest.rankNat]
+        · norm_num [S, F, v0, v1, v2, RawRankedForest.rankNat]
+        · exfalso
+          apply hv
+          norm_num [S, F, v0, v1, v2]
+      · norm_num [S, P]
+      · intro i j hij hj
+        have hi0 : i.val = 0 := by
+          norm_num [S, P] at hj
+          omega
+        have hj1 : j.val = 1 := by
+          omega
+        apply Fin.ext
+        norm_num [S, P, F, v0, v1, v2, hi0, hj1]
+      · intro i hi
+        have hi1 : i.val = 1 := by
+          norm_num [S, P] at hi
+          omega
+        apply Fin.ext
+        norm_num [S, P, v0, v1, hi1]
+    · intro v hv
+      fin_cases v
+      · norm_num [S, A, F, v0, v1, v2, RawRankedForest.rankNat]
+      · norm_num [S, A, F, v0, v1, v2, RawRankedForest.rankNat]
+      · exfalso
+        apply hv
+        norm_num [S, A, F, v0, v1, v2]
+    · intro v
+      rfl
+    · intro hroot
+      exfalso
+      have hnot : F.parent P.target ≠ P.target := by
+        norm_num [F, P, v1, v2]
+      exact hnot hroot
+    · intro _hnonroot v hcomp
+      rcases hcomp with ⟨i, hi, hnode⟩
+      have hi0 : i.val = 0 := by
+        have hlen : S.path.len.val = 2 := by
+          rfl
+        omega
+      have hv0 : v = v0 := by
+        rw [← hnode]
+        apply Fin.ext
+        norm_num [S, P, v0, hi0]
+      rw [hv0]
+      apply Fin.ext
+      norm_num [S, A, F, P, v0, v1, v2]
+    · intro v hnot
+      by_cases hv0 : v.val = 0
+      · exfalso
+        apply hnot
+        refine ⟨⟨0, by norm_num⟩, ?_, ?_⟩
+        · norm_num [S, P]
+        · apply Fin.ext
+          norm_num [S, P, v0, hv0]
+      · fin_cases v
+        · exfalso
+          exact hv0 rfl
+        · apply Fin.ext
+          norm_num [S, A, F]
+        · apply Fin.ext
+          norm_num [S, A, F]
+  let s := ceilLog2 (delayedSubThreeInput.g 6)
+  have hs : s = 2 := by
+    native_decide
+  let D := RankThresholdDissection.dissection S.before hS.1.1 s
+  have hcut : S.path.HasDissectionCut D 0 := by
+    constructor
+    · simp [S, P]
+    constructor
+    · intro i _hactive hi
+      omega
+    · intro i hactive _hi
+      have hival : i.val = 0 ∨ i.val = 1 := by
+        simp [S, P] at hactive
+        omega
+      rcases hival with hival | hival <;>
+        simp [D, s, hs, S, P, F, v0, v1, v2,
+          rankThresholdDissectionFamily, RankThresholdDissection.dissection,
+          RankThresholdDissection.topPred, RawDissection.IsTop,
+          RawRankedForest.rankNat, hival]
+  have hcost :
+      (S.topProjectedStep D hS 0 hcut).consumableCost = 1 := by
+    simp [D, s, hs, S, P, F, A, v0, v1, v2,
+      RawCompressionStep.topProjectedStep,
+      RawCompressionPath.topProjectionSegment,
+      RawCompressionPath.topProjectionLength,
+      RawCompressionPath.topProjectionNode,
+      RawCompressionPath.topProjectionIndex,
+      RawCompressionPath.ProjectedCompressionStep.consumableCost,
+      RawCompressionPath.ProjectedCompressionStep.IsCharged,
+      RawCompressionPath.ProjectedCompressionStep.IsNonrootPath,
+      RawCompressionPath.ProjectedCompressionStep.cost,
+      RawCompressionPath.ProjectedPathSegment.edgeCost,
+      RawCompressionPath.ProjectedPathSegment.IsNonrootPath,
+      RawCompressionPath.ProjectedPathSegment.lastIndex,
+      RawDissection.topParent,
+      RankThresholdDissection.dissection,
+      RankThresholdDissection.topPred,
+      RawDissection.IsTop,
+      RawRankedForest.rankNat]
+    intro h
+    cases h
+  refine ⟨S, hS, hcut, ?_⟩
+  exact ⟨by simpa [D, s] using hcost, by simpa [s, hs] using
+    delayedSubThreeInput_g_top_residual_six⟩
+
+/--
+The legacy finite skeleton, before rank-threshold packing was added to base
+accounting, accepted a one-vertex high-rank root that blocks `TopPacking`.
+-/
+theorem exists_legacyValidExecution_without_rankThresholdTopPacking_current_model :
     Exists fun E : RawCompressionExecution 1 1 4 =>
-      Exists fun hE : E.IsValid =>
+      Exists fun hE : E.IsLegacyValidWithoutRankPacking =>
         let i0 : Fin 1 := ⟨0, by omega⟩
         RankThresholdDissection.TopPacking (E.step i0).before (hE.1 i0).1.1 1 ->
           False := by
@@ -3703,7 +4871,7 @@ theorem exists_validExecution_without_rankThresholdTopPacking_current_model :
       exact False.elim (hnonroot (Subsingleton.elim _ _))
     · intro v _hv
       exact Subsingleton.elim _ _
-  have hE : E.IsValid := by
+  have hE : E.IsLegacyValidWithoutRankPacking := by
     refine ⟨?hsteps, ?hstate, ?haccount⟩
     · intro i
       fin_cases i
@@ -3729,28 +4897,21 @@ theorem exists_validExecution_without_rankThresholdTopPacking_current_model :
   exact ⟨E, hE, hnotPacking⟩
 
 /--
-Consequently the full logarithmic consumable package is false for `JInput 0`
-in the current finite skeleton.
+The faithful model with rank-threshold packing excludes that old bad witness
+shape: every valid execution has the needed top-packing field.
 -/
-theorem not_rankThresholdLogConsumableBounds_J0_current_model :
-    RankThresholdLogConsumableBounds (JInput 0) 0 -> False := by
+theorem not_exists_validExecution_without_rankThresholdTopPacking_current_model :
+    Not (Exists fun E : RawCompressionExecution 1 1 4 =>
+      Exists fun hE : E.IsValid =>
+        let i0 : Fin 1 := ⟨0, by omega⟩
+        RankThresholdDissection.TopPacking (E.step i0).before (hE.1 i0).1.1 1 ->
+          False) := by
   classical
-  intro hconsume
-  rcases exists_validExecution_without_rankThresholdTopPacking_current_model with
+  intro hbad
+  rcases hbad with
     ⟨E, hE, hnotPacking⟩
-  have hlarge : 1 < (JInput 0).g 4 := by
-    norm_num [JInput, J0Input, J0]
   let i0 : Fin 1 := ⟨0, by omega⟩
-  rcases hconsume (m := 1) (n := 1) (r := 4)
-      (by norm_num) (by norm_num) E hE hlarge with
-    ⟨Ppack, _hbottom, _htop⟩
-  have hs : ceilLog2 ((JInput 0).g 4) = 1 := by
-    norm_num [JInput, J0Input, J0]
-  have Ppack_one :
-      RankThresholdDissection.TopPacking (E.step i0).before (hE.1 i0).1.1 1 := by
-    rw [hs] at Ppack
-    exact Ppack
-  exact hnotPacking Ppack_one
+  exact hnotPacking (E.rankThresholdDissectionFamily_topPacking hE 1 i0)
 
 /--
 Length-consumed form of direct rank-threshold source-relevant accounting.
