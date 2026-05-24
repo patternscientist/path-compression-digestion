@@ -57,6 +57,29 @@ theorem topParent_rank_lt_of_not_root
     simpa [topParent, hraw]
   simpa [topRankNat, topParent] using hF v.1 hraw_ne
 
+/-- Top restricted vertices are equivalent to the displayed top finset. -/
+def topNodeEquivTopFinset
+    (D : RawDissection F) :
+    D.TopNode ≃ D.topFinset := {
+  toFun := fun v => ⟨v.1, (D.mem_topFinset v.1).2 v.2⟩,
+  invFun := fun v => ⟨v.1, (D.mem_topFinset v.1).1 v.2⟩,
+  left_inv := by
+    intro v
+    cases v
+    rfl,
+  right_inv := by
+    intro v
+    cases v
+    rfl
+}
+
+/-- Canonical finite coordinates for the top restricted vertex type. -/
+noncomputable def topNodeEquivFin
+    (D : RawDissection F) :
+    D.TopNode ≃ Fin D.topFinset.card := by
+  classical
+  exact D.topNodeEquivTopFinset.trans D.topFinset.equivFin
+
 end RawDissection
 
 namespace RankThresholdDissection
@@ -80,6 +103,137 @@ theorem topParent_shiftedRank_lt_of_not_root
     exact Nat.succ_le_of_lt v.2
   unfold topShiftedRank
   omega
+
+/-- The rank-threshold top restricted forest in concrete `Fin |X_t|` coordinates. -/
+noncomputable def topRestrictedForestFin
+    (hF : F.IsRankValid)
+    (s : Nat) :
+    RawRankedForest (dissection F hF s).topFinset.card (r - s - 1) := by
+  classical
+  let D := dissection F hF s
+  let e := D.topNodeEquivFin
+  exact {
+    parent := fun v => e (D.topParent (e.symm v))
+    rank := fun v =>
+      ⟨topShiftedRank F hF s (e.symm v),
+        Nat.lt_succ_of_le (top_shifted_rank_le F hF s (e.symm v))⟩
+  }
+
+/-- The concrete top restricted forest preserves the shifted rank discipline. -/
+theorem topRestrictedForestFin_isRankValid
+    (hF : F.IsRankValid)
+    (s : Nat) :
+    (topRestrictedForestFin F hF s).IsRankValid := by
+  classical
+  intro v hneq
+  let D := dissection F hF s
+  let e := D.topNodeEquivFin
+  let x : D.TopNode := e.symm v
+  have hx_ne : D.topParent x ≠ x := by
+    intro hx
+    apply hneq
+    have hparent :
+        (topRestrictedForestFin F hF s).parent v = e (D.topParent x) := by
+      simp [topRestrictedForestFin, D, e, x]
+    calc
+      (topRestrictedForestFin F hF s).parent v = e (D.topParent x) := hparent
+      _ = e x := by rw [hx]
+      _ = v := by simp [x, e]
+  have hlt := topParent_shiftedRank_lt_of_not_root F hF s x hx_ne
+  simpa [topRestrictedForestFin, D, e, x, RawRankedForest.rankNat] using hlt
+
+/--
+The ambient rank-threshold packing invariant does not automatically localize
+to the top restricted forest with shifted ranks.  This is the concrete reason
+the remaining top recurrence-consumption proof needs an additional source
+realization/packing argument rather than mere top-side cardinality transport.
+-/
+theorem exists_topRestrictedForestFin_without_rankThresholdPacking :
+    Exists fun F : RawRankedForest 8 3 =>
+      Exists fun hF : F.IsRankValid =>
+        F.HasRankThresholdPacking /\
+          Not ((topRestrictedForestFin F hF 0).HasRankThresholdPacking) := by
+  classical
+  let v0 : Fin 8 := ⟨0, by norm_num⟩
+  let v1 : Fin 8 := ⟨1, by norm_num⟩
+  let F : RawRankedForest 8 3 := {
+    parent := fun v => v
+    rank := fun v =>
+      if v.val = 0 then ⟨1, by norm_num⟩
+      else if v.val = 1 then ⟨3, by norm_num⟩
+      else ⟨0, by norm_num⟩
+  }
+  have hF : F.IsRankValid := by
+    intro v hv
+    exact False.elim (hv rfl)
+  have hpack : F.HasRankThresholdPacking := by
+    intro s
+    by_cases hs0 : s = 0
+    · subst s
+      have hset : F.highRankFinset 0 = {v0, v1} := by
+        ext v
+        fin_cases v <;> simp [F, v0, v1, RawRankedForest.highRankFinset,
+          RawRankedForest.rankNat]
+      rw [hset]
+      simp [v0, v1]
+    · by_cases hs1 : s = 1
+      · subst s
+        have hset : F.highRankFinset 1 = {v1} := by
+          ext v
+          fin_cases v <;> simp [F, v1, RawRankedForest.highRankFinset,
+            RawRankedForest.rankNat]
+        rw [hset]
+        norm_num
+      · by_cases hs2 : s = 2
+        · subst s
+          have hset : F.highRankFinset 2 = {v1} := by
+            ext v
+            fin_cases v <;> simp [F, v1, RawRankedForest.highRankFinset,
+              RawRankedForest.rankNat]
+          rw [hset]
+          norm_num
+        · have hs_ge : 3 <= s := by omega
+          have hs0' : s ≠ 0 := by omega
+          have hset : F.highRankFinset s = ∅ := by
+            ext v
+            fin_cases v <;> simp [F, RawRankedForest.highRankFinset,
+              RawRankedForest.rankNat, hs_ge, hs0']
+          rw [hset]
+          simp
+  have hnot :
+      Not ((topRestrictedForestFin F hF 0).HasRankThresholdPacking) := by
+    intro htopPack
+    let D := dissection F hF 0
+    let G := topRestrictedForestFin F hF 0
+    let e := D.topNodeEquivFin
+    let topv1 : D.TopNode := ⟨v1, by
+      change 0 < F.rankNat v1
+      norm_num [F, v1, RawRankedForest.rankNat]⟩
+    have htopcard : D.topFinset.card = 2 := by
+      have hset : D.topFinset = {v0, v1} := by
+        ext v
+        fin_cases v <;> simp [D, F, v0, v1, dissection, topPred,
+          RawDissection.topFinset, RawDissection.IsTop, RawRankedForest.rankNat]
+      rw [hset]
+      simp [v0, v1]
+    have hmem :
+        e topv1 ∈ G.highRankFinset 1 := by
+      apply (RawRankedForest.mem_highRankFinset G 1 (e topv1)).2
+      change 1 < topShiftedRank F hF 0 (e.symm (e topv1))
+      rw [show e.symm (e topv1) = topv1 by simp [e]]
+      simp [topv1, topShiftedRank, F, v1, RawRankedForest.rankNat]
+    have hcard_pos : 1 <= (G.highRankFinset 1).card := by
+      exact Nat.succ_le_of_lt (Finset.card_pos.mpr ⟨e topv1, hmem⟩)
+    have hbad := htopPack 1
+    have hfour_le : 4 <= (G.highRankFinset 1).card * 2 ^ (1 + 1) := by
+      have hmul := Nat.mul_le_mul_right (2 ^ (1 + 1)) hcard_pos
+      norm_num at hmul ⊢
+      exact hmul
+    have hambient :
+        (G.highRankFinset 1).card * 2 ^ (1 + 1) <= 2 := by
+      simpa [G, topRestrictedForestFin, D, htopcard] using hbad
+    omega
+  exact ⟨F, hF, hpack, hnot⟩
 
 end RankThresholdDissection
 
@@ -374,6 +528,21 @@ theorem consumableCost_eq_zero_of_not_charged
     S.consumableCost = 0 := by
   simp [consumableCost, h]
 
+/-- A zero nonroot indicator forces zero recurrence-consumable cost. -/
+theorem consumableCost_eq_zero_of_nonrootIndicator_eq_zero
+    (S : ProjectedCompressionStep alpha)
+    (h : S.nonrootIndicator = 0) :
+    S.consumableCost = 0 := by
+  classical
+  by_cases hcharged : S.IsCharged
+  · have hseg : S.path.IsNonrootPath := by
+      simpa [IsCharged, IsNonrootPath] using hcharged
+    have hnonroot : S.nonrootIndicator = 1 := by
+      unfold nonrootIndicator
+      exact S.path.nonrootIndicator_eq_one_of_nonroot hseg
+    omega
+  · exact S.consumableCost_eq_zero_of_not_charged hcharged
+
 @[simp]
 theorem exceptionalCost_eq_zero_of_charged
     (S : ProjectedCompressionStep alpha)
@@ -476,6 +645,34 @@ theorem nonrootCount_le_length (E : ProjectedCompressionExecution m) :
 theorem chargedCount_le_length (E : ProjectedCompressionExecution m) :
     E.chargedCount <= m := by
   simpa [chargedCount] using E.nonrootCount_le_length
+
+/-- If no projected slot is charged, no recurrence-consumable cost remains. -/
+theorem consumableCost_eq_zero_of_chargedCount_eq_zero
+    (E : ProjectedCompressionExecution m)
+    (hcount : E.chargedCount = 0) :
+    E.consumableCost = 0 := by
+  classical
+  unfold consumableCost
+  apply Finset.sum_eq_zero
+  intro i hi
+  have hle :
+      (E.step i).nonrootIndicator <= E.chargedCount := by
+    unfold chargedCount nonrootCount
+    exact Finset.single_le_sum
+      (by intro j _hj; exact Nat.zero_le ((E.step j).nonrootIndicator)) hi
+  have hzero : (E.step i).nonrootIndicator = 0 := by
+    omega
+  exact (E.step i).consumableCost_eq_zero_of_nonrootIndicator_eq_zero hzero
+
+/-- Positive recurrence-consumable cost forces a positive charged count. -/
+theorem chargedCount_pos_of_consumableCost_pos
+    (E : ProjectedCompressionExecution m)
+    (hcost : 0 < E.consumableCost) :
+    0 < E.chargedCount := by
+  by_contra hnot
+  have hzero : E.chargedCount = 0 := Nat.eq_zero_of_not_pos hnot
+  have hcost_zero := E.consumableCost_eq_zero_of_chargedCount_eq_zero hzero
+  omega
 
 /-- Projected execution cost splits into recurrence-consumable and exceptional parts. -/
 theorem projectedCost_eq_consumableCost_add_exceptionalCost
@@ -1189,6 +1386,93 @@ theorem topProjectedStep_cost_eq_consumableCost_of_source_nonroot
     by_cases ht_charged : T.IsCharged
     · rw [T.consumableCost_eq_cost_of_charged ht_charged, hcost]
     · rw [T.consumableCost_eq_zero_of_not_charged ht_charged]
+
+/--
+Top projected recurrence-consumable cost is always dominated by the original
+source step cost.  Source rootpaths contribute no top consumable cost; source
+nonrootpaths dominate the top projected suffix by length.
+-/
+theorem topProjectedStep_consumableCost_le_cost
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    (S.topProjectedStep D hS cut hcut).consumableCost <= S.cost := by
+  classical
+  let T := S.topProjectedStep D hS cut hcut
+  by_cases hnonroot : S.path.IsNonrootPath S.before
+  · have htop_cost :
+        T.cost = T.consumableCost := by
+      simpa [T] using
+        S.topProjectedStep_cost_eq_consumableCost_of_source_nonroot
+          D hS cut hcut hnonroot
+    have hlen :
+        (S.path.topProjectionSegment D hS.1.2.2.1 cut hcut).len <=
+          S.path.len.val := by
+      simpa [RawCompressionPath.topProjectionSegment] using
+        S.path.topProjectionLength_le_len D cut hcut
+    have hcost_le_segment :
+        (S.path.topProjectionSegment D hS.1.2.2.1 cut hcut).edgeCost <=
+          S.path.cost := by
+      unfold RawCompressionPath.ProjectedPathSegment.edgeCost
+        RawCompressionPath.cost
+      omega
+    have hcost_le :
+        T.cost <= S.path.cost := by
+      simpa [T, RawCompressionStep.topProjectedStep,
+        RawCompressionPath.ProjectedCompressionStep.cost] using hcost_le_segment
+    have hstep_cost : S.cost = S.path.cost := by
+      unfold RawCompressionStep.cost RawCompressionPath.sourceCost
+      rw [if_neg]
+      intro hroot
+      exact hnonroot hroot
+    rw [← htop_cost, hstep_cost]
+    exact hcost_le
+  · have hsource_zero : S.nonrootIndicator = 0 := by
+      unfold RawCompressionStep.nonrootIndicator
+      rw [if_neg hnonroot]
+    have hproj :=
+      S.projected_nonrootIndicators_add_le_nonrootIndicator D hS cut hcut
+    have hTzero : T.nonrootIndicator = 0 := by
+      have hle0 :
+          (S.bottomProjectedStep D hS cut hcut).nonrootIndicator +
+              T.nonrootIndicator <= 0 := by
+        simpa [T, hsource_zero] using hproj
+      omega
+    rw [T.consumableCost_eq_zero_of_nonrootIndicator_eq_zero hTzero]
+    exact Nat.zero_le _
+
+/-- If the top side is empty, the top projected step has no consumable cost. -/
+theorem topProjectedStep_consumableCost_eq_zero_of_topFinset_card_eq_zero
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut)
+    (hcard : D.topFinset.card = 0) :
+    (S.topProjectedStep D hS cut hcut).consumableCost = 0 := by
+  classical
+  let T := S.topProjectedStep D hS cut hcut
+  have htop_len_zero :
+      S.path.topProjectionLength D cut hcut = 0 := by
+    by_contra hne
+    have hpos : 0 < S.path.topProjectionLength D cut hcut :=
+      Nat.pos_of_ne_zero hne
+    let q : Fin (S.path.topProjectionLength D cut hcut) := ⟨0, hpos⟩
+    have hmem :
+        S.path.node (S.path.topProjectionIndex D cut hcut q) ∈ D.topFinset := by
+      exact (D.mem_topFinset _).2 (S.path.topProjectionNode D cut hcut q).2
+    have hempty : D.topFinset = ∅ := Finset.card_eq_zero.mp hcard
+    rw [hempty] at hmem
+    simp at hmem
+  have hpath_len : T.path.len = 0 := by
+    simpa [T, RawCompressionStep.topProjectedStep,
+      RawCompressionPath.topProjectionSegment] using htop_len_zero
+  have hind : T.nonrootIndicator = 0 := by
+    unfold RawCompressionPath.ProjectedCompressionStep.nonrootIndicator
+    exact T.path.nonrootIndicator_eq_zero_of_len_eq_zero hpath_len
+  exact T.consumableCost_eq_zero_of_nonrootIndicator_eq_zero hind
 
 /--
 Step-level accounting with the top exceptional projected cost removed.  The
@@ -2013,6 +2297,69 @@ theorem topProjectedExecution_nonrootCount
       E.topProjectedNonrootCount hsteps D cut hcut :=
   rfl
 
+/-- Top projected consumable cost is dominated by the source step-cost sum. -/
+theorem topProjectedExecution_consumableCost_le_stepCostSum
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.topProjectedExecution hsteps D cut hcut).consumableCost <=
+      E.stepCostSum := by
+  classical
+  unfold RawCompressionPath.ProjectedCompressionExecution.consumableCost
+    stepCostSum
+  exact Finset.sum_le_sum (by
+    intro i _hi
+    simpa [topProjectedExecution] using
+      (E.step i).topProjectedStep_consumableCost_le_cost
+        (D i) (hsteps i) (cut i) (hcut i))
+
+/-- Canonical top projected consumable cost is dominated by source execution cost. -/
+theorem canonicalTopProjectedExecution_consumableCost_le_cost
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) :
+    (E.canonicalTopProjectedExecution hsteps D).consumableCost <=
+      E.cost := by
+  rw [E.cost_eq_stepCostSum]
+  exact E.topProjectedExecution_consumableCost_le_stepCostSum hsteps D
+    (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
+
+/-- If every displayed top side is the same empty side, top consumable cost is zero. -/
+theorem topProjectedExecution_consumableCost_eq_zero_of_topFinset_card_eq_zero
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i))
+    (i0 : Fin m)
+    (hstable : forall i : Fin m, (D i).topFinset = (D i0).topFinset)
+    (hcard : (D i0).topFinset.card = 0) :
+    (E.topProjectedExecution hsteps D cut hcut).consumableCost = 0 := by
+  classical
+  unfold RawCompressionPath.ProjectedCompressionExecution.consumableCost
+  apply Finset.sum_eq_zero
+  intro i _hi
+  have hcard_i : (D i).topFinset.card = 0 := by
+    rw [hstable i, hcard]
+  simpa [topProjectedExecution] using
+    (E.step i).topProjectedStep_consumableCost_eq_zero_of_topFinset_card_eq_zero
+      (D i) (hsteps i) (cut i) (hcut i) hcard_i
+
+/-- Canonical-cut form of top-side empty-cardinality zero consumable cost. -/
+theorem canonicalTopProjectedExecution_consumableCost_eq_zero_of_topFinset_card_eq_zero
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (i0 : Fin m)
+    (hstable : forall i : Fin m, (D i).topFinset = (D i0).topFinset)
+    (hcard : (D i0).topFinset.card = 0) :
+    (E.canonicalTopProjectedExecution hsteps D).consumableCost = 0 := by
+  exact E.topProjectedExecution_consumableCost_eq_zero_of_topFinset_card_eq_zero
+    hsteps D (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
+    i0 hstable hcard
+
 /-- Bottom-side stability for adjacent dissections, derived from top stability. -/
 theorem bottomSideStable_of_topSideStable
     (E : RawCompressionExecution m n r)
@@ -2521,6 +2868,21 @@ theorem rankThresholdBottomProjectedExecution_isAdmissible
   exact E.rankThresholdBottomProjectedExecution_isSemanticallyValid hE s
 
 /--
+Rank-threshold top projected consumable cost is source-cost dominated.  This is
+a genuine top-side simulation sanity check, but it is weaker than the
+recurrence-consumed field of `RankThresholdLogConsumableBounds`.
+-/
+theorem rankThresholdTopProjectedExecution_consumableCost_le_cost
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+      E.cost := by
+  exact E.canonicalTopProjectedExecution_consumableCost_le_cost hE.1
+    (E.rankThresholdDissectionFamily hE.1 s)
+
+/--
 Bottom rank-threshold projections are range-bounded stepwise: the total
 consumable bottom cost is at most `s` times the bottom projected charged count.
 -/
@@ -2721,6 +3083,40 @@ theorem rankThresholdDissectionFamily_topFinset_eq_of_slot
   ext v
   simp [rankThresholdDissectionFamily,
     E.rankThresholdDissectionFamily_rankNat_eq_of_slot hsteps hstate i0 i v]
+
+/-- Empty rank-threshold top side forces zero top consumable cost. -/
+theorem rankThresholdTopProjectedExecution_consumableCost_eq_zero_of_topFinset_card_eq_zero
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hcard : (E.rankThresholdDissectionFamily hE.1 s i0).topFinset.card = 0) :
+    (E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).consumableCost = 0 := by
+  exact E.canonicalTopProjectedExecution_consumableCost_eq_zero_of_topFinset_card_eq_zero
+    hE.1 (E.rankThresholdDissectionFamily hE.1 s) i0
+    (fun i => E.rankThresholdDissectionFamily_topFinset_eq_of_slot
+      hE.1 hE.2.1 s i0 i)
+    hcard
+
+/-- Positive rank-threshold top consumable cost forces a nonempty stable top side. -/
+theorem rankThresholdTopProjectedExecution_topFinset_card_pos_of_consumableCost_pos
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hcost :
+      0 <
+        (E.canonicalTopProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).consumableCost) :
+    1 <= (E.rankThresholdDissectionFamily hE.1 s i0).topFinset.card := by
+  by_contra hnot
+  have hcard : (E.rankThresholdDissectionFamily hE.1 s i0).topFinset.card = 0 :=
+    Nat.eq_zero_of_not_pos hnot
+  have hzero :=
+    E.rankThresholdTopProjectedExecution_consumableCost_eq_zero_of_topFinset_card_eq_zero
+      hE s i0 hcard
+  omega
 
 /--
 For a nonempty valid execution, the finite `bottomBoundaryCard` of the
@@ -4164,6 +4560,157 @@ theorem topDown_shift_step_of_rankThreshold_log_consumable_bounds
     (hconsume : RankThresholdLogConsumableBounds (JInput k) k) :
     topDownShiftStepTarget k :=
   sourceShiftStep_of_rankThreshold_log_consumable_bounds (JInput k) k hconsume
+
+/--
+Concrete `JInput` consumable-cost package for the source shift step.
+
+Unlike `RankThresholdLogConsumableBounds`, this boundary is allowed to use the
+previous-row source bound that is already an argument of `SourceShiftStep`.
+The conclusion is intentionally the same pair of bottom/top consumable
+inequalities consumed by the existing rank-threshold shift arithmetic.
+-/
+def RankThresholdJInputConsumableBounds (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < (JInput k).g r),
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    Exists fun P : RankThresholdDissection.TopPacking (E.step i0).before
+        (hE.1 i0).1.1 s =>
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+          (k + 1) *
+            (E.canonicalBottomProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+            2 *
+              ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) *
+              (JInput k).diamond s
+      /\
+      (E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+          k *
+            (E.canonicalTopProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+            2 *
+              ((E.rankThresholdDissectionFamily hE.1 s i0).topFinset.card) *
+              (JInput k).g (r - s - 1)
+
+/--
+A concrete `JInput` package plus the previous-row source bound yields the old
+log-consumable package specialized to `JInput k`.
+-/
+theorem rankThresholdLogConsumableBounds_of_rankThresholdJInputConsumableBounds
+    (k : Nat)
+    (hconsume : RankThresholdJInputConsumableBounds k)
+    (hprev : SourceBound topDownCost k (JInput k).g) :
+    RankThresholdLogConsumableBounds (JInput k) k := by
+  intro m n r hm hn E hE hlarge
+  exact hconsume hm hn hprev E hE hlarge
+
+/--
+Concrete repaired package boundary for the shift step: if the J-specific
+consumable simulation can be proved using the previous-row source bound, the
+already-proved rank-threshold arithmetic gives the unchanged shift target.
+-/
+theorem topDown_shift_step_of_rankThresholdJInputConsumableBounds
+    (k : Nat)
+    (hconsume : RankThresholdJInputConsumableBounds k) :
+    topDownShiftStepTarget k := by
+  intro hprev
+  exact
+    (topDown_shift_step_of_rankThreshold_log_consumable_bounds k
+      (rankThresholdLogConsumableBounds_of_rankThresholdJInputConsumableBounds
+        k hconsume hprev)) hprev
+
+/--
+Smaller concrete recurrence-consumption boundary for `JInput`.
+
+The bottom side is already stated in the successor-row budget needed by the
+source-shift arithmetic.  The top side is stated as domination by the previous
+row's concrete `topDownCost`; the bridge below consumes it using the
+`SourceShiftStep` hypothesis `hprev`, with explicit zero-case guards.
+-/
+def RankThresholdJInputRecurrenceConsumptionBounds (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < (JInput k).g r),
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Ct :=
+      E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    let Tcard := (E.rankThresholdDissectionFamily hE.1 s i0).topFinset.card
+    Cb.consumableCost <=
+        (k + 1) * Cb.chargedCount + 2 * Bcard * (JInput k).diamond s
+      /\
+      Ct.consumableCost <= topDownCost Ct.chargedCount Tcard (r - s - 1)
+
+/--
+The recurrence-consumption package is strong enough to feed the concrete
+`JInput` consumable package.
+-/
+theorem rankThresholdJInputConsumableBounds_of_recurrenceConsumptionBounds
+    (k : Nat)
+    (hconsume : RankThresholdJInputRecurrenceConsumptionBounds k) :
+    RankThresholdJInputConsumableBounds k := by
+  intro m n r hm hn hprev E hE hlarge
+  let s := ceilLog2 ((JInput k).g r)
+  let i0 : Fin m := ⟨0, by omega⟩
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Ct :=
+    E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+  let Tcard := (E.rankThresholdDissectionFamily hE.1 s i0).topFinset.card
+  rcases hconsume hm hn hprev E hE hlarge with ⟨hbottom, htopCost⟩
+  refine ⟨E.rankThresholdDissectionFamily_topPacking hE s i0, ?_, ?_⟩
+  · simpa [s, i0, Cb, Bcard] using hbottom
+  · by_cases hzero : Ct.consumableCost = 0
+    · have htarget :
+          Ct.consumableCost <=
+            k * Ct.chargedCount + 2 * Tcard * (JInput k).g (r - s - 1) := by
+        omega
+      simpa [s, i0, Ct, Tcard] using htarget
+    · have hpos : 0 < Ct.consumableCost := Nat.pos_of_ne_zero hzero
+      have hcharged_pos : 1 <= Ct.chargedCount :=
+        Nat.succ_le_of_lt (Ct.chargedCount_pos_of_consumableCost_pos hpos)
+      have htop_pos : 1 <= Tcard := by
+        simpa [Tcard] using
+          E.rankThresholdTopProjectedExecution_topFinset_card_pos_of_consumableCost_pos
+            hE s i0 (by simpa [Ct] using hpos)
+      have hsource :
+          topDownCost Ct.chargedCount Tcard (r - s - 1) <=
+            k * Ct.chargedCount + 2 * Tcard * (JInput k).g (r - s - 1) :=
+        hprev hcharged_pos htop_pos
+      have htarget :
+          Ct.consumableCost <=
+            k * Ct.chargedCount + 2 * Tcard * (JInput k).g (r - s - 1) :=
+        htopCost.trans hsource
+      simpa [s, i0, Ct, Tcard] using htarget
+
+/--
+Concrete shift bridge from the smaller recurrence-consumption boundary.
+-/
+theorem topDown_shift_step_of_rankThresholdJInputRecurrenceConsumptionBounds
+    (k : Nat)
+    (hconsume : RankThresholdJInputRecurrenceConsumptionBounds k) :
+    topDownShiftStepTarget k :=
+  topDown_shift_step_of_rankThresholdJInputConsumableBounds k
+    (rankThresholdJInputConsumableBounds_of_recurrenceConsumptionBounds k hconsume)
 
 /-- A delayed test row used to audit over-general `DiamondInput` packages. -/
 def delayedSubThree (r : Nat) : Nat :=
