@@ -97,6 +97,42 @@ theorem RawCompressionExecution
 
 theorem RawCompressionExecution
     .rankThreshold_topProjected_charged_path_lifts_to_padded_path
+
+theorem RawCompressionPath.ProjectedCompressionExecution
+    .not_isCharged_of_between_chargedSlot_succ
+
+noncomputable def RawCompressionPath.ProjectedCompressionExecution
+    .chargedSubexecution
+
+theorem RawCompressionPath.ProjectedCompressionExecution
+    .chargedSubexecution_cost_eq_consumableCost
+
+theorem RawCompressionExecution
+    .rankThresholdDissectionFamily_topStable_of_slot
+
+theorem RawCompressionExecution
+    .rankThresholdTopParent_eq_later_beforeParent_of_not_charged_between
+
+theorem RawCompressionExecution
+    .rankThresholdTopProjectedStep_after_commutes_with_later_before_of_not_charged_between
+
+theorem RawCompressionExecution
+    .rankThresholdTopChargedSlot_after_commutes_with_next
+
+noncomputable def RawCompressionExecution
+    .rankThresholdTopChargedProjectedExecution
+
+theorem RawCompressionExecution
+    .rankThresholdTopChargedProjectedExecution_hasConsecutiveStates
+
+theorem RawCompressionExecution
+    .rankThresholdTopChargedProjectedExecution_isSemanticallyValid
+
+theorem RawCompressionExecution
+    .rankThresholdTopChargedProjectedExecution_isAdmissible
+
+theorem RawCompressionExecution
+    .rankThresholdTopChargedProjectedExecution_cost_eq_consumableCost
 ```
 
 Thus the compacted top slots now have an increasing map
@@ -116,6 +152,27 @@ The same pass also added a cost-only path lift: every charged top projected
 step can be packaged as an ordinary `RawCompressionPath` over the padded top
 budget with matching edge cost. This does not yet prove parent-chain validity
 or the rewiring fields for the padded top step.
+
+A later continuation pass discharged the charged-subsequence obstruction at
+the dependent projected-execution level. Adjacent compacted charged slots now
+have consecutive projected states after skipped uncharged top slots, using
+`topProjectedStep_afterParent_eq_beforeParent_of_not_charged`. The resulting
+object is:
+
+```lean
+E.rankThresholdTopChargedProjectedExecution hE s
+```
+
+with:
+
+```lean
+(E.rankThresholdTopChargedProjectedExecution hE s).IsSemanticallyValid
+(E.rankThresholdTopChargedProjectedExecution hE s).cost =
+  Ct.consumableCost
+```
+
+This is still a dependent projected execution, not yet the ordinary padded
+`RawCompressionExecution` over `Fin topRestrictedBudget`.
 
 ## Exact Top Projected Execution
 
@@ -177,10 +234,10 @@ RankThresholdDissection.topRestrictedBudget (n := n) s
 
 not a hard-coded prose formula.
 
-## First Obstruction
+## First Remaining Obstruction
 
-The first remaining obstruction on the direct route is the charged-subsequence
-execution construction over `Fin Ct.chargedCount`.
+The charged-subsequence execution construction over `Fin Ct.chargedCount` is
+now solved for the dependent projected API.
 
 The existing projected execution `Ct` is indexed by all source slots `Fin m`,
 while the recurrence term uses the compacted count of charged top slots:
@@ -196,16 +253,22 @@ E.rankThresholdTopChargedSlot hE s :
   Fin Ct.chargedCount -> Fin m
 ```
 
-The next missing theorem is the consecutive-state theorem for the charged-only
-subsequence. The new identity lemma for uncharged top projected steps is the
-local ingredient that should make skipped uncharged slots transparent.
+The first remaining obstruction on the direct route is the ordinary padded
+source-step construction over:
 
-After that charged-subsequence theorem, the next obstructions are:
+```lean
+RawCompressionExecution
+  Ct.chargedCount
+  (RankThresholdDissection.topRestrictedBudget (n := n) s)
+  (r - s - 1)
+```
+
+The remaining sub-obstructions are:
 
 - Path lifting: the cost-only `RawCompressionPath` packaging is now proved.
   The remaining work is to strengthen it to parent-chain validity against the
-  padded top forest, identify the padded target, and prove the rewiring fields
-  for the transported step.
+  padded top forest, identify the padded target, and handle the length-one
+  charged projected path case if ordinary validity requires a two-slot path.
 - Semantic validity: prove the transported padded top step satisfies
   `RawCompressionStep.IsValid`, including the nonroot rewiring field.
 - Base accounting: build the legacy injection for the charged top execution,
@@ -219,10 +282,13 @@ After that charged-subsequence theorem, the next obstructions are:
 
 ## Viable Strategy
 
-Strategy A remains the clearest mathematical route, but it needs a small
-charged-slot API first. Strategy B is viable once the charged-slot ordinary
-execution exists, because the budgeted arithmetic and padded rank-packing
-side are now available.
+Strategy A remains the clearest mathematical route. The charged-slot projected
+API is now in place; the next Strategy A step is to transport each charged
+projected step into an ordinary padded source step and assemble those steps
+into a `RawCompressionExecution`.
+
+Strategy B is viable once the charged-slot ordinary execution exists, because
+the budgeted arithmetic and padded rank-packing side are now available.
 
 Strategy C is viable only as an internal consumer after a top-budget
 `topDownCost` domination theorem has been proved. The new budgeted arithmetic
@@ -255,14 +321,19 @@ theorem rankThresholdTopChargedSlot_isCharged :
       (Ct.step (rankThresholdTopChargedSlot E hE s q)).IsCharged
 ```
 
-The smallest next theorem is now the charged-subsequence consecutive-state
-bridge: for adjacent compacted charged indices `q` and `q'`, the after-parent
-map of the source slot `E.rankThresholdTopChargedSlot hE s q` should agree
-with the before-parent map of `E.rankThresholdTopChargedSlot hE s q'` after
-transport across the stable top-side equivalence and across skipped uncharged
-slots. The exact statement should be chosen together with the padded execution
-constructor so its transported-equivalence target matches the later
-`RawCompressionExecution.HasConsecutiveStates` proof.
+The charged-subsequence consecutive-state bridge is now proved as:
+
+```lean
+theorem rankThresholdTopChargedSlot_after_commutes_with_next
+
+theorem rankThresholdTopChargedProjectedExecution_hasConsecutiveStates
+```
+
+and the charged-only projected execution is packaged as:
+
+```lean
+noncomputable def rankThresholdTopChargedProjectedExecution
+```
 
 The smallest local path-lifting theorem below is now proved in cost-only form:
 
@@ -291,9 +362,19 @@ theorem rankThreshold_topProjected_charged_path_lifts_to_padded_path
             (E.rankThresholdDissectionFamily hE.1 s) i)).cost
 ```
 
-The next path-lifting strengthening should add the parent-chain and target
-fields needed by `RawCompressionPath.IsValidFor` for the padded
-`RankThresholdDissection.topRestrictedForestFin ... |>.padRight ...`.
+The smallest next theorem is now a padded-parent transport lemma for the
+top restricted forest, followed by a validity-strengthened path lift:
+
+```lean
+theorem rankThreshold_topRestrictedForestFin_padded_parent_of_topNode
+
+theorem rankThreshold_topProjected_charged_path_lifts_to_padded_valid_path
+```
+
+The second theorem should produce a `RawCompressionPath` over
+`RankThresholdDissection.topRestrictedBudget (n := n) s` with
+`IsValidFor` against the padded top restricted before-forest and cost at least
+the charged projected step cost.
 
 The target source-realization theorem remains:
 
@@ -314,7 +395,7 @@ theorem rankThreshold_topProjectedExecution_consumableCost_le_topDownCost_topBud
 
 ## Verdict
 
-Ambition D achieved, with supporting Lean theorems for budgeted top
-consumption, charged-slot enumeration, top-budget active length, and
-cost-only padded path lifting. The padded top execution itself is not yet
-constructed.
+Ambition C-minus/D-plus achieved: the charged-only dependent projected top
+execution is constructed, semantically valid in the projected API, and has
+cost exactly `Ct.consumableCost`. The ordinary padded `RawCompressionExecution`
+over `Fin topRestrictedBudget` is still not constructed.
