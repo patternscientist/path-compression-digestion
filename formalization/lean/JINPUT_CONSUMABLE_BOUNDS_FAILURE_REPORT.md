@@ -76,6 +76,13 @@ available in `SourceShiftStep`. The smaller recurrence-consumption boundary
 uses `hprev` to consume the top side through `topDownCost`; the remaining gap
 is the concrete proof of that recurrence-consumption package.
 
+A continuation pass narrowed that gap further. The top restricted forest can
+now be realized in concrete `Fin |X_t|` coordinates and is rank-valid after the
+threshold rank shift, but ambient rank-threshold packing does not automatically
+localize to that restricted shifted forest. Thus the missing top recurrence
+step needs a genuine restricted source-realization/rank-accounting certificate,
+not just cardinality transport of the top side.
+
 ## Exact Field Blocked By Delayed Rows
 
 The delayed-row diagnostic blocks the top consumable-cost simulation field of
@@ -183,13 +190,55 @@ theorem RawCompressionExecution
     .rankThresholdTopProjectedExecution_topFinset_card_pos_of_consumableCost_pos
 ```
 
+The continuation also proved concrete top-restriction infrastructure in
+`SourceProjection.lean`:
+
+```lean
+def RawDissection.topNodeEquivTopFinset
+noncomputable def RawDissection.topNodeEquivFin
+
+noncomputable def RankThresholdDissection.topRestrictedForestFin
+
+theorem RankThresholdDissection.topRestrictedForestFin_isRankValid
+
+theorem RankThresholdDissection
+    .exists_topRestrictedForestFin_without_rankThresholdPacking
+```
+
+The final theorem is a finite diagnostic counterexample: there is an ambient
+rank-valid forest on eight vertices with `HasRankThresholdPacking` whose
+threshold-top restricted shifted forest is rank-valid but does not satisfy
+`HasRankThresholdPacking`. This rules out the tempting route
+
+```lean
+-- false as stated
+theorem topRestrictedForestFin_hasRankThresholdPacking_of_ambient :
+    F.HasRankThresholdPacking ->
+      (RankThresholdDissection.topRestrictedForestFin F hF s).HasRankThresholdPacking
+```
+
+and identifies the missing certificate needed before `topDownCost` can consume
+the top projected execution.
+
 ## Current Blocker Classification
 
-The blocker is not top packing. The repaired faithful model already supplies:
+The blocker is not the source-side top-packing field used by the downstream
+shift arithmetic. The repaired faithful model already supplies:
 
 ```lean
 noncomputable def RawCompressionExecution.rankThresholdDissectionFamily_topPacking
 ```
+
+However, the blocker does include top-side rank accounting for the restricted
+execution that would be fed to `topDownCost`. The newly proved
+
+```lean
+theorem RankThresholdDissection
+    .exists_topRestrictedForestFin_without_rankThresholdPacking
+```
+
+shows that the ambient `HasRankThresholdPacking` certificate for a before/after
+forest cannot simply be inherited by the shifted top restriction.
 
 The blocker is also not the downstream shift arithmetic. Once top packing and
 the two consumable simulation fields are supplied, Lean already proves the
@@ -205,7 +254,9 @@ The precise remaining blocker is restricted-execution recurrence consumption:
 
 - bottom consumable simulation with coefficient `k + 1`;
 - top consumable simulation with coefficient `k`;
-- charged-count bookkeeping inside the restricted projected executions.
+- charged-count bookkeeping inside the restricted projected executions;
+- a restricted source-realization/rank-accounting certificate strong enough to
+  bound the top restricted consumable cost by `topDownCost`.
 
 The existing range lemmas
 
@@ -219,9 +270,11 @@ families into source-valid restricted executions to which the previous
 `topDownCost` recurrence can be applied.
 
 The new top source-domination theorem shows that top consumable cost is real
-source cost, but it still does not identify the dependent top projected
-execution with a valid fixed-vertex `RawCompressionExecution` carrying the
-needed top-side base/rank accounting certificate.
+source cost, and the finite top restriction theorem gives a rank-valid
+fixed-vertex forest. The new diagnostic shows why this still does not identify
+the dependent top projected execution with a valid fixed-vertex
+`RawCompressionExecution`: the needed top-side base/rank accounting certificate
+does not follow from ambient threshold packing alone.
 
 ## Package Boundary Recommendation
 

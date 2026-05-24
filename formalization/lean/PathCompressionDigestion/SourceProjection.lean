@@ -57,6 +57,29 @@ theorem topParent_rank_lt_of_not_root
     simpa [topParent, hraw]
   simpa [topRankNat, topParent] using hF v.1 hraw_ne
 
+/-- Top restricted vertices are equivalent to the displayed top finset. -/
+def topNodeEquivTopFinset
+    (D : RawDissection F) :
+    D.TopNode ≃ D.topFinset := {
+  toFun := fun v => ⟨v.1, (D.mem_topFinset v.1).2 v.2⟩,
+  invFun := fun v => ⟨v.1, (D.mem_topFinset v.1).1 v.2⟩,
+  left_inv := by
+    intro v
+    cases v
+    rfl,
+  right_inv := by
+    intro v
+    cases v
+    rfl
+}
+
+/-- Canonical finite coordinates for the top restricted vertex type. -/
+noncomputable def topNodeEquivFin
+    (D : RawDissection F) :
+    D.TopNode ≃ Fin D.topFinset.card := by
+  classical
+  exact D.topNodeEquivTopFinset.trans D.topFinset.equivFin
+
 end RawDissection
 
 namespace RankThresholdDissection
@@ -80,6 +103,137 @@ theorem topParent_shiftedRank_lt_of_not_root
     exact Nat.succ_le_of_lt v.2
   unfold topShiftedRank
   omega
+
+/-- The rank-threshold top restricted forest in concrete `Fin |X_t|` coordinates. -/
+noncomputable def topRestrictedForestFin
+    (hF : F.IsRankValid)
+    (s : Nat) :
+    RawRankedForest (dissection F hF s).topFinset.card (r - s - 1) := by
+  classical
+  let D := dissection F hF s
+  let e := D.topNodeEquivFin
+  exact {
+    parent := fun v => e (D.topParent (e.symm v))
+    rank := fun v =>
+      ⟨topShiftedRank F hF s (e.symm v),
+        Nat.lt_succ_of_le (top_shifted_rank_le F hF s (e.symm v))⟩
+  }
+
+/-- The concrete top restricted forest preserves the shifted rank discipline. -/
+theorem topRestrictedForestFin_isRankValid
+    (hF : F.IsRankValid)
+    (s : Nat) :
+    (topRestrictedForestFin F hF s).IsRankValid := by
+  classical
+  intro v hneq
+  let D := dissection F hF s
+  let e := D.topNodeEquivFin
+  let x : D.TopNode := e.symm v
+  have hx_ne : D.topParent x ≠ x := by
+    intro hx
+    apply hneq
+    have hparent :
+        (topRestrictedForestFin F hF s).parent v = e (D.topParent x) := by
+      simp [topRestrictedForestFin, D, e, x]
+    calc
+      (topRestrictedForestFin F hF s).parent v = e (D.topParent x) := hparent
+      _ = e x := by rw [hx]
+      _ = v := by simp [x, e]
+  have hlt := topParent_shiftedRank_lt_of_not_root F hF s x hx_ne
+  simpa [topRestrictedForestFin, D, e, x, RawRankedForest.rankNat] using hlt
+
+/--
+The ambient rank-threshold packing invariant does not automatically localize
+to the top restricted forest with shifted ranks.  This is the concrete reason
+the remaining top recurrence-consumption proof needs an additional source
+realization/packing argument rather than mere top-side cardinality transport.
+-/
+theorem exists_topRestrictedForestFin_without_rankThresholdPacking :
+    Exists fun F : RawRankedForest 8 3 =>
+      Exists fun hF : F.IsRankValid =>
+        F.HasRankThresholdPacking /\
+          Not ((topRestrictedForestFin F hF 0).HasRankThresholdPacking) := by
+  classical
+  let v0 : Fin 8 := ⟨0, by norm_num⟩
+  let v1 : Fin 8 := ⟨1, by norm_num⟩
+  let F : RawRankedForest 8 3 := {
+    parent := fun v => v
+    rank := fun v =>
+      if v.val = 0 then ⟨1, by norm_num⟩
+      else if v.val = 1 then ⟨3, by norm_num⟩
+      else ⟨0, by norm_num⟩
+  }
+  have hF : F.IsRankValid := by
+    intro v hv
+    exact False.elim (hv rfl)
+  have hpack : F.HasRankThresholdPacking := by
+    intro s
+    by_cases hs0 : s = 0
+    · subst s
+      have hset : F.highRankFinset 0 = {v0, v1} := by
+        ext v
+        fin_cases v <;> simp [F, v0, v1, RawRankedForest.highRankFinset,
+          RawRankedForest.rankNat]
+      rw [hset]
+      simp [v0, v1]
+    · by_cases hs1 : s = 1
+      · subst s
+        have hset : F.highRankFinset 1 = {v1} := by
+          ext v
+          fin_cases v <;> simp [F, v1, RawRankedForest.highRankFinset,
+            RawRankedForest.rankNat]
+        rw [hset]
+        norm_num
+      · by_cases hs2 : s = 2
+        · subst s
+          have hset : F.highRankFinset 2 = {v1} := by
+            ext v
+            fin_cases v <;> simp [F, v1, RawRankedForest.highRankFinset,
+              RawRankedForest.rankNat]
+          rw [hset]
+          norm_num
+        · have hs_ge : 3 <= s := by omega
+          have hs0' : s ≠ 0 := by omega
+          have hset : F.highRankFinset s = ∅ := by
+            ext v
+            fin_cases v <;> simp [F, RawRankedForest.highRankFinset,
+              RawRankedForest.rankNat, hs_ge, hs0']
+          rw [hset]
+          simp
+  have hnot :
+      Not ((topRestrictedForestFin F hF 0).HasRankThresholdPacking) := by
+    intro htopPack
+    let D := dissection F hF 0
+    let G := topRestrictedForestFin F hF 0
+    let e := D.topNodeEquivFin
+    let topv1 : D.TopNode := ⟨v1, by
+      change 0 < F.rankNat v1
+      norm_num [F, v1, RawRankedForest.rankNat]⟩
+    have htopcard : D.topFinset.card = 2 := by
+      have hset : D.topFinset = {v0, v1} := by
+        ext v
+        fin_cases v <;> simp [D, F, v0, v1, dissection, topPred,
+          RawDissection.topFinset, RawDissection.IsTop, RawRankedForest.rankNat]
+      rw [hset]
+      simp [v0, v1]
+    have hmem :
+        e topv1 ∈ G.highRankFinset 1 := by
+      apply (RawRankedForest.mem_highRankFinset G 1 (e topv1)).2
+      change 1 < topShiftedRank F hF 0 (e.symm (e topv1))
+      rw [show e.symm (e topv1) = topv1 by simp [e]]
+      simp [topv1, topShiftedRank, F, v1, RawRankedForest.rankNat]
+    have hcard_pos : 1 <= (G.highRankFinset 1).card := by
+      exact Nat.succ_le_of_lt (Finset.card_pos.mpr ⟨e topv1, hmem⟩)
+    have hbad := htopPack 1
+    have hfour_le : 4 <= (G.highRankFinset 1).card * 2 ^ (1 + 1) := by
+      have hmul := Nat.mul_le_mul_right (2 ^ (1 + 1)) hcard_pos
+      norm_num at hmul ⊢
+      exact hmul
+    have hambient :
+        (G.highRankFinset 1).card * 2 ^ (1 + 1) <= 2 := by
+      simpa [G, topRestrictedForestFin, D, htopcard] using hbad
+    omega
+  exact ⟨F, hF, hpack, hnot⟩
 
 end RankThresholdDissection
 
