@@ -374,6 +374,21 @@ theorem consumableCost_eq_zero_of_not_charged
     S.consumableCost = 0 := by
   simp [consumableCost, h]
 
+/-- A zero nonroot indicator forces zero recurrence-consumable cost. -/
+theorem consumableCost_eq_zero_of_nonrootIndicator_eq_zero
+    (S : ProjectedCompressionStep alpha)
+    (h : S.nonrootIndicator = 0) :
+    S.consumableCost = 0 := by
+  classical
+  by_cases hcharged : S.IsCharged
+  · have hseg : S.path.IsNonrootPath := by
+      simpa [IsCharged, IsNonrootPath] using hcharged
+    have hnonroot : S.nonrootIndicator = 1 := by
+      unfold nonrootIndicator
+      exact S.path.nonrootIndicator_eq_one_of_nonroot hseg
+    omega
+  · exact S.consumableCost_eq_zero_of_not_charged hcharged
+
 @[simp]
 theorem exceptionalCost_eq_zero_of_charged
     (S : ProjectedCompressionStep alpha)
@@ -1189,6 +1204,62 @@ theorem topProjectedStep_cost_eq_consumableCost_of_source_nonroot
     by_cases ht_charged : T.IsCharged
     · rw [T.consumableCost_eq_cost_of_charged ht_charged, hcost]
     · rw [T.consumableCost_eq_zero_of_not_charged ht_charged]
+
+/--
+Top projected recurrence-consumable cost is always dominated by the original
+source step cost.  Source rootpaths contribute no top consumable cost; source
+nonrootpaths dominate the top projected suffix by length.
+-/
+theorem topProjectedStep_consumableCost_le_cost
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut) :
+    (S.topProjectedStep D hS cut hcut).consumableCost <= S.cost := by
+  classical
+  let T := S.topProjectedStep D hS cut hcut
+  by_cases hnonroot : S.path.IsNonrootPath S.before
+  · have htop_cost :
+        T.cost = T.consumableCost := by
+      simpa [T] using
+        S.topProjectedStep_cost_eq_consumableCost_of_source_nonroot
+          D hS cut hcut hnonroot
+    have hlen :
+        (S.path.topProjectionSegment D hS.1.2.2.1 cut hcut).len <=
+          S.path.len.val := by
+      simpa [RawCompressionPath.topProjectionSegment] using
+        S.path.topProjectionLength_le_len D cut hcut
+    have hcost_le_segment :
+        (S.path.topProjectionSegment D hS.1.2.2.1 cut hcut).edgeCost <=
+          S.path.cost := by
+      unfold RawCompressionPath.ProjectedPathSegment.edgeCost
+        RawCompressionPath.cost
+      omega
+    have hcost_le :
+        T.cost <= S.path.cost := by
+      simpa [T, RawCompressionStep.topProjectedStep,
+        RawCompressionPath.ProjectedCompressionStep.cost] using hcost_le_segment
+    have hstep_cost : S.cost = S.path.cost := by
+      unfold RawCompressionStep.cost RawCompressionPath.sourceCost
+      rw [if_neg]
+      intro hroot
+      exact hnonroot hroot
+    rw [← htop_cost, hstep_cost]
+    exact hcost_le
+  · have hsource_zero : S.nonrootIndicator = 0 := by
+      unfold RawCompressionStep.nonrootIndicator
+      rw [if_neg hnonroot]
+    have hproj :=
+      S.projected_nonrootIndicators_add_le_nonrootIndicator D hS cut hcut
+    have hTzero : T.nonrootIndicator = 0 := by
+      have hle0 :
+          (S.bottomProjectedStep D hS cut hcut).nonrootIndicator +
+              T.nonrootIndicator <= 0 := by
+        simpa [T, hsource_zero] using hproj
+      omega
+    rw [T.consumableCost_eq_zero_of_nonrootIndicator_eq_zero hTzero]
+    exact Nat.zero_le _
 
 /--
 Step-level accounting with the top exceptional projected cost removed.  The
@@ -2013,6 +2084,35 @@ theorem topProjectedExecution_nonrootCount
       E.topProjectedNonrootCount hsteps D cut hcut :=
   rfl
 
+/-- Top projected consumable cost is dominated by the source step-cost sum. -/
+theorem topProjectedExecution_consumableCost_le_stepCostSum
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before)
+    (cut : Fin m -> Nat)
+    (hcut : forall i : Fin m, (E.step i).path.HasDissectionCut (D i) (cut i)) :
+    (E.topProjectedExecution hsteps D cut hcut).consumableCost <=
+      E.stepCostSum := by
+  classical
+  unfold RawCompressionPath.ProjectedCompressionExecution.consumableCost
+    stepCostSum
+  exact Finset.sum_le_sum (by
+    intro i _hi
+    simpa [topProjectedExecution] using
+      (E.step i).topProjectedStep_consumableCost_le_cost
+        (D i) (hsteps i) (cut i) (hcut i))
+
+/-- Canonical top projected consumable cost is dominated by source execution cost. -/
+theorem canonicalTopProjectedExecution_consumableCost_le_cost
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (D : forall i : Fin m, RawDissection (E.step i).before) :
+    (E.canonicalTopProjectedExecution hsteps D).consumableCost <=
+      E.cost := by
+  rw [E.cost_eq_stepCostSum]
+  exact E.topProjectedExecution_consumableCost_le_stepCostSum hsteps D
+    (E.dissectionCut hsteps D) (E.dissectionCut_spec hsteps D)
+
 /-- Bottom-side stability for adjacent dissections, derived from top stability. -/
 theorem bottomSideStable_of_topSideStable
     (E : RawCompressionExecution m n r)
@@ -2519,6 +2619,21 @@ theorem rankThresholdBottomProjectedExecution_isAdmissible
     (E.canonicalBottomProjectedExecution hE.1
       (E.rankThresholdDissectionFamily hE.1 s)).IsAdmissible := by
   exact E.rankThresholdBottomProjectedExecution_isSemanticallyValid hE s
+
+/--
+Rank-threshold top projected consumable cost is source-cost dominated.  This is
+a genuine top-side simulation sanity check, but it is weaker than the
+recurrence-consumed field of `RankThresholdLogConsumableBounds`.
+-/
+theorem rankThresholdTopProjectedExecution_consumableCost_le_cost
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+      E.cost := by
+  exact E.canonicalTopProjectedExecution_consumableCost_le_cost hE.1
+    (E.rankThresholdDissectionFamily hE.1 s)
 
 /--
 Bottom rank-threshold projections are range-bounded stepwise: the total

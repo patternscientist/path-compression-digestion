@@ -75,7 +75,7 @@ while both terms on the right side can collapse to zero. The current diagnostic
 is local-step level; it identifies the exact failed field but stops short of an
 execution-level refutation of the whole package.
 
-## Concrete JInput Fact Proved
+## Concrete Facts Proved
 
 The delayed obstruction does not occur for the concrete `J` rows. This branch
 proved in `JHierarchy.lean`:
@@ -99,6 +99,36 @@ The last theorem is the concrete row-strength fact expected to block the
 delayed top-residual counterexample: in the large-row case, `JInput k` always
 has a positive residual row after the logarithmic top cut.
 
+This branch also proved a top-side source-domination sanity check in
+`SourceProjection.lean`:
+
+```lean
+theorem RawCompressionPath.ProjectedCompressionStep
+    .consumableCost_eq_zero_of_nonrootIndicator_eq_zero
+
+theorem RawCompressionStep.topProjectedStep_consumableCost_le_cost
+
+theorem RawCompressionExecution.topProjectedExecution_consumableCost_le_stepCostSum
+
+theorem RawCompressionExecution.canonicalTopProjectedExecution_consumableCost_le_cost
+
+theorem RawCompressionExecution
+    .rankThresholdTopProjectedExecution_consumableCost_le_cost
+```
+
+The rank-threshold specialization proves that the top projected consumable cost
+does not invent cost outside the source execution:
+
+```lean
+(E.canonicalTopProjectedExecution hE.1
+  (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <= E.cost
+```
+
+This is weaker than the target top field of `RankThresholdLogConsumableBounds`,
+but it removes one possible source of failure. The remaining missing step is to
+consume this source-dominated top cost through the restricted top recurrence
+with `chargedCount` slots and top-cardinality/residual-row budget.
+
 ## Current Blocker Classification
 
 The blocker is not top packing. The repaired faithful model already supplies:
@@ -117,7 +147,7 @@ theorem RawCompressionExecution.sourceShiftStep_of_rankThreshold_log_consumable_
 theorem RawCompressionExecution.topDown_shift_step_of_rankThreshold_log_consumable_bounds
 ```
 
-The precise remaining blocker is execution-level consumable simulation:
+The precise remaining blocker is restricted-execution recurrence consumption:
 
 - bottom consumable simulation with coefficient `k + 1`;
 - top consumable simulation with coefficient `k`;
@@ -133,6 +163,11 @@ rankThresholdTopProjectedExecution_consumableCost_le_shiftedRank_mul_chargedCoun
 are only rank-range bounds. They do not turn the projected bottom/top slot
 families into source-valid restricted executions to which the previous
 `topDownCost` recurrence can be applied.
+
+The new top source-domination theorem shows that top consumable cost is real
+source cost, but it still does not identify the dependent top projected
+execution with a valid fixed-vertex `RawCompressionExecution` carrying the
+needed top-side base/rank accounting certificate.
 
 ## Package Boundary Recommendation
 
@@ -199,6 +234,7 @@ proves `topDown_shift_step`.
 
 ## Verdict
 
-Ambition D achieved, with one concrete `JInput` row-strength lemma proved. The
-remaining gap is the restricted-execution/recurrence-consumption simulation,
-not the delayed-row residual pathology, top packing, or shift arithmetic.
+Ambition D achieved, with concrete `JInput` row-strength lemmas and a top-side
+source-domination simulation lemma proved. The remaining gap is the
+restricted-execution/recurrence-consumption simulation, not the delayed-row
+residual pathology, top packing, or shift arithmetic.
