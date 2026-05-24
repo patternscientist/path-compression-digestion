@@ -122,4 +122,75 @@ theorem J_level_antitone {k l r : Nat} :
   | step h ih =>
       exact (J_succ_le _ r).trans ih
 
+/-- Every concrete `J` row has value one at rank two. -/
+@[simp] theorem J_two_arg (k : Nat) :
+    J k 2 = 1 := by
+  induction k with
+  | zero =>
+      norm_num [J, JInput, J0Input, J0]
+  | succ k ih =>
+      have hk : (JInput k).g 2 = 1 := by
+        simpa [J] using ih
+      change (JInput k).diamond 2 = 1
+      rw [(JInput k).diamond_eq_small (by omega)]
+      exact hk
+
+/-- Concrete `J` rows are positive on every rank at least two. -/
+theorem J_pos_of_two_le (k : Nat) {r : Nat} (hr : 2 <= r) :
+    0 < J k r := by
+  have hmono : J k 2 <= J k r := J_monotone k hr
+  have hone : 1 <= J k r := by
+    simpa [J_two_arg] using hmono
+  omega
+
+/--
+For a concrete `J` row, a large value cannot have the delayed-row pathology:
+after cutting at `ceilLog2 (J k r)`, the residual rank is still at least two.
+-/
+theorem J_large_residual_two_le (k r : Nat) (hlarge : 1 < J k r) :
+    2 <= r - ceilLog2 (J k r) - 1 := by
+  let x := J k r
+  let s := ceilLog2 x
+  have hx2 : 2 <= x := by omega
+  have hs_ge_one : 1 <= s := by
+    have hmono : ceilLog2 2 <= ceilLog2 x := monotone_ceilLog2 hx2
+    simpa [s] using hmono
+  have hlog : s <= x - 1 := by
+    simpa [s] using ceilLog2_le_pred hx2
+  have hs_succ_le_x : s + 1 <= x := by omega
+  have hx_le_J0_raw : J k r <= J 0 r :=
+    J_level_antitone (k := 0) (l := k) (r := r) (Nat.zero_le k)
+  have hx_le_J0 : x <= J0 r := by
+    simpa [x, J_zero_row] using hx_le_J0_raw
+  have hs_succ_le_J0 : s + 1 <= J0 r := hs_succ_le_x.trans hx_le_J0
+  let a := s + 1
+  have ha_le_J0 : a <= J0 r := by
+    simpa [a] using hs_succ_le_J0
+  have hnot : Not (r <= 2 * (a - 1) + 1) := by
+    intro hr
+    have hj0_le : J0 r <= a - 1 :=
+      (J0_le_iff_le_two_mul_add_one r (a - 1)).2 hr
+    omega
+  have htwice : 2 * a <= r := by
+    have hlt : 2 * (a - 1) + 1 < r := Nat.lt_of_not_ge hnot
+    omega
+  have hs3 : s + 3 <= r := by omega
+  have hres : 2 <= r - s - 1 := by omega
+  simpa [x, s] using hres
+
+/--
+Concrete `JInput` rows keep a positive top residual in the large-row case.
+This is the row fact that the delayed `r - 3` audit witness violates.
+-/
+theorem JInput_top_residual_pos_of_large
+    (k r : Nat) (hlarge : 1 < (JInput k).g r) :
+    0 < (JInput k).g (r - ceilLog2 ((JInput k).g r) - 1) := by
+  have hres :
+      2 <= r - ceilLog2 (J k r) - 1 := by
+    exact J_large_residual_two_le k r (by simpa [J] using hlarge)
+  have hpos :
+      0 < J k (r - ceilLog2 (J k r) - 1) :=
+    J_pos_of_two_le k hres
+  simpa [J] using hpos
+
 end PathCompressionDigestion
