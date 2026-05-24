@@ -17,6 +17,145 @@ namespace PathCompressionDigestion
 
 namespace ConcreteSourceModel
 
+namespace RawRankedForest
+
+variable {n r N : Nat} (F : RawRankedForest n r)
+
+/--
+Rank-threshold packing relative to an external vertex budget.  This is the
+budgeted form needed for restricted/padded realizations: the forest itself may
+have fewer vertices than the budget used to pay rank levels.
+-/
+def HasRankThresholdPackingWithBudget (N : Nat) : Prop :=
+  forall s : Nat, (F.highRankFinset s).card * 2 ^ (s + 1) <= N
+
+/-- Ordinary rank-threshold packing is the budgeted predicate at the exact size. -/
+theorem hasRankThresholdPackingWithBudget_self
+    (hpack : F.HasRankThresholdPacking) :
+    F.HasRankThresholdPackingWithBudget n := by
+  intro s
+  exact hpack s
+
+/-- Pad a forest into a larger finite vertex budget by adding rank-zero roots. -/
+noncomputable def padRight
+    {N : Nat}
+    (hN : n <= N) :
+    RawRankedForest N r where
+  parent := fun v => by
+    classical
+    by_cases hv : v.val < n
+    · exact ⟨(F.parent ⟨v.val, hv⟩).val, by omega⟩
+    · exact v
+  rank := fun v => by
+    classical
+    by_cases hv : v.val < n
+    · exact F.rank ⟨v.val, hv⟩
+    · exact ⟨0, Nat.succ_pos r⟩
+
+/-- On original vertices, right-padding preserves rank. -/
+theorem padRight_rankNat_of_lt
+    {N : Nat}
+    (hN : n <= N)
+    (v : Fin N)
+    (hv : v.val < n) :
+    (F.padRight hN).rankNat v = F.rankNat ⟨v.val, hv⟩ := by
+  simp [padRight, RawRankedForest.rankNat, hv]
+
+/-- Added padding vertices have rank zero. -/
+theorem padRight_rankNat_of_not_lt
+    {N : Nat}
+    (hN : n <= N)
+    (v : Fin N)
+    (hv : ¬ v.val < n) :
+    (F.padRight hN).rankNat v = 0 := by
+  simp [padRight, RawRankedForest.rankNat, hv]
+
+/-- Right-padding preserves the rank-valid parent discipline. -/
+theorem padRight_isRankValid
+    {N : Nat}
+    (hN : n <= N)
+    (hF : F.IsRankValid) :
+    (F.padRight hN).IsRankValid := by
+  classical
+  intro v hneq
+  by_cases hv : v.val < n
+  · let w : Fin n := ⟨v.val, hv⟩
+    have hparent :
+        (F.padRight hN).parent v =
+          ⟨(F.parent w).val, by omega⟩ := by
+      simp [padRight, hv, w]
+    have hneqF : F.parent w ≠ w := by
+      intro hw
+      apply hneq
+      apply Fin.ext
+      simpa [hparent, w] using congrArg Fin.val hw
+    have hlt := hF w hneqF
+    have hparent_lt : ((F.padRight hN).parent v).val < n := by
+      rw [hparent]
+      exact (F.parent w).isLt
+    calc
+      (F.padRight hN).rankNat v
+          = F.rankNat w := by
+              simpa [w] using F.padRight_rankNat_of_lt hN v hv
+      _ < F.rankNat (F.parent w) := hlt
+      _ = (F.padRight hN).rankNat ((F.padRight hN).parent v) := by
+              rw [F.padRight_rankNat_of_lt hN ((F.padRight hN).parent v) hparent_lt]
+              simp [hparent, w]
+  · have hparent : (F.padRight hN).parent v = v := by
+      simp [padRight, hv]
+    exact False.elim (hneq hparent)
+
+/--
+The high-rank vertices of a right-padded forest inject into the original
+high-rank vertices; padding vertices have rank zero and never contribute.
+-/
+theorem padRight_highRankFinset_card_le
+    {N : Nat}
+    (hN : n <= N)
+    (s : Nat) :
+    ((F.padRight hN).highRankFinset s).card <= (F.highRankFinset s).card := by
+  classical
+  let emb :
+      ((F.padRight hN).highRankFinset s) ↪ F.highRankFinset s := {
+    toFun := fun v => by
+      have hv_high :
+          s < (F.padRight hN).rankNat v.1 :=
+        (RawRankedForest.mem_highRankFinset (F.padRight hN) s v.1).1 v.2
+      have hv_lt : v.1.val < n := by
+        by_contra hv_not
+        have hrank0 := F.padRight_rankNat_of_not_lt hN v.1 hv_not
+        omega
+      exact ⟨⟨v.1.val, hv_lt⟩,
+        (RawRankedForest.mem_highRankFinset F s ⟨v.1.val, hv_lt⟩).2
+          (by simpa [F.padRight_rankNat_of_lt hN v.1 hv_lt] using hv_high)⟩
+    inj' := by
+      intro a b hab
+      apply Subtype.ext
+      apply Fin.ext
+      exact congrArg (fun x : F.highRankFinset s => x.1.val) hab
+  }
+  have hle :
+      Fintype.card ((F.padRight hN).highRankFinset s) <=
+        Fintype.card (F.highRankFinset s) :=
+    Fintype.card_le_of_injective emb emb.injective
+  simpa [RawRankedForest.highRankFinset, Fintype.card_subtype] using hle
+
+/--
+Padding a budget-packed forest into its external budget gives ordinary
+rank-threshold packing on the padded forest.
+-/
+theorem padRight_hasRankThresholdPacking
+    {N : Nat}
+    (hN : n <= N)
+    (hpack : F.HasRankThresholdPackingWithBudget N) :
+    (F.padRight hN).HasRankThresholdPacking := by
+  intro s
+  have hcard := F.padRight_highRankFinset_card_le hN s
+  have hbudget := hpack s
+  exact (Nat.mul_le_mul_right (2 ^ (s + 1)) hcard).trans hbudget
+
+end RawRankedForest
+
 namespace RawDissection
 
 variable {n r : Nat} {F : RawRankedForest n r}
@@ -141,6 +280,134 @@ theorem topRestrictedForestFin_isRankValid
       _ = v := by simp [x, e]
   have hlt := topParent_shiftedRank_lt_of_not_root F hF s x hx_ne
   simpa [topRestrictedForestFin, D, e, x, RawRankedForest.rankNat] using hlt
+
+/-- The stable Seidel--Sharir top-side budget for a threshold cut. -/
+def topRestrictedBudget (s : Nat) : Nat :=
+  n / 2 ^ (s + 1)
+
+/-- The external top budget has the same weighted size bound used in the shift. -/
+theorem two_mul_topRestrictedBudget_mul_le
+    (s g : Nat)
+    (hg : g <= 2 ^ s) :
+    2 * topRestrictedBudget (n := n) s * g <= n := by
+  let B := topRestrictedBudget (n := n) s
+  have hg2 : 2 * g <= 2 ^ (s + 1) := by
+    calc
+      2 * g <= 2 * 2 ^ s := Nat.mul_le_mul_left 2 hg
+      _ = 2 ^ (s + 1) := by
+            rw [Nat.pow_succ]
+            ring
+  have hdiv : B * 2 ^ (s + 1) <= n := by
+    simpa [B, topRestrictedBudget] using Nat.div_mul_le_self n (2 ^ (s + 1))
+  calc
+    2 * B * g = B * (2 * g) := by ring
+    _ <= B * 2 ^ (s + 1) := Nat.mul_le_mul_left B hg2
+    _ <= n := hdiv
+
+/-- The top restricted vertex count fits the external top-packing budget. -/
+theorem topRestrictedForestFin_card_le_budget
+    (hF : F.IsRankValid)
+    (hpack : F.HasRankThresholdPacking)
+    (s : Nat) :
+    (dissection F hF s).topFinset.card <= topRestrictedBudget (n := n) s := by
+  simpa [topRestrictedBudget] using
+    top_card_le_div F hF s (topPacking_of_rankThresholdPacking F hF hpack s)
+
+/--
+The shifted top restriction satisfies rank-threshold packing with respect to
+the external top budget `n / 2^(s+1)`.  This is the budgeted replacement for
+the false exact-cardinality packing statement.
+-/
+theorem topRestrictedForestFin_hasRankThresholdPackingWithBudget
+    (hF : F.IsRankValid)
+    (hpack : F.HasRankThresholdPacking)
+    (s : Nat) :
+    (topRestrictedForestFin F hF s).HasRankThresholdPackingWithBudget
+      (topRestrictedBudget (n := n) s) := by
+  classical
+  intro t
+  let D := dissection F hF s
+  let G := topRestrictedForestFin F hF s
+  let e := D.topNodeEquivFin
+  let Ht := G.highRankFinset t
+  let Hamb := F.highRankFinset (s + t + 1)
+  have hcard_le : Ht.card <= Hamb.card := by
+    let emb : Ht ↪ Hamb := {
+      toFun := fun v => by
+        let x : D.TopNode := e.symm v.1
+        have hv_high : t < G.rankNat v.1 :=
+          (RawRankedForest.mem_highRankFinset G t v.1).1 v.2
+        have hshift : t < topShiftedRank F hF s x := by
+          simpa [G, topRestrictedForestFin, D, e, x, RawRankedForest.rankNat]
+            using hv_high
+        have hamb : s + t + 1 < F.rankNat x.1 := by
+          have hx_top : s < F.rankNat x.1 := x.2
+          unfold topShiftedRank at hshift
+          omega
+        exact ⟨x.1,
+          (RawRankedForest.mem_highRankFinset F (s + t + 1) x.1).2 hamb⟩
+      inj' := by
+        intro a b hab
+        apply Subtype.ext
+        have hval : (e.symm a.1).1 = (e.symm b.1).1 := by
+          simpa using congrArg Subtype.val hab
+        have hx : e.symm a.1 = e.symm b.1 := Subtype.ext hval
+        have hfin : a.1 = b.1 := by
+          have heq := congrArg e hx
+          simpa [e] using heq
+        exact hfin
+    }
+    have hle : Fintype.card Ht <= Fintype.card Hamb :=
+      Fintype.card_le_of_injective emb emb.injective
+    simpa [Ht, Hamb, RawRankedForest.highRankFinset, Fintype.card_subtype] using hle
+  have hamb_pack :
+      Hamb.card * 2 ^ ((s + t + 1) + 1) <= n := by
+    simpa [Hamb] using hpack (s + t + 1)
+  have hpow_index : (s + t + 1) + 1 = s + t + 2 := by omega
+  have hmul :
+      Ht.card * 2 ^ (s + t + 2) <= n := by
+    calc
+      Ht.card * 2 ^ (s + t + 2)
+          <= Hamb.card * 2 ^ (s + t + 2) :=
+            Nat.mul_le_mul_right (2 ^ (s + t + 2)) hcard_le
+      _ = Hamb.card * 2 ^ ((s + t + 1) + 1) := by rw [hpow_index]
+      _ <= n := hamb_pack
+  have hpos : 0 < 2 ^ (s + 1) := Nat.pow_pos (by norm_num : 0 < 2)
+  apply (Nat.le_div_iff_mul_le hpos).2
+  have hpows : 2 ^ (t + 1) * 2 ^ (s + 1) = 2 ^ (s + t + 2) := by
+    rw [← Nat.pow_add]
+    congr 1
+    omega
+  calc
+    Ht.card * 2 ^ (t + 1) * 2 ^ (s + 1)
+        = Ht.card * (2 ^ (t + 1) * 2 ^ (s + 1)) := by ring
+    _ = Ht.card * 2 ^ (s + t + 2) := by rw [hpows]
+    _ <= n := hmul
+
+/-- The budget-padded shifted top restriction is rank-valid. -/
+theorem topRestrictedForestFin_padded_isRankValid
+    (hF : F.IsRankValid)
+    (hpack : F.HasRankThresholdPacking)
+    (s : Nat) :
+    (topRestrictedForestFin F hF s).padRight
+      (topRestrictedForestFin_card_le_budget F hF hpack s) |>.IsRankValid := by
+  exact (topRestrictedForestFin F hF s).padRight_isRankValid
+    (topRestrictedForestFin_card_le_budget F hF hpack s)
+    (topRestrictedForestFin_isRankValid F hF s)
+
+/--
+Padding the shifted top restriction into the external top budget gives the
+ordinary rank-threshold packing certificate required by source-valid forests.
+-/
+theorem topRestrictedForestFin_padded_hasRankThresholdPacking
+    (hF : F.IsRankValid)
+    (hpack : F.HasRankThresholdPacking)
+    (s : Nat) :
+    (topRestrictedForestFin F hF s).padRight
+      (topRestrictedForestFin_card_le_budget F hF hpack s) |>.HasRankThresholdPacking := by
+  exact (topRestrictedForestFin F hF s).padRight_hasRankThresholdPacking
+    (topRestrictedForestFin_card_le_budget F hF hpack s)
+    (topRestrictedForestFin_hasRankThresholdPackingWithBudget F hF hpack s)
 
 /--
 The ambient rank-threshold packing invariant does not automatically localize
@@ -2072,6 +2339,41 @@ namespace RawCompressionExecution
 
 variable {m n r : Nat}
 
+/-- Legacy base accounting against an external vertex budget. -/
+def HasLegacyBaseRankAccountingWithBudget
+    (E : RawCompressionExecution m n r)
+    (N : Nat) : Prop :=
+  Exists fun charge : E.ChargeUnit -> Prod (Fin N) (Fin (r - 1)) =>
+    Function.Injective charge
+
+/-- Before/after rank-threshold packing against an external vertex budget. -/
+def HasRankThresholdPackingWithBudget
+    (E : RawCompressionExecution m n r)
+    (N : Nat) : Prop :=
+  forall i : Fin m,
+    (E.step i).before.HasRankThresholdPackingWithBudget N /\
+      (E.step i).after.HasRankThresholdPackingWithBudget N
+
+/-- Faithful base/rank accounting against an external vertex budget. -/
+def HasBaseRankAccountingWithBudget
+    (E : RawCompressionExecution m n r)
+    (N : Nat) : Prop :=
+  E.HasLegacyBaseRankAccountingWithBudget N /\
+    E.HasRankThresholdPackingWithBudget N
+
+/-- Ordinary faithful base/rank accounting is budgeted accounting at the exact size. -/
+theorem hasBaseRankAccountingWithBudget_self
+    (E : RawCompressionExecution m n r)
+    (h : E.HasBaseRankAccounting) :
+    E.HasBaseRankAccountingWithBudget n := by
+  refine ⟨h.1, ?_⟩
+  intro i
+  exact
+    ⟨RawRankedForest.hasRankThresholdPackingWithBudget_self
+        (E.step i).before (h.2 i).1,
+      RawRankedForest.hasRankThresholdPackingWithBudget_self
+        (E.step i).after (h.2 i).2⟩
+
 /-- The charge-unit execution cost is the sum of the source costs of its steps. -/
 theorem cost_eq_stepCostSum
     (E : RawCompressionExecution m n r) :
@@ -3606,6 +3908,41 @@ noncomputable def rankThresholdDissectionFamily_topPacking
     ((E.hasRankThresholdPacking_of_isValid hE i).1) s
 
 /--
+The concrete shifted top restriction at any slot has rank-threshold packing
+against the Seidel--Sharir external top budget.
+-/
+theorem rankThresholdTopRestrictedForestFin_hasRankThresholdPackingWithBudget
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m) :
+    (RankThresholdDissection.topRestrictedForestFin
+      (E.step i).before (hE.1 i).1.1 s).HasRankThresholdPackingWithBudget
+        (RankThresholdDissection.topRestrictedBudget (n := n) s) := by
+  exact RankThresholdDissection.topRestrictedForestFin_hasRankThresholdPackingWithBudget
+    (E.step i).before (hE.1 i).1.1
+    ((E.hasRankThresholdPacking_of_isValid hE i).1) s
+
+/--
+Padding the concrete shifted top restriction at any slot into the external top
+budget gives an ordinary rank-threshold-packing forest.
+-/
+theorem rankThresholdTopRestrictedForestFin_padded_hasRankThresholdPacking
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m) :
+    (RankThresholdDissection.topRestrictedForestFin
+      (E.step i).before (hE.1 i).1.1 s).padRight
+        (RankThresholdDissection.topRestrictedForestFin_card_le_budget
+          (E.step i).before (hE.1 i).1.1
+          ((E.hasRankThresholdPacking_of_isValid hE i).1) s)
+      |>.HasRankThresholdPacking := by
+  exact RankThresholdDissection.topRestrictedForestFin_padded_hasRankThresholdPacking
+    (E.step i).before (hE.1 i).1.1
+    ((E.hasRankThresholdPacking_of_isValid hE i).1) s
+
+/--
 The direct rank-packing invariant localizes to the bottom side of every
 rank-threshold dissection in a faithful execution slot.
 -/
@@ -3687,6 +4024,22 @@ theorem rankThresholdDissectionFamily_two_mul_top_card_mul_g_le
         rw [Nat.pow_succ]
         ring
     _ <= n := hpack
+
+/--
+Budgeted top-side version of the same weighted cardinality bound.  This is the
+arithmetic target for padded top restricted realizations.
+-/
+theorem rankThresholdDissectionFamily_two_mul_topBudget_mul_g_le
+    (Drow : DiamondInput)
+    (_E : RawCompressionExecution m n r)
+    (s : Nat)
+    (hs : Drow.g r <= 2 ^ s) :
+    2 * RankThresholdDissection.topRestrictedBudget (n := n) s *
+        Drow.g (r - s - 1) <= n := by
+  have hg_rank : Drow.g (r - s - 1) <= Drow.g r :=
+    Drow.monotone (by omega)
+  exact RankThresholdDissection.two_mul_topRestrictedBudget_mul_le
+    (n := n) s (Drow.g (r - s - 1)) (hg_rank.trans hs)
 
 /-- The stepwise nonroot indicators sum to the execution nonroot count. -/
 theorem nonrootIndicator_sum_eq_nonrootCount
