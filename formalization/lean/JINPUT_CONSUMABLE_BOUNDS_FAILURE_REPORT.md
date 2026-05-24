@@ -53,12 +53,28 @@ theorem RawCompressionExecution
     (k : Nat)
     (hconsume : RankThresholdJInputConsumableBounds k) :
     topDownShiftStepTarget k
+
+def RawCompressionExecution
+    .RankThresholdJInputRecurrenceConsumptionBounds (k : Nat) : Prop
+
+theorem RawCompressionExecution
+    .rankThresholdJInputConsumableBounds_of_recurrenceConsumptionBounds
+    (k : Nat)
+    (hconsume : RankThresholdJInputRecurrenceConsumptionBounds k) :
+    RankThresholdJInputConsumableBounds k
+
+theorem RawCompressionExecution
+    .topDown_shift_step_of_rankThresholdJInputRecurrenceConsumptionBounds
+    (k : Nat)
+    (hconsume : RankThresholdJInputRecurrenceConsumptionBounds k) :
+    topDownShiftStepTarget k
 ```
 
 The repaired boundary is explicitly `JInput`-specific and allows the
 consumable simulation to use the previous-row source bound `hprev` already
-available in `SourceShiftStep`. The remaining gap is the concrete proof of
-that new package.
+available in `SourceShiftStep`. The smaller recurrence-consumption boundary
+uses `hprev` to consume the top side through `topDownCost`; the remaining gap
+is the concrete proof of that recurrence-consumption package.
 
 ## Exact Field Blocked By Delayed Rows
 
@@ -150,6 +166,23 @@ but it removes one possible source of failure. The remaining missing step is to
 consume this source-dominated top cost through the restricted top recurrence
 with `chargedCount` slots and top-cardinality/residual-row budget.
 
+The continuation also proved the zero-case bookkeeping needed to apply the
+previous-row source bound only when its positive-dimension hypotheses hold:
+
+```lean
+theorem RawCompressionPath.ProjectedCompressionExecution
+    .consumableCost_eq_zero_of_chargedCount_eq_zero
+
+theorem RawCompressionPath.ProjectedCompressionExecution
+    .chargedCount_pos_of_consumableCost_pos
+
+theorem RawCompressionStep
+    .topProjectedStep_consumableCost_eq_zero_of_topFinset_card_eq_zero
+
+theorem RawCompressionExecution
+    .rankThresholdTopProjectedExecution_topFinset_card_pos_of_consumableCost_pos
+```
+
 ## Current Blocker Classification
 
 The blocker is not top packing. The repaired faithful model already supplies:
@@ -194,24 +227,24 @@ needed top-side base/rank accounting certificate.
 
 Preserve `RankThresholdLogConsumableBounds` as the exact arithmetic interface
 consumed by the existing bridge, but do not try to prove it from bare
-`DiamondInput` row hypotheses. For the shift theorem, use the new concrete
-boundary:
+`DiamondInput` row hypotheses. For the shift theorem, the smallest current
+boundary is:
 
 ```lean
-theorem rankThresholdJInputConsumableBounds :
+theorem rankThresholdJInputRecurrenceConsumptionBounds :
     forall k : Nat,
-      RawCompressionExecution.RankThresholdJInputConsumableBounds k
+      RawCompressionExecution.RankThresholdJInputRecurrenceConsumptionBounds k
 ```
 
-This is exactly strong enough to feed the already-proved shift arithmetic via
-`topDown_shift_step_of_rankThresholdJInputConsumableBounds`.
+This feeds `RankThresholdJInputConsumableBounds`, then the already-proved shift
+arithmetic, via `topDown_shift_step_of_rankThresholdJInputRecurrenceConsumptionBounds`.
 
 ## Smallest Next Theorem Statements
 
 Top side:
 
 ```lean
-theorem rankThreshold_top_consumableCost_le_JInput_recurrence_budget
+theorem rankThreshold_top_consumableCost_le_topDownCost_budget
     (k : Nat)
     (hprev : SourceBound topDownCost k (JInput k).g)
     (E : RawCompressionExecution m n r)
@@ -221,12 +254,11 @@ theorem rankThreshold_top_consumableCost_le_JInput_recurrence_budget
     let i0 : Fin m := { val := 0, isLt := by omega }
     (E.canonicalTopProjectedExecution hE.1
       (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
-        k *
+        topDownCost
           (E.canonicalTopProjectedExecution hE.1
-            (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
-          2 *
-            ((E.rankThresholdDissectionFamily hE.1 s i0).topFinset.card) *
-            (JInput k).g (r - s - 1)
+            (E.rankThresholdDissectionFamily hE.1 s)).chargedCount
+          ((E.rankThresholdDissectionFamily hE.1 s i0).topFinset.card)
+          (r - s - 1)
 ```
 
 Bottom side:
@@ -251,13 +283,13 @@ theorem rankThreshold_bottom_consumableCost_le_JInput_recurrence_budget
 ```
 
 These are the smallest concrete fields needed to prove
-`rankThresholdJInputConsumableBounds`, after which the new concrete bridge
-proves the unchanged shift target.
+`rankThresholdJInputRecurrenceConsumptionBounds`, after which the new concrete
+recurrence bridge proves the unchanged shift target.
 
 ## Verdict
 
-Ambition D achieved, with concrete `JInput` row-strength lemmas, a top-side
-source-domination simulation lemma, and a repaired `JInput` package boundary
-plus bridge proved. The remaining gap is the restricted-execution/recurrence-
-consumption simulation, not the delayed-row residual pathology, top packing, or
-shift arithmetic.
+Ambition D achieved, with concrete `JInput` row-strength lemmas, top-side
+source-domination and zero-case bookkeeping lemmas, plus repaired `JInput`
+consumable and recurrence-consumption package bridges. The remaining gap is
+the restricted-execution/recurrence-consumption simulation itself, not the
+delayed-row residual pathology, top packing, or shift arithmetic.
