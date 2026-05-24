@@ -4280,6 +4280,71 @@ theorem topDown_shift_step_of_rankThreshold_log_consumable_bounds
     topDownShiftStepTarget k :=
   sourceShiftStep_of_rankThreshold_log_consumable_bounds (JInput k) k hconsume
 
+/--
+Concrete `JInput` consumable-cost package for the source shift step.
+
+Unlike `RankThresholdLogConsumableBounds`, this boundary is allowed to use the
+previous-row source bound that is already an argument of `SourceShiftStep`.
+The conclusion is intentionally the same pair of bottom/top consumable
+inequalities consumed by the existing rank-threshold shift arithmetic.
+-/
+def RankThresholdJInputConsumableBounds (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < (JInput k).g r),
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    Exists fun P : RankThresholdDissection.TopPacking (E.step i0).before
+        (hE.1 i0).1.1 s =>
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+          (k + 1) *
+            (E.canonicalBottomProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+            2 *
+              ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) *
+              (JInput k).diamond s
+      /\
+      (E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+          k *
+            (E.canonicalTopProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+            2 *
+              ((E.rankThresholdDissectionFamily hE.1 s i0).topFinset.card) *
+              (JInput k).g (r - s - 1)
+
+/--
+A concrete `JInput` package plus the previous-row source bound yields the old
+log-consumable package specialized to `JInput k`.
+-/
+theorem rankThresholdLogConsumableBounds_of_rankThresholdJInputConsumableBounds
+    (k : Nat)
+    (hconsume : RankThresholdJInputConsumableBounds k)
+    (hprev : SourceBound topDownCost k (JInput k).g) :
+    RankThresholdLogConsumableBounds (JInput k) k := by
+  intro m n r hm hn E hE hlarge
+  exact hconsume hm hn hprev E hE hlarge
+
+/--
+Concrete repaired package boundary for the shift step: if the J-specific
+consumable simulation can be proved using the previous-row source bound, the
+already-proved rank-threshold arithmetic gives the unchanged shift target.
+-/
+theorem topDown_shift_step_of_rankThresholdJInputConsumableBounds
+    (k : Nat)
+    (hconsume : RankThresholdJInputConsumableBounds k) :
+    topDownShiftStepTarget k := by
+  intro hprev
+  exact
+    (topDown_shift_step_of_rankThreshold_log_consumable_bounds k
+      (rankThresholdLogConsumableBounds_of_rankThresholdJInputConsumableBounds
+        k hconsume hprev)) hprev
+
 /-- A delayed test row used to audit over-general `DiamondInput` packages. -/
 def delayedSubThree (r : Nat) : Nat :=
   r - 3

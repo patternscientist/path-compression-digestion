@@ -36,8 +36,29 @@ theorem RawCompressionExecution.topDown_shift_step_of_rankThreshold_log_consumab
     topDownShiftStepTarget k
 ```
 
-The package is already specialized at the bridge boundary. The remaining gap is
-the concrete `JInput` proof of the two consumable-cost simulation fields.
+This branch also added the repaired concrete boundary:
+
+```lean
+def RawCompressionExecution.RankThresholdJInputConsumableBounds (k : Nat) : Prop
+
+theorem RawCompressionExecution
+    .rankThresholdLogConsumableBounds_of_rankThresholdJInputConsumableBounds
+    (k : Nat)
+    (hconsume : RankThresholdJInputConsumableBounds k)
+    (hprev : SourceBound topDownCost k (JInput k).g) :
+    RankThresholdLogConsumableBounds (JInput k) k
+
+theorem RawCompressionExecution
+    .topDown_shift_step_of_rankThresholdJInputConsumableBounds
+    (k : Nat)
+    (hconsume : RankThresholdJInputConsumableBounds k) :
+    topDownShiftStepTarget k
+```
+
+The repaired boundary is explicitly `JInput`-specific and allows the
+consumable simulation to use the previous-row source bound `hprev` already
+available in `SourceShiftStep`. The remaining gap is the concrete proof of
+that new package.
 
 ## Exact Field Blocked By Delayed Rows
 
@@ -173,18 +194,17 @@ needed top-side base/rank accounting certificate.
 
 Preserve `RankThresholdLogConsumableBounds` as the exact arithmetic interface
 consumed by the existing bridge, but do not try to prove it from bare
-`DiamondInput` row hypotheses. The theorem that should be proved next is the
-concrete specialization:
+`DiamondInput` row hypotheses. For the shift theorem, use the new concrete
+boundary:
 
 ```lean
-theorem rankThresholdLogConsumableBounds_JInput :
+theorem rankThresholdJInputConsumableBounds :
     forall k : Nat,
-      RawCompressionExecution.RankThresholdLogConsumableBounds (JInput k) k
+      RawCompressionExecution.RankThresholdJInputConsumableBounds k
 ```
 
-If a named concrete package is preferred, it should be definitionally no weaker
-than the two consumable fields plus the existing top-packing witness, and the
-bridge should immediately reduce to the already-proved arithmetic bridge.
+This is exactly strong enough to feed the already-proved shift arithmetic via
+`topDown_shift_step_of_rankThresholdJInputConsumableBounds`.
 
 ## Smallest Next Theorem Statements
 
@@ -193,6 +213,7 @@ Top side:
 ```lean
 theorem rankThreshold_top_consumableCost_le_JInput_recurrence_budget
     (k : Nat)
+    (hprev : SourceBound topDownCost k (JInput k).g)
     (E : RawCompressionExecution m n r)
     (hE : E.IsValid)
     (hlarge : 1 < (JInput k).g r) :
@@ -213,6 +234,7 @@ Bottom side:
 ```lean
 theorem rankThreshold_bottom_consumableCost_le_JInput_recurrence_budget
     (k : Nat)
+    (hprev : SourceBound topDownCost k (JInput k).g)
     (E : RawCompressionExecution m n r)
     (hE : E.IsValid)
     (hlarge : 1 < (JInput k).g r) :
@@ -229,12 +251,13 @@ theorem rankThreshold_bottom_consumableCost_le_JInput_recurrence_budget
 ```
 
 These are the smallest concrete fields needed to prove
-`rankThresholdLogConsumableBounds_JInput`, after which the existing bridge
-proves `topDown_shift_step`.
+`rankThresholdJInputConsumableBounds`, after which the new concrete bridge
+proves the unchanged shift target.
 
 ## Verdict
 
-Ambition D achieved, with concrete `JInput` row-strength lemmas and a top-side
-source-domination simulation lemma proved. The remaining gap is the
-restricted-execution/recurrence-consumption simulation, not the delayed-row
-residual pathology, top packing, or shift arithmetic.
+Ambition D achieved, with concrete `JInput` row-strength lemmas, a top-side
+source-domination simulation lemma, and a repaired `JInput` package boundary
+plus bridge proved. The remaining gap is the restricted-execution/recurrence-
+consumption simulation, not the delayed-row residual pathology, top packing, or
+shift arithmetic.
