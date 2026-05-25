@@ -225,11 +225,83 @@ def topNodeEquivTopFinset
 }
 
 /-- Canonical finite coordinates for the top restricted vertex type. -/
-noncomputable def topNodeEquivFin
+noncomputable def topNodeOrderEquivFin
     (D : RawDissection F) :
     D.TopNode ≃ Fin D.topFinset.card := by
   classical
-  exact D.topNodeEquivTopFinset.trans D.topFinset.equivFin
+  exact D.topNodeEquivTopFinset.trans (D.topFinset.orderIsoOfFin rfl).symm.toEquiv
+
+/-- Canonical finite coordinates for the top restricted vertex type. -/
+noncomputable def topNodeEquivFin
+    (D : RawDissection F) :
+    D.TopNode ≃ Fin D.topFinset.card :=
+  D.topNodeOrderEquivFin
+
+/--
+The ordered top-coordinate value depends only on the displayed top finset, not
+on the proof by which a vertex is presented as top.
+-/
+theorem topNodeOrderEquivFin_val_eq_of_topFinset_eq
+    {G : RawRankedForest n r}
+    (D : RawDissection F)
+    (D' : RawDissection G)
+    (hset : D.topFinset = D'.topFinset)
+    (x : Fin n)
+    (hx : D.IsTop x)
+    (hx' : D'.IsTop x) :
+    (D.topNodeOrderEquivFin ⟨x, hx⟩).val =
+      (D'.topNodeOrderEquivFin ⟨x, hx'⟩).val := by
+  classical
+  have hleft :
+      (D.topNodeOrderEquivFin ⟨x, hx⟩).val =
+        D.topFinset.sort.idxOf x := by
+    simp [topNodeOrderEquivFin, topNodeEquivTopFinset,
+      Finset.orderIsoOfFin_symm_apply]
+  have hright :
+      (D'.topNodeOrderEquivFin ⟨x, hx'⟩).val =
+        D'.topFinset.sort.idxOf x := by
+    simp [topNodeOrderEquivFin, topNodeEquivTopFinset,
+      Finset.orderIsoOfFin_symm_apply]
+  calc
+    (D.topNodeOrderEquivFin ⟨x, hx⟩).val = D.topFinset.sort.idxOf x := hleft
+    _ = D'.topFinset.sort.idxOf x := by simp [hset]
+    _ = (D'.topNodeOrderEquivFin ⟨x, hx'⟩).val := hright.symm
+
+/--
+The public top-coordinate equivalence is ordered, so its coordinate value is
+stable under equality of the displayed top finsets.
+-/
+theorem topNodeEquivFin_val_eq_of_topFinset_eq
+    {G : RawRankedForest n r}
+    (D : RawDissection F)
+    (D' : RawDissection G)
+    (hset : D.topFinset = D'.topFinset)
+    (x : Fin n)
+    (hx : D.IsTop x)
+    (hx' : D'.IsTop x) :
+    (D.topNodeEquivFin ⟨x, hx⟩).val =
+      (D'.topNodeEquivFin ⟨x, hx'⟩).val := by
+  simpa [topNodeEquivFin] using
+    D.topNodeOrderEquivFin_val_eq_of_topFinset_eq D' hset x hx hx'
+
+/--
+The inverse ordered top coordinate also depends only on the displayed top
+finset.  This is the direction needed when two restricted forests have
+definitionally different top-coordinate types but equal top membership.
+-/
+theorem topNodeEquivFin_symm_val_eq_of_topFinset_eq
+    {G : RawRankedForest n r}
+    (D : RawDissection F)
+    (D' : RawDissection G)
+    (hset : D.topFinset = D'.topFinset)
+    (a : Fin D.topFinset.card) :
+    ((D.topNodeEquivFin).symm a).1 =
+      ((D'.topNodeEquivFin).symm
+        (Fin.cast (congrArg Finset.card hset) a)).1 := by
+  classical
+  apply Fin.ext
+  simp [topNodeEquivFin, topNodeOrderEquivFin, topNodeEquivTopFinset,
+    Finset.orderEmbOfFin_apply, hset]
 
 end RawDissection
 
@@ -254,6 +326,55 @@ theorem topParent_shiftedRank_lt_of_not_root
     exact Nat.succ_le_of_lt v.2
   unfold topShiftedRank
   omega
+
+/--
+Rank-threshold top coordinates are stable across forests with pointwise equal
+rank functions.
+-/
+theorem topNodeEquivFin_val_eq_of_rankNat_eq
+    (F G : RawRankedForest n r)
+    (hF : F.IsRankValid)
+    (hG : G.IsRankValid)
+    (s : Nat)
+    (hrank : forall v : Fin n, G.rankNat v = F.rankNat v)
+    (x : Fin n)
+    (hxF : (dissection F hF s).IsTop x)
+    (hxG : (dissection G hG s).IsTop x) :
+    (((dissection F hF s).topNodeEquivFin ⟨x, hxF⟩).val =
+      ((dissection G hG s).topNodeEquivFin ⟨x, hxG⟩).val) := by
+  classical
+  have hset :
+      (dissection F hF s).topFinset =
+        (dissection G hG s).topFinset := by
+    ext v
+    simp [hrank v]
+  exact (dissection F hF s).topNodeEquivFin_val_eq_of_topFinset_eq
+    (dissection G hG s) hset x hxF hxG
+
+/--
+The inverse rank-threshold top coordinate is stable across forests with
+pointwise equal rank functions, after casting along the induced cardinality
+equality.
+-/
+theorem topNodeEquivFin_symm_val_eq_of_rankNat_eq
+    (F G : RawRankedForest n r)
+    (hF : F.IsRankValid)
+    (hG : G.IsRankValid)
+    (s : Nat)
+    (hrank : forall v : Fin n, G.rankNat v = F.rankNat v)
+    (a : Fin (dissection F hF s).topFinset.card) :
+    let hset :
+        (dissection F hF s).topFinset =
+          (dissection G hG s).topFinset := by
+        ext v
+        simp [hrank v]
+    (((dissection F hF s).topNodeEquivFin).symm a).1 =
+      (((dissection G hG s).topNodeEquivFin).symm
+        (Fin.cast (congrArg Finset.card hset) a)).1 := by
+  classical
+  intro hset
+  exact (dissection F hF s).topNodeEquivFin_symm_val_eq_of_topFinset_eq
+    (dissection G hG s) hset a
 
 /-- The rank-threshold top restricted forest in concrete `Fin |X_t|` coordinates. -/
 noncomputable def topRestrictedForestFin
@@ -548,6 +669,56 @@ variable {alpha : Type*} {parent : alpha -> alpha}
 /-- Last slot of a nonempty projected path segment. -/
 def lastIndex (S : ProjectedPathSegment alpha parent) (hlen : 0 < S.len) : Fin S.len :=
   { val := S.len - 1, isLt := by omega }
+
+/--
+Realize a nonempty projected segment as an ordinary path over a padded
+coordinate budget.  Inactive slots are filled with the projected target, so
+compressed vertices are exactly the embedded projected slots strictly before
+the target.
+-/
+noncomputable def toPaddedPath
+    (S : ProjectedPathSegment alpha parent)
+    {N : Nat}
+    (embed : alpha -> Fin N)
+    (hlen : S.len <= N)
+    (hpos : 0 < S.len) :
+    RawCompressionPath N := {
+  len := ⟨S.len, by omega⟩
+  node := fun j =>
+    if hj : j.val < S.len then embed (S.node ⟨j.val, hj⟩)
+    else embed (S.node (S.lastIndex hpos))
+  target := embed (S.node (S.lastIndex hpos))
+}
+
+/--
+Compressed vertices of the padded realization are exactly the embedded
+projected segment vertices strictly before the projected target.
+-/
+theorem toPaddedPath_isCompressedVertex_iff
+    (S : ProjectedPathSegment alpha parent)
+    {N : Nat}
+    (embed : alpha -> Fin N)
+    (hlen : S.len <= N)
+    (hpos : 0 < S.len)
+    (v : Fin N) :
+    (S.toPaddedPath embed hlen hpos).IsCompressedVertex v <->
+      Exists fun i : Fin S.len =>
+        i.val + 1 < S.len /\ embed (S.node i) = v := by
+  constructor
+  · intro hcomp
+    rcases hcomp with ⟨j, hj, hnode⟩
+    have hjS : j.val + 1 < S.len := by
+      simpa [toPaddedPath] using hj
+    have hjlt : j.val < S.len := by omega
+    refine ⟨⟨j.val, hjlt⟩, hjS, ?_⟩
+    simpa [toPaddedPath, hjlt] using hnode
+  · intro hcomp
+    rcases hcomp with ⟨i, hi, hv⟩
+    have hiN : i.val < N + 1 := by omega
+    let j : Fin (N + 1) := ⟨i.val, hiN⟩
+    refine ⟨j, ?_, ?_⟩
+    · simpa [toPaddedPath, j] using hi
+    · simpa [toPaddedPath, j] using hv
 
 /-- A projected segment is root-like when its last vertex is a restricted root. -/
 def IsRootPath (S : ProjectedPathSegment alpha parent) : Prop :=
@@ -3686,6 +3857,53 @@ theorem rankThresholdTopProjectedStep_topProjectionLength_le_topBudget_of_charge
     hlen_top.trans htop_budget
   simpa [seg, D, Dfam, cut, hcut, RawCompressionPath.topProjectionSegment] using
     hlen_budget
+
+/--
+The ordinary padded path obtained from a charged rank-threshold top projected
+segment.  This factors out the local path shape used by the positive-cost lift
+so downstream state-equality proofs can reason about its compressed vertices.
+-/
+noncomputable def rankThresholdTopProjectedPaddedPath
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hcharged :
+      ((E.step i).topProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged) :
+    RawCompressionPath
+      (RankThresholdDissection.topRestrictedBudget (n := n) s) := by
+  classical
+  let N := RankThresholdDissection.topRestrictedBudget (n := n) s
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  let D := Dfam i
+  let seg := (E.step i).path.topProjectionSegment D (hE.1 i).1.2.2.1
+    (cut i) (hcut i)
+  have hseg_nonroot : seg.IsNonrootPath := by
+    simpa [seg, D, Dfam, cut, hcut, RawCompressionStep.topProjectedStep,
+      RawCompressionPath.ProjectedCompressionStep.IsCharged,
+      RawCompressionPath.ProjectedCompressionStep.IsNonrootPath] using hcharged
+  have hseg_pos : 0 < seg.len := Classical.choose hseg_nonroot
+  have hlen_budget : seg.len <= N := by
+    have hraw :=
+      E.rankThresholdTopProjectedStep_topProjectionLength_le_topBudget_of_charged
+        hE s i hcharged
+    simpa [N, seg, D, Dfam, cut, hcut, RawCompressionPath.topProjectionSegment]
+      using hraw
+  have hcard_le_budget : D.topFinset.card <= N := by
+    simpa [N, D, Dfam, rankThresholdDissectionFamily] using
+      RankThresholdDissection.topRestrictedForestFin_card_le_budget
+        (E.step i).before (hE.1 i).1.1
+        ((E.hasRankThresholdPacking_of_isValid hE i).1) s
+  let e := D.topNodeEquivFin
+  let embed : D.TopNode -> Fin N := fun v =>
+    ⟨(e v).val, (e v).isLt.trans_le hcard_le_budget⟩
+  exact seg.toPaddedPath embed hlen_budget hseg_pos
 
 /--
 Cost-only lift of a charged rank-threshold top projected path into the padded
