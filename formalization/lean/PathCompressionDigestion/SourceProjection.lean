@@ -8923,6 +8923,118 @@ theorem rankThreshold_top_consumableCost_le_JInput_topBudget
         hE s)
 
 /--
+Bottom consumable field left after the padded-top construction: the top side is
+now supplied internally by the charged padded execution, so this is the only
+projection-consumption hypothesis needed for the budgeted-top shift bridge.
+-/
+def RankThresholdJInputBottomConsumableBounds (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < (JInput k).g r),
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    Cb.consumableCost <=
+      (k + 1) * Cb.chargedCount + 2 * Bcard * (JInput k).diamond s
+
+/--
+Budgeted-top concrete `JInput` consumable package.
+
+This has the same bottom field as `RankThresholdJInputConsumableBounds`, but
+uses the external padded top budget in the top field.  That is the form
+supported by rank-threshold packing without assuming exact-cardinality top
+packing.
+-/
+def RankThresholdJInputTopBudgetConsumableBounds (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < (JInput k).g r),
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    Exists fun P : RankThresholdDissection.TopPacking (E.step i0).before
+        (hE.1 i0).1.1 s =>
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+          (k + 1) *
+            (E.canonicalBottomProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+            2 *
+              ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) *
+              (JInput k).diamond s
+      /\
+      (E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+          k *
+            (E.canonicalTopProjectedExecution hE.1
+              (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+            2 * RankThresholdDissection.topRestrictedBudget (n := n) s *
+              (JInput k).g (r - s - 1)
+
+/--
+The newly assembled padded-top execution discharges the top field of the
+budgeted-top package, leaving only the bottom consumable theorem as input.
+-/
+theorem rankThresholdJInputTopBudgetConsumableBounds_of_bottomConsumableBounds
+    (k : Nat)
+    (hbottom : RankThresholdJInputBottomConsumableBounds k) :
+    RankThresholdJInputTopBudgetConsumableBounds k := by
+  intro m n r hm hn hprev E hE hlarge
+  let s := ceilLog2 ((JInput k).g r)
+  let i0 : Fin m := ⟨0, by omega⟩
+  refine ⟨E.rankThresholdDissectionFamily_topPacking hE s i0, ?_, ?_⟩
+  · simpa [s, i0] using hbottom hm hn hprev E hE hlarge
+  · simpa [s, i0] using
+      E.rankThreshold_top_consumableCost_le_JInput_topBudget k hprev hE s i0
+
+/--
+Budgeted-top consumable bounds are sufficient for the unchanged concrete
+source shift target.
+-/
+theorem topDown_shift_step_of_rankThresholdJInputTopBudgetConsumableBounds
+    (k : Nat)
+    (hconsume : RankThresholdJInputTopBudgetConsumableBounds k) :
+    topDownShiftStepTarget k := by
+  intro hprev m n r hm hn
+  apply topDownCost_le_of_forall_valid
+  intro E hE
+  by_cases hsmall : (JInput k).g r <= 1
+  · exact (E.cost_le_topDownCost hE).trans
+      (topDownCost_le_shift_target_of_g_small (JInput k) k hprev hm hn hsmall)
+  · have hlarge : 1 < (JInput k).g r := Nat.lt_of_not_ge hsmall
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    rcases hconsume hm hn hprev E hE hlarge with ⟨_P, hbottom, htop⟩
+    exact E.rankThreshold_source_cost_le_diamond_budget_of_topBudget_consumable_bounds
+      (JInput k) k hE s i0
+      (by simpa [s] using le_two_pow_ceilLog2 ((JInput k).g r))
+      (by simpa [s] using (JInput k).diamond_eq_large hlarge)
+      (by simpa [s, i0] using hbottom)
+      (by simpa [s, i0] using htop)
+
+/--
+After the padded-top assembly, a bottom consumable bound alone is enough to
+prove the concrete source shift step.
+-/
+theorem topDown_shift_step_of_rankThresholdJInputBottomConsumableBounds
+    (k : Nat)
+    (hbottom : RankThresholdJInputBottomConsumableBounds k) :
+    topDownShiftStepTarget k :=
+  topDown_shift_step_of_rankThresholdJInputTopBudgetConsumableBounds k
+    (rankThresholdJInputTopBudgetConsumableBounds_of_bottomConsumableBounds
+      k hbottom)
+
+/--
 The recurrence-consumption package is strong enough to feed the concrete
 `JInput` consumable package.
 -/
