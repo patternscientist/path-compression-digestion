@@ -7424,6 +7424,190 @@ theorem rankThresholdBottomProjectedExecution_consumableCost_le_topDownCost_bott
       E.rankThresholdBottomChargedExecutionSkeleton_cost_eq_consumableCost hE s i0
   simpa [hcost_eq] using hcost
 
+/--
+Source-relevant bottom boundary-exception slots.  These are precisely the
+rank-threshold bottom slots whose source step is a nonroot step, whose bottom
+projection is not charged, and whose bottom prefix contains at least one edge.
+Such slots are the uncharged boundary transitions counted by the existing
+source-relevant bottom exceptional-cost accounting.
+-/
+def rankThresholdBottomBoundaryExceptionSlot
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m) : Prop :=
+  (E.step i).path.IsNonrootPath (E.step i).before /\
+    Not ((E.step i).bottomProjectedStep
+      (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+      (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+      (E.dissectionCut_spec hE.1
+        (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged /\
+    Exists fun q : Fin (n + 1) =>
+      q.val + 1 <
+        E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i
+
+/--
+Boundary-inclusive bottom slots: either charged bottom slots, or
+source-relevant uncharged bottom boundary-exception slots.
+-/
+def rankThresholdBottomRelevantSlot
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m) : Prop :=
+  ((E.canonicalBottomProjectedExecution hE.1
+    (E.rankThresholdDissectionFamily hE.1 s)).step i).IsCharged \/
+    E.rankThresholdBottomBoundaryExceptionSlot hE s i
+
+noncomputable def rankThresholdBottomRelevantFinset
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) : Finset (Fin m) := by
+  classical
+  exact Finset.univ.filter fun i => E.rankThresholdBottomRelevantSlot hE s i
+
+@[simp]
+theorem mem_rankThresholdBottomRelevantFinset
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m) :
+    i ∈ E.rankThresholdBottomRelevantFinset hE s <->
+      E.rankThresholdBottomRelevantSlot hE s i := by
+  classical
+  simp [rankThresholdBottomRelevantFinset]
+
+noncomputable def rankThresholdBottomRelevantCount
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) : Nat :=
+  (E.rankThresholdBottomRelevantFinset hE s).card
+
+theorem rankThresholdBottomRelevantFinset_card_eq_count
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.rankThresholdBottomRelevantFinset hE s).card =
+      E.rankThresholdBottomRelevantCount hE s := rfl
+
+/-- Increasing enumeration of the boundary-inclusive bottom relevant slots. -/
+noncomputable def rankThresholdBottomRelevantSlotEnum
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    Fin (E.rankThresholdBottomRelevantCount hE s) -> Fin m :=
+  (E.rankThresholdBottomRelevantFinset hE s).orderEmbOfFin
+    (E.rankThresholdBottomRelevantFinset_card_eq_count hE s)
+
+@[simp]
+theorem rankThresholdBottomRelevantSlotEnum_mem
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin (E.rankThresholdBottomRelevantCount hE s)) :
+    E.rankThresholdBottomRelevantSlotEnum hE s q ∈
+      E.rankThresholdBottomRelevantFinset hE s := by
+  simp [rankThresholdBottomRelevantSlotEnum]
+
+theorem rankThresholdBottomRelevantSlotEnum_isRelevant
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin (E.rankThresholdBottomRelevantCount hE s)) :
+    E.rankThresholdBottomRelevantSlot hE s
+      (E.rankThresholdBottomRelevantSlotEnum hE s q) := by
+  exact (E.mem_rankThresholdBottomRelevantFinset hE s
+    (E.rankThresholdBottomRelevantSlotEnum hE s q)).1
+      (E.rankThresholdBottomRelevantSlotEnum_mem hE s q)
+
+theorem rankThresholdBottomRelevantSlotEnum_strictMono
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    StrictMono (E.rankThresholdBottomRelevantSlotEnum hE s) := by
+  intro q q' hlt
+  exact ((E.rankThresholdBottomRelevantFinset hE s).orderEmbOfFin
+    (E.rankThresholdBottomRelevantFinset_card_eq_count hE s)).strictMono hlt
+
+theorem rankThresholdBottomRelevantSlot_of_charged
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    {i : Fin m}
+    (hcharged :
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).step i).IsCharged) :
+    E.rankThresholdBottomRelevantSlot hE s i := by
+  exact Or.inl hcharged
+
+theorem rankThresholdBottomRelevantSlot_of_boundaryException
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    {i : Fin m}
+    (hboundary : E.rankThresholdBottomBoundaryExceptionSlot hE s i) :
+    E.rankThresholdBottomRelevantSlot hE s i := by
+  exact Or.inr hboundary
+
+/--
+There are no boundary-inclusive relevant slots strictly between adjacent
+entries of the relevant-slot enumeration.
+-/
+theorem not_rankThresholdBottomRelevantSlot_of_between_relevantSlotEnum_succ
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    {q q' : Fin (E.rankThresholdBottomRelevantCount hE s)}
+    (hqq' : q.val + 1 = q'.val)
+    (i : Fin m)
+    (hleft : (E.rankThresholdBottomRelevantSlotEnum hE s q).val < i.val)
+    (hright : i.val < (E.rankThresholdBottomRelevantSlotEnum hE s q').val) :
+    Not (E.rankThresholdBottomRelevantSlot hE s i) := by
+  classical
+  intro hrel
+  have hi_mem : i ∈ E.rankThresholdBottomRelevantFinset hE s :=
+    (E.mem_rankThresholdBottomRelevantFinset hE s i).2 hrel
+  have hi_range :
+      i ∈ Set.range
+        ((E.rankThresholdBottomRelevantFinset hE s).orderEmbOfFin
+          (E.rankThresholdBottomRelevantFinset_card_eq_count hE s)) := by
+    rw [Finset.range_orderEmbOfFin]
+    exact hi_mem
+  rcases hi_range with ⟨p, hp⟩
+  have hp_eq : E.rankThresholdBottomRelevantSlotEnum hE s p = i := by
+    simpa [rankThresholdBottomRelevantSlotEnum] using hp
+  have hq_lt_p : q.val < p.val := by
+    by_contra hnot
+    have hp_le_q : p.val <= q.val := by omega
+    by_cases hpq : p.val = q.val
+    · have hp_fin : p = q := Fin.ext hpq
+      subst p
+      rw [hp_eq] at hleft
+      exact (Nat.lt_irrefl _) hleft
+    · have hp_lt_q : p.val < q.val := by omega
+      have hslot_lt :
+          (E.rankThresholdBottomRelevantSlotEnum hE s p).val <
+            (E.rankThresholdBottomRelevantSlotEnum hE s q).val :=
+        E.rankThresholdBottomRelevantSlotEnum_strictMono hE s hp_lt_q
+      rw [hp_eq] at hslot_lt
+      omega
+  have hp_lt_q' : p.val < q'.val := by
+    by_contra hnot
+    have hq'_le_p : q'.val <= p.val := by omega
+    by_cases hpq' : p.val = q'.val
+    · have hp_fin : p = q' := Fin.ext hpq'
+      subst p
+      rw [hp_eq] at hright
+      exact (Nat.lt_irrefl _) hright
+    · have hq'_lt_p : q'.val < p.val := by omega
+      have hslot_lt :
+          (E.rankThresholdBottomRelevantSlotEnum hE s q').val <
+            (E.rankThresholdBottomRelevantSlotEnum hE s p).val :=
+        E.rankThresholdBottomRelevantSlotEnum_strictMono hE s hq'_lt_p
+      rw [hp_eq] at hslot_lt
+      omega
+  omega
+
 /-- Rank-threshold top vertex sets are stable across all execution slots. -/
 theorem rankThresholdDissectionFamily_topFinset_eq_of_slot
     (E : RawCompressionExecution m n r)
