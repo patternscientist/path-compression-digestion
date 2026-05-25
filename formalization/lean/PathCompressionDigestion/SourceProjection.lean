@@ -566,6 +566,98 @@ theorem topRestrictedForestFin_padded_parent_of_topNode
   simp [RawRankedForest.padRight, topRestrictedForestFin, D, G, e, hv]
 
 /--
+Padded rank-threshold top restrictions are literally equal when ranks agree
+pointwise and top-side raw parents agree on the first forest's top vertices.
+-/
+theorem topRestrictedForestFin_padded_eq_of_rankNat_eq_of_top_parent_eq
+    (F G : RawRankedForest n r)
+    (hF : F.IsRankValid)
+    (hG : G.IsRankValid)
+    (hpackF : F.HasRankThresholdPacking)
+    (hpackG : G.HasRankThresholdPacking)
+    (s : Nat)
+    (hrank : forall v : Fin n, G.rankNat v = F.rankNat v)
+    (hparent :
+      forall x : (dissection F hF s).TopNode, G.parent x.1 = F.parent x.1) :
+    (topRestrictedForestFin G hG s).padRight
+        (topRestrictedForestFin_card_le_budget G hG hpackG s) =
+      (topRestrictedForestFin F hF s).padRight
+        (topRestrictedForestFin_card_le_budget F hF hpackF s) := by
+  classical
+  let Df := dissection F hF s
+  let Dg := dissection G hG s
+  let hNF := topRestrictedForestFin_card_le_budget F hF hpackF s
+  let hNG := topRestrictedForestFin_card_le_budget G hG hpackG s
+  have hset : Df.topFinset = Dg.topFinset := by
+    ext v
+    simp [Df, Dg, hrank v]
+  have hcard : Df.topFinset.card = Dg.topFinset.card :=
+    congrArg Finset.card hset
+  refine congrArg₂
+    (fun parent rank =>
+      ({ parent := parent, rank := rank } :
+        RawRankedForest (topRestrictedBudget (n := n) s) (r - s - 1)))
+    ?_ ?_ <;> funext v
+  · by_cases hvF : v.val < Df.topFinset.card
+    · have hvG : v.val < Dg.topFinset.card := by omega
+      let aF : Fin Df.topFinset.card := ⟨v.val, hvF⟩
+      let aG : Fin Dg.topFinset.card := ⟨v.val, hvG⟩
+      have hcast : Fin.cast hcard aF = aG := by
+        apply Fin.ext
+        rfl
+      have hraw :
+          ((Df.topNodeEquivFin).symm aF).1 =
+            ((Dg.topNodeEquivFin).symm aG).1 := by
+        have hsymm :=
+          topNodeEquivFin_symm_val_eq_of_rankNat_eq
+            F G hF hG s hrank aF
+        simpa [Df, Dg, hcast] using hsymm
+      have hparent_raw :
+          G.parent (((Dg.topNodeEquivFin).symm aG).1) =
+            F.parent (((Df.topNodeEquivFin).symm aF).1) := by
+        rw [← hraw]
+        exact hparent ((Df.topNodeEquivFin).symm aF)
+      apply Fin.ext
+      simp [topRestrictedForestFin, Df, Dg, hvF, hvG]
+      simpa [Df, Dg, aF, aG, RawDissection.topParent, hraw, hparent_raw] using
+        (topNodeEquivFin_val_eq_of_rankNat_eq
+        F G hF hG s hrank
+        (F.parent (((Df.topNodeEquivFin).symm aF).1))
+        (by
+          simpa [Df, RawDissection.topParent] using
+            (Df.topParent ((Df.topNodeEquivFin).symm aF)).2)
+        (by
+          have htopG :
+              Dg.IsTop (G.parent (((Dg.topNodeEquivFin).symm aG).1)) :=
+            (Dg.topParent ((Dg.topNodeEquivFin).symm aG)).2
+          rw [hparent_raw] at htopG
+          simpa [Dg] using htopG)).symm
+    · have hvG : ¬ v.val < Dg.topFinset.card := by omega
+      simp [Df, Dg, hvF, hvG]
+  · by_cases hvF : v.val < Df.topFinset.card
+    · have hvG : v.val < Dg.topFinset.card := by omega
+      let aF : Fin Df.topFinset.card := ⟨v.val, hvF⟩
+      let aG : Fin Dg.topFinset.card := ⟨v.val, hvG⟩
+      have hcast : Fin.cast hcard aF = aG := by
+        apply Fin.ext
+        rfl
+      have hraw :
+          ((Df.topNodeEquivFin).symm aF).1 =
+            ((Dg.topNodeEquivFin).symm aG).1 := by
+        have hsymm :=
+          topNodeEquivFin_symm_val_eq_of_rankNat_eq
+            F G hF hG s hrank aF
+        simpa [Df, Dg, hcast] using hsymm
+      apply Fin.ext
+      simp [topRestrictedForestFin, Df, Dg, hvF, hvG]
+      unfold topShiftedRank
+      rw [← hraw]
+      exact congrArg (fun q => q - (s + 1))
+        (hrank (((Df.topNodeEquivFin).symm aF).1))
+    · have hvG : ¬ v.val < Dg.topFinset.card := by omega
+      simp [Df, Dg, hvF, hvG]
+
+/--
 The ambient rank-threshold packing invariant does not automatically localize
 to the top restricted forest with shifted ranks.  This is the concrete reason
 the remaining top recurrence-consumption proof needs an additional source
@@ -5310,6 +5402,72 @@ theorem rankThresholdTopChargedSlot_zero_cost_afterParent_eq_beforeParent
       (E.dissectionCut hE.1 Dfam i)
       (E.dissectionCut_spec hE.1 Dfam i) hcost_i
   simpa [rankThresholdTopChargedProjectedExecution, Dfam, i] using hidentity
+
+/--
+Zero-cost compacted charged top slots are skipped literally after padding:
+their padded after top restriction is the same forest as their padded before top
+restriction over the external top budget.
+-/
+theorem rankThresholdTopChargedSlot_zero_cost_padded_state_eq
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin
+      ((E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount))
+    (hcost :
+      ((E.rankThresholdTopChargedProjectedExecution hE s).step q).cost = 0) :
+    let i := E.rankThresholdTopChargedSlot hE s q
+    let hBeforeRank : (E.step i).before.IsRankValid := (hE.1 i).1.1
+    let hAfterRank : (E.step i).after.IsRankValid := (hE.1 i).2.1
+    let hBeforePack : (E.step i).before.HasRankThresholdPacking :=
+      (E.hasRankThresholdPacking_of_isValid hE i).1
+    let hAfterPack : (E.step i).after.HasRankThresholdPacking :=
+      (E.hasRankThresholdPacking_of_isValid hE i).2
+    (RankThresholdDissection.topRestrictedForestFin
+        (E.step i).after hAfterRank s).padRight
+        (RankThresholdDissection.topRestrictedForestFin_card_le_budget
+          (E.step i).after hAfterRank hAfterPack s) =
+      (RankThresholdDissection.topRestrictedForestFin
+        (E.step i).before hBeforeRank s).padRight
+        (RankThresholdDissection.topRestrictedForestFin_card_le_budget
+          (E.step i).before hBeforeRank hBeforePack s) := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let i := E.rankThresholdTopChargedSlot hE s q
+  let D := Dfam i
+  have hzero_i :
+      ((E.step i).topProjectedStep
+        (Dfam i) (hE.1 i)
+        (E.dissectionCut hE.1 Dfam i)
+        (E.dissectionCut_spec hE.1 Dfam i)).afterParent =
+        ((E.step i).topProjectedStep
+          (Dfam i) (hE.1 i)
+          (E.dissectionCut hE.1 Dfam i)
+          (E.dissectionCut_spec hE.1 Dfam i)).beforeParent := by
+    simpa [rankThresholdTopChargedProjectedExecution, Dfam, i] using
+      E.rankThresholdTopChargedSlot_zero_cost_afterParent_eq_beforeParent
+        hE s q hcost
+  have hrank :
+      forall v : Fin n,
+        (E.step i).after.rankNat v = (E.step i).before.rankNat v := by
+    intro v
+    unfold RawRankedForest.rankNat
+    exact congrArg Fin.val ((hE.1 i).2.2.1 v)
+  have hparent :
+      forall x : D.TopNode,
+        (E.step i).after.parent x.1 = (E.step i).before.parent x.1 := by
+    intro x
+    have hx := congrArg Subtype.val (congrFun hzero_i x)
+    simpa [D, Dfam, RawCompressionStep.topProjectedStep,
+      RawCompressionStep.afterTopParent, RawDissection.topParent] using hx
+  simpa [Dfam, i, rankThresholdDissectionFamily] using
+    RankThresholdDissection.topRestrictedForestFin_padded_eq_of_rankNat_eq_of_top_parent_eq
+      (E.step i).before (E.step i).after
+      (hE.1 i).1.1 (hE.1 i).2.1
+      ((E.hasRankThresholdPacking_of_isValid hE i).1)
+      ((E.hasRankThresholdPacking_of_isValid hE i).2)
+      s hrank hparent
 
 /--
 Positive-cost compacted charged top slots lift to valid ordinary padded source
