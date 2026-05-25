@@ -3470,6 +3470,51 @@ theorem exists_valid_zero_cost_noop_step
   · simp [S, P, RawCompressionStep.cost, RawCompressionPath.sourceCost,
       RawCompressionPath.IsRootPath, RawRankedForest.IsRoot, hroot]
 
+/-- Cast a raw compression step across a propositional vertex-count equality. -/
+noncomputable def castVertexCount
+    {n n' r : Nat}
+    (S : RawCompressionStep n r)
+    (h : n = n') :
+    RawCompressionStep n' r := by
+  cases h
+  exact S
+
+@[simp]
+theorem castVertexCount_cost
+    {n n' r : Nat}
+    (S : RawCompressionStep n r)
+    (h : n = n') :
+    (S.castVertexCount h).cost = S.cost := by
+  cases h
+  rfl
+
+theorem castVertexCount_isValid
+    {n n' r : Nat}
+    (S : RawCompressionStep n r)
+    (h : n = n')
+    (hS : S.IsValid) :
+    (S.castVertexCount h).IsValid := by
+  cases h
+  exact hS
+
+theorem castVertexCount_before_hasRankThresholdPacking
+    {n n' r : Nat}
+    (S : RawCompressionStep n r)
+    (h : n = n')
+    (hpack : S.before.HasRankThresholdPacking) :
+    (S.castVertexCount h).before.HasRankThresholdPacking := by
+  cases h
+  exact hpack
+
+theorem castVertexCount_after_hasRankThresholdPacking
+    {n n' r : Nat}
+    (S : RawCompressionStep n r)
+    (h : n = n')
+    (hpack : S.after.HasRankThresholdPacking) :
+    (S.castVertexCount h).after.HasRankThresholdPacking := by
+  cases h
+  exact hpack
+
 /-- A step with positive source cost must be a source nonrootpath. -/
 theorem path_isNonrootPath_of_cost_pos
     (S : RawCompressionStep n r)
@@ -4839,6 +4884,100 @@ theorem rankThresholdTopProjectedStep_topProjectionLength_le_topBudget_of_charge
     hlen_budget
 
 /--
+A charged rank-threshold bottom projected slot has no top suffix: the bottom
+projection is charged only when the dissection cut reaches the full raw path.
+-/
+theorem rankThresholdBottomProjectedStep_cut_eq_path_len_of_charged
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hcharged :
+      ((E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged) :
+    E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i =
+      (E.step i).path.len.val := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  have hnot_lt : Not (cut i < (E.step i).path.len.val) := by
+    intro hcut_lt
+    let B :=
+      (E.step i).bottomProjectedStep (Dfam i) (hE.1 i) (cut i) (hcut i)
+    have hroot : B.IsRootLike := by
+      simpa [B, RawCompressionStep.bottomProjectedStep,
+        RawCompressionPath.ProjectedCompressionStep.IsRootLike] using
+        (E.step i).path.bottomProjectionSegment_isRootPath_of_top_nonempty
+          (Dfam i) (hE.1 i).1.2.2.1 (cut i) (hcut i) hcut_lt
+    have hnot : Not B.IsCharged := (B.not_charged_iff_rootLike).2 hroot
+    exact hnot (by simpa [B, Dfam, cut] using hcharged)
+  have hcut_le : cut i <= (E.step i).path.len.val := (hcut i).1
+  have hcut_eq : cut i = (E.step i).path.len.val := by omega
+  simpa [Dfam, cut] using hcut_eq
+
+/-- A charged rank-threshold bottom projected step comes from a nonroot source step. -/
+theorem rankThresholdBottomProjectedStep_source_nonroot_of_charged
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hcharged :
+      ((E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged) :
+    (E.step i).path.IsNonrootPath (E.step i).before := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  let D := Dfam i
+  let seg := (E.step i).path.bottomProjectionSegment D (hE.1 i).1.2.2.1
+    (cut i) (hcut i)
+  have hseg_nonroot : seg.IsNonrootPath := by
+    simpa [seg, D, Dfam, cut, hcut, RawCompressionStep.bottomProjectedStep,
+      RawCompressionPath.ProjectedCompressionStep.IsCharged,
+      RawCompressionPath.ProjectedCompressionStep.IsNonrootPath] using hcharged
+  rcases hseg_nonroot with ⟨hseg_pos, hlast_ne⟩
+  intro hroot
+  have hcut_eq : cut i = (E.step i).path.len.val := by
+    simpa [Dfam, cut] using
+      E.rankThresholdBottomProjectedStep_cut_eq_path_len_of_charged
+        hE s i hcharged
+  let last : Fin seg.len := seg.lastIndex hseg_pos
+  let orig : Fin (n + 1) :=
+    (E.step i).path.bottomProjectionIndex D (cut i) (hcut i) last
+  have horig_last : orig.val + 1 = (E.step i).path.len.val := by
+    have hseg_len : seg.len = cut i := by
+      simp [seg, RawCompressionPath.bottomProjectionSegment,
+        RawCompressionPath.bottomProjectionLength]
+    have hlast_val : last.val = seg.len - 1 := rfl
+    simp [orig, RawCompressionPath.bottomProjectionIndex, hlast_val, hseg_len]
+    omega
+  have htarget : (E.step i).path.node orig = (E.step i).path.target :=
+    (hE.1 i).1.2.2.2 orig horig_last
+  have hparent_raw :
+      (E.step i).before.parent ((E.step i).path.node orig) =
+        (E.step i).path.node orig := by
+    simpa [htarget] using hroot
+  have hparent_bottom :
+      D.IsBottom ((E.step i).before.parent ((E.step i).path.node orig)) := by
+    simpa [hparent_raw, seg, orig, RawCompressionPath.bottomProjectionSegment,
+      RawCompressionPath.bottomProjectionNode] using (seg.node last).2
+  have hbottom_eq : D.bottomParent (seg.node last) = seg.node last := by
+    apply Subtype.ext
+    have hval :=
+      D.bottomParent_val_of_parent_bottom (seg.node last) hparent_bottom
+    simpa [seg, orig, RawCompressionPath.bottomProjectionSegment,
+      RawCompressionPath.bottomProjectionNode, hparent_raw] using hval
+  exact hlast_ne hbottom_eq
+
+/--
 A charged rank-threshold bottom projected step has active path length bounded
 by the exact bottom coordinate set.  This is the bottom analogue of the padded
 top size bridge, but no external budget is needed.
@@ -5188,6 +5327,369 @@ theorem rankThreshold_bottomProjected_charged_positive_step_lifts_to_valid_step_
       (fun v => by
         simp [RawRankedForest.rankNat, hSvalid.2.2.1 v])
       hbeforePack
+
+/--
+Increasing enumeration of the charged slots of the rank-threshold bottom
+projected execution.
+-/
+noncomputable def rankThresholdBottomChargedSlot
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    Fin
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount) →
+      Fin m :=
+  (E.canonicalBottomProjectedExecution hE.1
+    (E.rankThresholdDissectionFamily hE.1 s)).chargedSlot
+
+/-- Every rank-threshold bottom compacted slot is charged. -/
+theorem rankThresholdBottomChargedSlot_isCharged
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount)) :
+    ((E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).step
+        (E.rankThresholdBottomChargedSlot hE s q)).IsCharged := by
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  simpa [rankThresholdBottomChargedSlot, Cb] using Cb.chargedSlot_isCharged q
+
+/-- A compacted charged bottom slot has no top suffix in its source step. -/
+theorem rankThresholdBottomChargedSlot_cut_eq_path_len
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount)) :
+    let i := E.rankThresholdBottomChargedSlot hE s q
+    E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i =
+      (E.step i).path.len.val := by
+  intro i
+  have hcharged :
+      ((E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged := by
+    simpa [i, canonicalBottomProjectedExecution, bottomProjectedExecution]
+      using E.rankThresholdBottomChargedSlot_isCharged hE s q
+  exact E.rankThresholdBottomProjectedStep_cut_eq_path_len_of_charged
+    hE s i hcharged
+
+/-- A compacted charged bottom slot comes from a source nonroot step. -/
+theorem rankThresholdBottomChargedSlot_source_nonroot
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount)) :
+    let i := E.rankThresholdBottomChargedSlot hE s q
+    (E.step i).path.IsNonrootPath (E.step i).before := by
+  intro i
+  have hcharged :
+      ((E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).IsCharged := by
+    simpa [i, canonicalBottomProjectedExecution, bottomProjectedExecution]
+      using E.rankThresholdBottomChargedSlot_isCharged hE s q
+  exact E.rankThresholdBottomProjectedStep_source_nonroot_of_charged
+    hE s i hcharged
+
+/-- The rank-threshold bottom compacted-slot enumeration is strictly increasing. -/
+theorem rankThresholdBottomChargedSlot_strictMono
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    StrictMono (E.rankThresholdBottomChargedSlot hE s) := by
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  simpa [rankThresholdBottomChargedSlot, Cb] using Cb.chargedSlot_strictMono
+
+/--
+Dependent projected execution consisting only of the charged slots of the
+rank-threshold bottom projection.
+-/
+noncomputable def rankThresholdBottomChargedProjectedExecution
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    RawCompressionPath.ProjectedCompressionExecution
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount) := by
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  exact {
+    vertex := fun q => (Dfam (E.rankThresholdBottomChargedSlot hE s q)).BottomNode
+    step := fun q =>
+      (E.step (E.rankThresholdBottomChargedSlot hE s q)).bottomProjectedStep
+        (Dfam (E.rankThresholdBottomChargedSlot hE s q))
+        (hE.1 (E.rankThresholdBottomChargedSlot hE s q))
+        (E.dissectionCut hE.1 Dfam (E.rankThresholdBottomChargedSlot hE s q))
+        (E.dissectionCut_spec hE.1 Dfam
+          (E.rankThresholdBottomChargedSlot hE s q))
+  }
+
+/-- The charged bottom projected execution cost is the original bottom consumable cost. -/
+theorem rankThresholdBottomChargedProjectedExecution_cost_eq_consumableCost
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost =
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost := by
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let Cb := E.canonicalBottomProjectedExecution hE.1 Dfam
+  simpa [rankThresholdBottomChargedProjectedExecution, rankThresholdBottomChargedSlot,
+    RawCompressionPath.ProjectedCompressionExecution.chargedSubexecution,
+    Cb, Dfam, canonicalBottomProjectedExecution, bottomProjectedExecution]
+    using Cb.chargedSubexecution_cost_eq_consumableCost
+
+/--
+Positive-cost compacted charged bottom slots lift to valid ordinary source
+steps over their exact bottom restriction.
+-/
+theorem rankThresholdBottomChargedSlot_positive_lifts_to_valid_step_with_path_eq
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount))
+    (hpos :
+      0 <
+        ((E.rankThresholdBottomChargedProjectedExecution hE s).step q).cost) :
+    let i := E.rankThresholdBottomChargedSlot hE s q
+    let D := E.rankThresholdDissectionFamily hE.1 s i
+    let G :=
+      RankThresholdDissection.bottomRestrictedForestFin
+        (E.step i).before (hE.1 i).1.1 s
+    Exists fun S : RawCompressionStep D.bottomFinset.card s =>
+      S.IsValid /\
+        S.before = G /\
+          S.path = E.rankThresholdBottomProjectedPath hE s i
+            (by
+              simpa [i] using E.rankThresholdBottomChargedSlot_isCharged hE s q) /\
+            S.cost =
+              ((E.rankThresholdBottomChargedProjectedExecution hE s).step q).cost /\
+              S.before.HasRankThresholdPacking /\
+                S.after.HasRankThresholdPacking := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let i := E.rankThresholdBottomChargedSlot hE s q
+  have hcharged :
+      ((E.step i).bottomProjectedStep
+        (Dfam i) (hE.1 i)
+        (E.dissectionCut hE.1 Dfam i)
+        (E.dissectionCut_spec hE.1 Dfam i)).IsCharged := by
+    simpa [Dfam, i] using E.rankThresholdBottomChargedSlot_isCharged hE s q
+  have hpos_i :
+      0 <
+        ((E.step i).bottomProjectedStep
+          (Dfam i) (hE.1 i)
+          (E.dissectionCut hE.1 Dfam i)
+          (E.dissectionCut_spec hE.1 Dfam i)).cost := by
+    simpa [rankThresholdBottomChargedProjectedExecution, Dfam, i] using hpos
+  simpa [rankThresholdBottomChargedProjectedExecution, Dfam, i] using
+    E.rankThreshold_bottomProjected_charged_positive_step_lifts_to_valid_step_with_path_eq
+      hE s i hcharged hpos_i
+
+/--
+Zero-cost compacted charged bottom slots are represented by ordinary no-op
+steps over the exact bottom restriction.  This packages the local zero-cost
+case without asserting that arbitrary uncharged bottom slots can be skipped.
+-/
+theorem rankThresholdBottomChargedSlot_zero_cost_lifts_to_noop_step
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount))
+    (hcost :
+      ((E.rankThresholdBottomChargedProjectedExecution hE s).step q).cost = 0) :
+    let i := E.rankThresholdBottomChargedSlot hE s q
+    let D := E.rankThresholdDissectionFamily hE.1 s i
+    let G :=
+      RankThresholdDissection.bottomRestrictedForestFin
+        (E.step i).before (hE.1 i).1.1 s
+    Exists fun S : RawCompressionStep D.bottomFinset.card s =>
+      S.IsValid /\
+        S.before = G /\
+          S.after = G /\
+            S.cost =
+              ((E.rankThresholdBottomChargedProjectedExecution hE s).step q).cost /\
+              S.before.HasRankThresholdPacking /\
+                S.after.HasRankThresholdPacking := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let i := E.rankThresholdBottomChargedSlot hE s q
+  let D := Dfam i
+  let F := (E.step i).before
+  let hF : F.IsRankValid := (hE.1 i).1.1
+  let hpackF : F.HasRankThresholdPacking :=
+    (E.hasRankThresholdPacking_of_isValid hE i).1
+  let G := RankThresholdDissection.bottomRestrictedForestFin F hF s
+  have hcharged :
+      ((E.step i).bottomProjectedStep
+        (Dfam i) (hE.1 i)
+        (E.dissectionCut hE.1 Dfam i)
+        (E.dissectionCut_spec hE.1 Dfam i)).IsCharged := by
+    simpa [Dfam, i] using E.rankThresholdBottomChargedSlot_isCharged hE s q
+  let seg := (E.step i).path.bottomProjectionSegment D (hE.1 i).1.2.2.1
+    (E.dissectionCut hE.1 Dfam i)
+    (E.dissectionCut_spec hE.1 Dfam i)
+  have hseg_nonroot : seg.IsNonrootPath := by
+    simpa [seg, D, Dfam, i, RawCompressionStep.bottomProjectedStep,
+      RawCompressionPath.ProjectedCompressionStep.IsCharged,
+      RawCompressionPath.ProjectedCompressionStep.IsNonrootPath] using hcharged
+  rcases hseg_nonroot with ⟨hseg_pos, _hseg_ne⟩
+  have hlen_bottom : seg.len <= D.bottomFinset.card := by
+    have hraw :=
+      E.rankThresholdBottomProjectedStep_bottomProjectionLength_le_bottomFinset_card_of_charged
+        hE s i hcharged
+    simpa [seg, D, Dfam, RawCompressionPath.bottomProjectionSegment] using hraw
+  have hDpos : 0 < D.bottomFinset.card := lt_of_lt_of_le hseg_pos hlen_bottom
+  have hG_rank : G.IsRankValid := by
+    simpa [G, F, hF] using
+      RankThresholdDissection.bottomRestrictedForestFin_isRankValid F hF s
+  rcases RawCompressionStep.exists_valid_zero_cost_noop_step G hG_rank hDpos with
+    ⟨S, hSvalid, hSbefore, hSafter, hScost⟩
+  refine ⟨S, hSvalid, ?_, ?_, ?_, ?_, ?_⟩
+  · simpa [G, F, hF, D, Dfam, i] using hSbefore
+  · simpa [G, F, hF, D, Dfam, i] using hSafter
+  · exact hScost.trans hcost.symm
+  · rw [hSbefore]
+    simpa [G, F, hF] using
+      RankThresholdDissection.bottomRestrictedForestFin_hasRankThresholdPacking
+        F hF hpackF s
+  · rw [hSafter]
+    simpa [G, F, hF] using
+      RankThresholdDissection.bottomRestrictedForestFin_hasRankThresholdPacking
+        F hF hpackF s
+
+/--
+Every compacted charged bottom slot has an ordinary source step over its exact
+bottom restriction with matching cost.  Positive-cost slots use the realized
+projected path; zero-cost slots use a no-op.
+-/
+theorem rankThresholdBottomChargedSlot_lifts_to_valid_step
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount)) :
+    let i := E.rankThresholdBottomChargedSlot hE s q
+    let D := E.rankThresholdDissectionFamily hE.1 s i
+    let G :=
+      RankThresholdDissection.bottomRestrictedForestFin
+        (E.step i).before (hE.1 i).1.1 s
+    Exists fun S : RawCompressionStep D.bottomFinset.card s =>
+      S.IsValid /\
+        S.before = G /\
+          S.cost =
+            ((E.rankThresholdBottomChargedProjectedExecution hE s).step q).cost /\
+            S.before.HasRankThresholdPacking /\
+              S.after.HasRankThresholdPacking := by
+  classical
+  by_cases hpos :
+      0 < ((E.rankThresholdBottomChargedProjectedExecution hE s).step q).cost
+  · rcases
+      E.rankThresholdBottomChargedSlot_positive_lifts_to_valid_step_with_path_eq
+        hE s q hpos with
+        ⟨S, hSvalid, hSbefore, _hSpath, hScost, hSpackBefore, hSpackAfter⟩
+    exact ⟨S, hSvalid, hSbefore, hScost, hSpackBefore, hSpackAfter⟩
+  · have hzero :
+        ((E.rankThresholdBottomChargedProjectedExecution hE s).step q).cost = 0 :=
+      Nat.eq_zero_of_not_pos hpos
+    rcases E.rankThresholdBottomChargedSlot_zero_cost_lifts_to_noop_step
+        hE s q hzero with
+      ⟨S, hSvalid, hSbefore, _hSafter, hScost, hSpackBefore, hSpackAfter⟩
+    exact ⟨S, hSvalid, hSbefore, hScost, hSpackBefore, hSpackAfter⟩
+
+/-- Chosen ordinary source step for a compacted charged bottom slot. -/
+noncomputable def rankThresholdBottomChargedStep
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount)) :
+    RawCompressionStep
+      (E.rankThresholdDissectionFamily hE.1 s
+        (E.rankThresholdBottomChargedSlot hE s q)).bottomFinset.card
+      s :=
+  Classical.choose
+    (E.rankThresholdBottomChargedSlot_lifts_to_valid_step hE s q)
+
+/-- Specification of the chosen charged bottom source step. -/
+theorem rankThresholdBottomChargedStep_spec
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (q : Fin
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount)) :
+    let i := E.rankThresholdBottomChargedSlot hE s q
+    let G :=
+      RankThresholdDissection.bottomRestrictedForestFin
+        (E.step i).before (hE.1 i).1.1 s
+    let S := E.rankThresholdBottomChargedStep hE s q
+    S.IsValid /\
+      S.before = G /\
+        S.cost =
+          ((E.rankThresholdBottomChargedProjectedExecution hE s).step q).cost /\
+          S.before.HasRankThresholdPacking /\
+            S.after.HasRankThresholdPacking := by
+  simpa [rankThresholdBottomChargedStep] using
+    Classical.choose_spec
+      (E.rankThresholdBottomChargedSlot_lifts_to_valid_step hE s q)
+
+/--
+The chosen dependent charged bottom steps have total cost exactly equal to the
+bottom projected consumable cost.
+-/
+theorem rankThresholdBottomChargedStep_cost_sum_eq_consumableCost
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (Finset.univ : Finset (Fin
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount))).sum
+      (fun q => (E.rankThresholdBottomChargedStep hE s q).cost) =
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost := by
+  classical
+  let Cbc := E.rankThresholdBottomChargedProjectedExecution hE s
+  calc
+    (Finset.univ : Finset (Fin
+        ((E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount))).sum
+        (fun q => (E.rankThresholdBottomChargedStep hE s q).cost)
+        =
+      (Finset.univ : Finset (Fin
+        ((E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount))).sum
+        (fun q => (Cbc.step q).cost) := by
+          apply Finset.sum_congr rfl
+          intro q _hq
+          exact (E.rankThresholdBottomChargedStep_spec hE s q).2.2.1
+    _ = Cbc.cost := by
+          rfl
+    _ =
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost := by
+          simpa [Cbc] using
+            E.rankThresholdBottomChargedProjectedExecution_cost_eq_consumableCost hE s
 
 /--
 The ordinary padded path obtained from a charged rank-threshold top projected
@@ -6764,6 +7266,163 @@ theorem rankThresholdDissectionFamily_bottomFinset_eq_of_slot
   ext v
   simp [rankThresholdDissectionFamily,
     E.rankThresholdDissectionFamily_rankNat_eq_of_slot hsteps hstate i0 i v]
+
+/--
+All compacted charged bottom slots use the same bottom vertex set cardinality
+as any chosen reference slot.
+-/
+theorem rankThresholdBottomChargedSlot_bottomFinset_card_eq_of_slot
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (q : Fin
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount)) :
+    (E.rankThresholdDissectionFamily hE.1 s
+        (E.rankThresholdBottomChargedSlot hE s q)).bottomFinset.card =
+      (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card := by
+  have hfinset :
+      (E.rankThresholdDissectionFamily hE.1 s
+          (E.rankThresholdBottomChargedSlot hE s q)).bottomFinset =
+        (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset :=
+    E.rankThresholdDissectionFamily_bottomFinset_eq_of_slot
+      hE.1 hE.2.1 s i0 (E.rankThresholdBottomChargedSlot hE s q)
+  exact congrArg Finset.card hfinset
+
+/--
+Ordinary bottom charged execution skeleton over a fixed reference bottom
+cardinality.  The steps are the chosen per-slot bottom realizations, cast along
+the stable bottom-cardinality equality.  This skeleton has valid slots and the
+right cost; consecutive state alignment is the remaining bridge.
+-/
+noncomputable def rankThresholdBottomChargedExecutionSkeleton
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    RawCompressionExecution
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount)
+      ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card)
+      s where
+  step := fun q =>
+    (E.rankThresholdBottomChargedStep hE s q).castVertexCount
+      (E.rankThresholdBottomChargedSlot_bottomFinset_card_eq_of_slot hE s i0 q)
+
+/-- The bottom charged execution skeleton has valid ordinary source steps. -/
+theorem rankThresholdBottomChargedExecutionSkeleton_hasValidSteps
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    (E.rankThresholdBottomChargedExecutionSkeleton hE s i0).HasValidSteps := by
+  intro q
+  have hspec := E.rankThresholdBottomChargedStep_spec hE s q
+  exact RawCompressionStep.castVertexCount_isValid
+    (E.rankThresholdBottomChargedStep hE s q)
+    (E.rankThresholdBottomChargedSlot_bottomFinset_card_eq_of_slot hE s i0 q)
+    hspec.1
+
+/-- The bottom charged execution skeleton has rank-threshold packing at endpoints. -/
+theorem rankThresholdBottomChargedExecutionSkeleton_hasRankThresholdPacking
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    (E.rankThresholdBottomChargedExecutionSkeleton hE s i0).HasRankThresholdPacking := by
+  intro q
+  have hspec := E.rankThresholdBottomChargedStep_spec hE s q
+  constructor
+  · exact RawCompressionStep.castVertexCount_before_hasRankThresholdPacking
+      (E.rankThresholdBottomChargedStep hE s q)
+      (E.rankThresholdBottomChargedSlot_bottomFinset_card_eq_of_slot hE s i0 q)
+      hspec.2.2.2.1
+  · exact RawCompressionStep.castVertexCount_after_hasRankThresholdPacking
+      (E.rankThresholdBottomChargedStep hE s q)
+      (E.rankThresholdBottomChargedSlot_bottomFinset_card_eq_of_slot hE s i0 q)
+      hspec.2.2.2.2
+
+/-- Cost of a bottom skeleton slot matches the corresponding charged projected slot. -/
+theorem rankThresholdBottomChargedExecutionSkeleton_step_cost_eq
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (q : Fin
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount)) :
+    ((E.rankThresholdBottomChargedExecutionSkeleton hE s i0).step q).cost =
+      ((E.rankThresholdBottomChargedProjectedExecution hE s).step q).cost := by
+  have hspec := E.rankThresholdBottomChargedStep_spec hE s q
+  calc
+    ((E.rankThresholdBottomChargedExecutionSkeleton hE s i0).step q).cost =
+        (E.rankThresholdBottomChargedStep hE s q).cost := by
+          simp [rankThresholdBottomChargedExecutionSkeleton]
+    _ = ((E.rankThresholdBottomChargedProjectedExecution hE s).step q).cost :=
+        hspec.2.2.1
+
+/-- The bottom charged execution skeleton has exactly the bottom consumable cost. -/
+theorem rankThresholdBottomChargedExecutionSkeleton_cost_eq_consumableCost
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    (E.rankThresholdBottomChargedExecutionSkeleton hE s i0).cost =
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost := by
+  classical
+  let Ebot := E.rankThresholdBottomChargedExecutionSkeleton hE s i0
+  let Cbc := E.rankThresholdBottomChargedProjectedExecution hE s
+  calc
+    Ebot.cost = Ebot.stepCostSum := Ebot.cost_eq_stepCostSum
+    _ = Cbc.cost := by
+      unfold stepCostSum RawCompressionPath.ProjectedCompressionExecution.cost
+      apply Finset.sum_congr rfl
+      intro q _hq
+      simpa [Ebot, Cbc] using
+        E.rankThresholdBottomChargedExecutionSkeleton_step_cost_eq hE s i0 q
+    _ =
+        (E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).consumableCost := by
+      simpa [Cbc] using
+        E.rankThresholdBottomChargedProjectedExecution_cost_eq_consumableCost hE s
+
+/--
+Conditional bottom consumption theorem for the charged skeleton.  The only
+missing semantic ingredient is literal consecutive-state alignment after the
+per-slot bottom cardinality casts.
+-/
+theorem rankThresholdBottomProjectedExecution_consumableCost_le_topDownCost_bottomCard_of_skeleton_consecutive
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hstate :
+      (E.rankThresholdBottomChargedExecutionSkeleton hE s i0).HasConsecutiveStates) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    Cb.consumableCost <= topDownCost Cb.chargedCount Bcard s := by
+  classical
+  intro Cb Bcard
+  let Ebot := E.rankThresholdBottomChargedExecutionSkeleton hE s i0
+  have hsemantic : Ebot.IsSemanticallyValid :=
+    ⟨E.rankThresholdBottomChargedExecutionSkeleton_hasValidSteps hE s i0, hstate⟩
+  have hbase : Ebot.HasBaseRankAccounting :=
+    ⟨Ebot.hasLegacyBaseRankAccounting_of_semanticallyValid hsemantic,
+      E.rankThresholdBottomChargedExecutionSkeleton_hasRankThresholdPacking hE s i0⟩
+  have hvalid : Ebot.IsValid :=
+    Ebot.isValid_of_semantic_and_rank hsemantic hbase
+  have hcost :
+      Ebot.cost <= topDownCost Cb.chargedCount Bcard s := by
+    simpa [Ebot, Cb, Bcard] using Ebot.cost_le_topDownCost hvalid
+  have hcost_eq :
+      Ebot.cost = Cb.consumableCost := by
+    simpa [Ebot, Cb] using
+      E.rankThresholdBottomChargedExecutionSkeleton_cost_eq_consumableCost hE s i0
+  simpa [hcost_eq] using hcost
 
 /-- Rank-threshold top vertex sets are stable across all execution slots. -/
 theorem rankThresholdDissectionFamily_topFinset_eq_of_slot
