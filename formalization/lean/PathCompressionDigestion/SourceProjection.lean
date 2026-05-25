@@ -3214,6 +3214,209 @@ theorem exists_valid_zero_cost_noop_step
   · simp [S, P, RawCompressionStep.cost, RawCompressionPath.sourceCost,
       RawCompressionPath.IsRootPath, RawRankedForest.IsRoot, hroot]
 
+/-- A step with positive source cost must be a source nonrootpath. -/
+theorem path_isNonrootPath_of_cost_pos
+    (S : RawCompressionStep n r)
+    (hcost : 0 < S.cost) :
+    S.path.IsNonrootPath S.before := by
+  classical
+  by_contra hnonroot
+  have hroot : S.path.IsRootPath S.before := by
+    simpa [RawCompressionPath.IsRootPath, RawCompressionPath.IsNonrootPath,
+      RawRankedForest.IsRoot] using hnonroot
+  have hzero : S.cost = 0 := by
+    simp [RawCompressionStep.cost, RawCompressionPath.sourceCost, hroot]
+  omega
+
+/-- On a source nonrootpath, step cost is the raw edge count. -/
+theorem cost_eq_path_cost_of_nonroot
+    (S : RawCompressionStep n r)
+    (hnonroot : S.path.IsNonrootPath S.before) :
+    S.cost = S.path.cost := by
+  classical
+  have hnotRoot : Not (S.path.IsRootPath S.before) := by
+    simpa [RawCompressionPath.IsRootPath, RawCompressionPath.IsNonrootPath,
+      RawRankedForest.IsRoot] using hnonroot
+  simp [RawCompressionStep.cost, RawCompressionPath.sourceCost, hnotRoot]
+
+/-- The old parent of a charged edge in a source-nonroot step has positive rank. -/
+theorem oldParentRank_pos_of_nonroot_index
+    (S : RawCompressionStep n r)
+    (hS : S.IsValid)
+    (hnonroot : S.path.IsNonrootPath S.before)
+    (q : Fin (n + 1))
+    (hq : q.val + 1 < S.path.len.val) :
+    0 < S.before.rankNat (S.before.parent (S.path.node q)) := by
+  let next : Fin (n + 1) := ⟨q.val + 1, by
+    have hlen_le : S.path.len.val <= n + 1 := Nat.le_of_lt_succ S.path.len.isLt
+    omega⟩
+  have hnext_active : next.val < S.path.len.val := by
+    simp [next]
+    omega
+  have hparent_next :
+      S.before.parent (S.path.node q) = S.path.node next := by
+    exact hS.1.2.2.1 q next (by simp [next]) hnext_active
+  have hq_lt_next : q.val < next.val := by simp [next]
+  have hrank_q_lt_next :
+      S.before.rankNat (S.path.node q) < S.before.rankNat (S.path.node next) :=
+    S.path.rankNat_lt_of_lt_active_of_nonroot hS.1 hnonroot hq_lt_next hnext_active
+  rw [hparent_next]
+  exact lt_of_le_of_lt (Nat.zero_le _) hrank_q_lt_next
+
+/--
+For a charged edge index in a valid source-nonroot step, the rank of the old
+parent fits the legacy base-accounting rank coordinate.
+-/
+theorem oldParentRank_sub_one_lt_of_nonroot_index
+    (S : RawCompressionStep n r)
+    (hS : S.IsValid)
+    (hnonroot : S.path.IsNonrootPath S.before)
+    (q : Fin (n + 1))
+    (hq : q.val + 1 < S.path.len.val) :
+    S.before.rankNat (S.before.parent (S.path.node q)) - 1 < r - 1 := by
+  classical
+  let next : Fin (n + 1) := ⟨q.val + 1, by
+    have hlen_le : S.path.len.val <= n + 1 := Nat.le_of_lt_succ S.path.len.isLt
+    omega⟩
+  have hnext_active : next.val < S.path.len.val := by
+    simp [next]
+    omega
+  have hparent_next :
+      S.before.parent (S.path.node q) = S.path.node next := by
+    exact hS.1.2.2.1 q next (by simp [next]) hnext_active
+  have hq_lt_next : q.val < next.val := by simp [next]
+  have hrank_q_lt_next :
+      S.before.rankNat (S.path.node q) < S.before.rankNat (S.path.node next) :=
+    S.path.rankNat_lt_of_lt_active_of_nonroot hS.1 hnonroot hq_lt_next hnext_active
+  have hold_pos :
+      0 < S.before.rankNat (S.before.parent (S.path.node q)) := by
+    exact S.oldParentRank_pos_of_nonroot_index hS hnonroot q hq
+  have hlen_one : 1 <= S.path.len.val := by omega
+  let last := S.path.lastIndex hlen_one
+  have hlast_active : last.val < S.path.len.val :=
+    S.path.lastIndex_active hlen_one
+  have hnext_le_last : next.val <= last.val := by
+    simp [next, last, RawCompressionPath.lastIndex]
+    omega
+  have hancestor :
+      S.before.IsAncestor (S.path.node next) (S.path.node last) :=
+    S.path.ancestor_of_le_active hS.1.2.2.1 hnext_le_last hlast_active
+  rcases hancestor with ⟨t, ht⟩
+  have hrank_next_le_last :
+      S.before.rankNat (S.path.node next) <= S.before.rankNat (S.path.node last) := by
+    simpa [ht] using S.before.rankNat_le_parentIter hS.1.1 t (S.path.node next)
+  have hlast_target : S.path.node last = S.path.target :=
+    hS.1.2.2.2 last (S.path.lastIndex_succ hlen_one)
+  have hrank_target_lt_parent :
+      S.before.rankNat S.path.target < S.before.rankNat (S.before.parent S.path.target) :=
+    hS.1.1 S.path.target hnonroot
+  have hparent_target_le_r :
+      S.before.rankNat (S.before.parent S.path.target) <= r :=
+    Nat.le_of_lt_succ ((S.before.rank (S.before.parent S.path.target)).isLt)
+  have hold_lt_r :
+      S.before.rankNat (S.before.parent (S.path.node q)) < r := by
+    rw [hparent_next]
+    calc
+      S.before.rankNat (S.path.node next)
+          <= S.before.rankNat (S.path.node last) := hrank_next_le_last
+      _ = S.before.rankNat S.path.target := by rw [hlast_target]
+      _ < S.before.rankNat (S.before.parent S.path.target) := hrank_target_lt_parent
+      _ <= r := hparent_target_le_r
+  omega
+
+/-- A charged edge strictly raises the parent-rank of its lower endpoint. -/
+theorem oldParentRank_lt_after_parentRank_of_nonroot_index
+    (S : RawCompressionStep n r)
+    (hS : S.IsValid)
+    (hnonroot : S.path.IsNonrootPath S.before)
+    (q : Fin (n + 1))
+    (hq : q.val + 1 < S.path.len.val) :
+    S.before.rankNat (S.before.parent (S.path.node q)) <
+      S.after.rankNat (S.after.parent (S.path.node q)) := by
+  classical
+  let next : Fin (n + 1) := ⟨q.val + 1, by
+    have hlen_le : S.path.len.val <= n + 1 := Nat.le_of_lt_succ S.path.len.isLt
+    omega⟩
+  have hnext_active : next.val < S.path.len.val := by
+    simp [next]
+    omega
+  have hparent_next :
+      S.before.parent (S.path.node q) = S.path.node next := by
+    exact hS.1.2.2.1 q next (by simp [next]) hnext_active
+  have hlen_one : 1 <= S.path.len.val := by omega
+  let last := S.path.lastIndex hlen_one
+  have hlast_active : last.val < S.path.len.val :=
+    S.path.lastIndex_active hlen_one
+  have hnext_le_last : next.val <= last.val := by
+    simp [next, last, RawCompressionPath.lastIndex]
+    omega
+  have hancestor :
+      S.before.IsAncestor (S.path.node next) (S.path.node last) :=
+    S.path.ancestor_of_le_active hS.1.2.2.1 hnext_le_last hlast_active
+  rcases hancestor with ⟨t, ht⟩
+  have hrank_next_le_last :
+      S.before.rankNat (S.path.node next) <= S.before.rankNat (S.path.node last) := by
+    simpa [ht] using S.before.rankNat_le_parentIter hS.1.1 t (S.path.node next)
+  have hlast_target : S.path.node last = S.path.target :=
+    hS.1.2.2.2 last (S.path.lastIndex_succ hlen_one)
+  have hrank_target_lt_parent :
+      S.before.rankNat S.path.target < S.before.rankNat (S.before.parent S.path.target) :=
+    hS.1.1 S.path.target hnonroot
+  have hold_lt_new :
+      S.before.rankNat (S.before.parent (S.path.node q)) <
+        S.before.rankNat (S.before.parent S.path.target) := by
+    rw [hparent_next]
+    exact lt_of_le_of_lt
+      (by
+        calc
+          S.before.rankNat (S.path.node next)
+              <= S.before.rankNat (S.path.node last) := hrank_next_le_last
+          _ = S.before.rankNat S.path.target := by rw [hlast_target])
+      hrank_target_lt_parent
+  have hcomp : S.path.IsCompressedVertex (S.path.node q) := by
+    exact ⟨q, hq, rfl⟩
+  have hafter_parent :
+      S.after.parent (S.path.node q) = S.before.parent S.path.target :=
+    hS.2.2.2.2.1 hnonroot (S.path.node q) hcomp
+  have hrank_pres :
+      S.after.rankNat (S.before.parent S.path.target) =
+        S.before.rankNat (S.before.parent S.path.target) := by
+    unfold RawRankedForest.rankNat
+    exact congrArg Fin.val (hS.2.2.1 (S.before.parent S.path.target))
+  simpa [hafter_parent, hrank_pres] using hold_lt_new
+
+/-- Parent ranks never decrease across a valid source step. -/
+theorem parent_rankNat_le_after_parent_rankNat
+    (S : RawCompressionStep n r)
+    (hS : S.IsValid)
+    (v : Fin n) :
+    S.before.rankNat (S.before.parent v) <=
+      S.after.rankNat (S.after.parent v) := by
+  classical
+  by_cases hroot : S.path.IsRootPath S.before
+  · have hparent := hS.2.2.2.1 hroot
+    have hrank_pres :
+        S.after.rankNat (S.before.parent v) =
+          S.before.rankNat (S.before.parent v) := by
+      unfold RawRankedForest.rankNat
+      exact congrArg Fin.val (hS.2.2.1 (S.before.parent v))
+    simpa [hparent, hrank_pres]
+  · have hnonroot : S.path.IsNonrootPath S.before := by
+      simpa [RawCompressionPath.IsRootPath, RawCompressionPath.IsNonrootPath,
+        RawRankedForest.IsRoot] using hroot
+    by_cases hcomp : S.path.IsCompressedVertex v
+    · rcases hcomp with ⟨q, hq, hnode⟩
+      have hstrict :=
+        S.oldParentRank_lt_after_parentRank_of_nonroot_index hS hnonroot q hq
+      simpa [hnode] using le_of_lt hstrict
+    · have hparent := hS.2.2.2.2.2 v hcomp
+      have hrank_pres :
+          S.after.rankNat (S.before.parent v) =
+            S.before.rankNat (S.before.parent v) := by
+        unfold RawRankedForest.rankNat
+        exact congrArg Fin.val (hS.2.2.1 (S.before.parent v))
+      simpa [hparent, hrank_pres]
+
 end RawCompressionStep
 
 namespace RawCompressionExecution
@@ -3271,6 +3474,245 @@ theorem cost_eq_stepCostSum
             apply Finset.sum_congr rfl
             intro i _hi
             exact Fintype.card_fin ((E.step i).cost)
+
+/-- Parent ranks do not decrease across adjacent valid execution slots. -/
+theorem parent_rankNat_le_before_of_adjacent
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    {i j : Fin m}
+    (hij : i.val + 1 = j.val)
+    (v : Fin n) :
+    (E.step i).before.rankNat ((E.step i).before.parent v) <=
+      (E.step j).before.rankNat ((E.step j).before.parent v) := by
+  have hlocal :=
+    (E.step i).parent_rankNat_le_after_parent_rankNat (hsteps i) v
+  have hstate_ij : (E.step i).after = (E.step j).before := hstate i j hij
+  simpa [hstate_ij] using hlocal
+
+/-- Parent ranks do not decrease from an earlier before-state to a later one. -/
+theorem parent_rankNat_le_before_of_le
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    {i j : Fin m}
+    (hij_le : i.val <= j.val)
+    (v : Fin n) :
+    (E.step i).before.rankNat ((E.step i).before.parent v) <=
+      (E.step j).before.rankNat ((E.step j).before.parent v) := by
+  rcases Nat.exists_eq_add_of_le hij_le with ⟨d, hd⟩
+  revert i j
+  induction d with
+  | zero =>
+      intro i j hij_le hd
+      have hvals : i.val = j.val := by omega
+      have hfin : i = j := Fin.ext hvals
+      subst j
+      exact le_rfl
+  | succ d ih =>
+      intro i j hij_le hd
+      let mid : Fin m := ⟨i.val + d, by omega⟩
+      have hi_mid : i.val <= mid.val := by simp [mid]
+      have hmid_eq : mid.val = i.val + d := by rfl
+      have hmid_j : mid.val + 1 = j.val := by
+        simp [mid]
+        omega
+      have hprev :
+          (E.step i).before.rankNat ((E.step i).before.parent v) <=
+            (E.step mid).before.rankNat ((E.step mid).before.parent v) :=
+        ih hi_mid hmid_eq
+      have hnext :
+          (E.step mid).before.rankNat ((E.step mid).before.parent v) <=
+            (E.step j).before.rankNat ((E.step j).before.parent v) :=
+        E.parent_rankNat_le_before_of_adjacent hsteps hstate hmid_j v
+      exact hprev.trans hnext
+
+/--
+After a valid slot, the same vertex's parent rank is bounded by its parent rank
+before any strictly later slot.
+-/
+theorem parent_rankNat_le_later_before_of_lt
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    {i j : Fin m}
+    (hij_lt : i.val < j.val)
+    (v : Fin n) :
+    (E.step i).after.rankNat ((E.step i).after.parent v) <=
+      (E.step j).before.rankNat ((E.step j).before.parent v) := by
+  let next : Fin m := ⟨i.val + 1, by omega⟩
+  have hi_next : i.val + 1 = next.val := rfl
+  have hstate_next : (E.step i).after = (E.step next).before :=
+    hstate i next hi_next
+  have hnext_le_j : next.val <= j.val := by
+    simp [next]
+    omega
+  have hle :
+      (E.step next).before.rankNat ((E.step next).before.parent v) <=
+        (E.step j).before.rankNat ((E.step j).before.parent v) :=
+    E.parent_rankNat_le_before_of_le hsteps hstate hnext_le_j v
+  simpa [hstate_next] using hle
+
+/--
+Semantic source executions carry the legacy base-rank accounting injection.
+
+The charge map sends each source-cost unit to its lower endpoint and the
+rank of that endpoint's old parent, shifted down by one. Same-slot collisions
+are ruled out by strict rank increase along source-nonroot paths; cross-slot
+collisions are ruled out because the charged endpoint's parent rank strictly
+increases at the earlier slot and never decreases afterward.
+-/
+theorem hasLegacyBaseRankAccounting_of_semanticallyValid
+    (E : RawCompressionExecution m n r)
+    (hsem : E.IsSemanticallyValid) :
+    E.HasLegacyBaseRankAccounting := by
+  classical
+  let charge : E.ChargeUnit -> Prod (Fin n) (Fin (r - 1)) := fun u => by
+    let S := E.step u.1
+    have hcost_pos : 0 < S.cost :=
+      lt_of_le_of_lt (Nat.zero_le _) u.2.isLt
+    have hnonroot : S.path.IsNonrootPath S.before :=
+      S.path_isNonrootPath_of_cost_pos hcost_pos
+    have hcost_eq : S.cost = S.path.cost :=
+      S.cost_eq_path_cost_of_nonroot hnonroot
+    let q : Fin (n + 1) := ⟨u.2.val, by
+      have hlen_lt : S.path.len.val < n + 2 := S.path.len.isLt
+      have hu : u.2.val < S.cost := u.2.isLt
+      unfold RawCompressionPath.cost at hcost_eq
+      omega⟩
+    have hq : q.val + 1 < S.path.len.val := by
+      have hu : u.2.val < S.cost := u.2.isLt
+      unfold RawCompressionPath.cost at hcost_eq
+      simp [q]
+      omega
+    exact
+      (S.path.node q,
+        ⟨S.before.rankNat (S.before.parent (S.path.node q)) - 1,
+          S.oldParentRank_sub_one_lt_of_nonroot_index
+            (hsem.1 u.1) hnonroot q hq⟩)
+  refine ⟨charge, ?_⟩
+  intro a b hab
+  rcases a with ⟨i, ai⟩
+  rcases b with ⟨j, bj⟩
+  let Si := E.step i
+  let Sj := E.step j
+  have hai_pos : 0 < Si.cost :=
+    lt_of_le_of_lt (Nat.zero_le _) ai.isLt
+  have hbj_pos : 0 < Sj.cost :=
+    lt_of_le_of_lt (Nat.zero_le _) bj.isLt
+  have hnon_i : Si.path.IsNonrootPath Si.before :=
+    Si.path_isNonrootPath_of_cost_pos hai_pos
+  have hnon_j : Sj.path.IsNonrootPath Sj.before :=
+    Sj.path_isNonrootPath_of_cost_pos hbj_pos
+  have hcost_i : Si.cost = Si.path.cost :=
+    Si.cost_eq_path_cost_of_nonroot hnon_i
+  have hcost_j : Sj.cost = Sj.path.cost :=
+    Sj.cost_eq_path_cost_of_nonroot hnon_j
+  let qi : Fin (n + 1) := ⟨ai.val, by
+    have hlen_lt : Si.path.len.val < n + 2 := Si.path.len.isLt
+    have hai : ai.val < Si.cost := ai.isLt
+    unfold RawCompressionPath.cost at hcost_i
+    omega⟩
+  let qj : Fin (n + 1) := ⟨bj.val, by
+    have hlen_lt : Sj.path.len.val < n + 2 := Sj.path.len.isLt
+    have hbj : bj.val < Sj.cost := bj.isLt
+    unfold RawCompressionPath.cost at hcost_j
+    omega⟩
+  have hqi : qi.val + 1 < Si.path.len.val := by
+    have hai : ai.val < Si.cost := ai.isLt
+    unfold RawCompressionPath.cost at hcost_i
+    simp [qi]
+    omega
+  have hqj : qj.val + 1 < Sj.path.len.val := by
+    have hbj : bj.val < Sj.cost := bj.isLt
+    unfold RawCompressionPath.cost at hcost_j
+    simp [qj]
+    omega
+  have hnode :
+      Si.path.node qi = Sj.path.node qj := by
+    have h := congrArg Prod.fst hab
+    simpa [charge, Si, Sj, qi, qj] using h
+  have hrank_sub :
+      Si.before.rankNat (Si.before.parent (Si.path.node qi)) - 1 =
+        Sj.before.rankNat (Sj.before.parent (Sj.path.node qj)) - 1 := by
+    have h := congrArg (fun p : Prod (Fin n) (Fin (r - 1)) => p.2.val) hab
+    simpa [charge, Si, Sj, qi, qj] using h
+  rcases lt_trichotomy i.val j.val with hij | hij_eq | hji
+  · have hstrict :
+        Si.before.rankNat (Si.before.parent (Si.path.node qi)) <
+          Si.after.rankNat (Si.after.parent (Si.path.node qi)) :=
+      Si.oldParentRank_lt_after_parentRank_of_nonroot_index
+        (hsem.1 i) hnon_i qi hqi
+    have hmono :
+        Si.after.rankNat (Si.after.parent (Si.path.node qi)) <=
+          Sj.before.rankNat (Sj.before.parent (Sj.path.node qj)) := by
+      have hraw :=
+        E.parent_rankNat_le_later_before_of_lt hsem.1 hsem.2 hij
+          (Si.path.node qi)
+      simpa [Si, Sj, hnode] using hraw
+    have hlt :
+        Si.before.rankNat (Si.before.parent (Si.path.node qi)) <
+          Sj.before.rankNat (Sj.before.parent (Sj.path.node qj)) :=
+      hstrict.trans_le hmono
+    have hpos_i :
+        0 < Si.before.rankNat (Si.before.parent (Si.path.node qi)) :=
+      Si.oldParentRank_pos_of_nonroot_index (hsem.1 i) hnon_i qi hqi
+    have hpos_j :
+        0 < Sj.before.rankNat (Sj.before.parent (Sj.path.node qj)) :=
+      Sj.oldParentRank_pos_of_nonroot_index (hsem.1 j) hnon_j qj hqj
+    omega
+  · have hfin : i = j := Fin.ext hij_eq
+    subst j
+    rcases lt_trichotomy ai.val bj.val with hab_lt | hab_eq | hba_lt
+    · have hq_lt : qi.val < qj.val := by
+        simpa [qi, qj] using hab_lt
+      have hqj_active : qj.val < Si.path.len.val := by
+        have htmp : qj.val < Sj.path.len.val := by omega
+        simpa [Si, Sj] using htmp
+      have hne :
+          Si.path.node qi ≠ Si.path.node qj :=
+        Si.path.node_ne_of_lt_active_of_nonroot
+          (hsem.1 i).1 hnon_i hq_lt hqj_active
+      exact False.elim (hne (by simpa [Sj] using hnode))
+    · have hfin_ai : ai = bj := Fin.ext hab_eq
+      subst bj
+      rfl
+    · have hq_lt : qj.val < qi.val := by
+        simpa [qi, qj] using hba_lt
+      have hqi_active : qi.val < Si.path.len.val := by
+        have htmp : qi.val < Si.path.len.val := by omega
+        simpa using htmp
+      have hne :
+          Si.path.node qj ≠ Si.path.node qi :=
+        Si.path.node_ne_of_lt_active_of_nonroot
+          (hsem.1 i).1 hnon_i hq_lt hqi_active
+      exact False.elim (hne (by simpa [Sj] using hnode.symm))
+  · have hstrict :
+        Sj.before.rankNat (Sj.before.parent (Sj.path.node qj)) <
+          Sj.after.rankNat (Sj.after.parent (Sj.path.node qj)) :=
+      Sj.oldParentRank_lt_after_parentRank_of_nonroot_index
+        (hsem.1 j) hnon_j qj hqj
+    have hmono :
+        Sj.after.rankNat (Sj.after.parent (Sj.path.node qj)) <=
+          Si.before.rankNat (Si.before.parent (Si.path.node qi)) := by
+      have hraw :=
+        E.parent_rankNat_le_later_before_of_lt hsem.1 hsem.2 hji
+          (Sj.path.node qj)
+      simpa [Si, Sj, hnode] using hraw
+    have hlt :
+        Sj.before.rankNat (Sj.before.parent (Sj.path.node qj)) <
+          Si.before.rankNat (Si.before.parent (Si.path.node qi)) :=
+      hstrict.trans_le hmono
+    have hpos_i :
+        0 < Si.before.rankNat (Si.before.parent (Si.path.node qi)) :=
+      Si.oldParentRank_pos_of_nonroot_index (hsem.1 i) hnon_i qi hqi
+    have hpos_j :
+        0 < Sj.before.rankNat (Sj.before.parent (Sj.path.node qj)) :=
+      Sj.oldParentRank_pos_of_nonroot_index (hsem.1 j) hnon_j qj hqj
+    omega
 
 /-- Over one vertex every raw execution has zero cost. -/
 theorem cost_eq_zero_of_one_vertex
@@ -6560,6 +7002,36 @@ theorem rankThresholdTopChargedPaddedExecution_isSemanticallyValid
   ⟨E.rankThresholdTopChargedPaddedExecution_hasValidSteps hE s,
     E.rankThresholdTopChargedPaddedExecution_hasConsecutiveStates hE s⟩
 
+/-- The charged padded execution satisfies the legacy base-charge injection. -/
+theorem rankThresholdTopChargedPaddedExecution_hasLegacyBaseRankAccounting
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.rankThresholdTopChargedPaddedExecution hE s).HasLegacyBaseRankAccounting := by
+  exact
+    (E.rankThresholdTopChargedPaddedExecution hE s)
+      |>.hasLegacyBaseRankAccounting_of_semanticallyValid
+        (E.rankThresholdTopChargedPaddedExecution_isSemanticallyValid hE s)
+
+/-- The charged padded execution has the full base/rank accounting certificate. -/
+theorem rankThresholdTopChargedPaddedExecution_hasBaseRankAccounting
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.rankThresholdTopChargedPaddedExecution hE s).HasBaseRankAccounting :=
+  ⟨E.rankThresholdTopChargedPaddedExecution_hasLegacyBaseRankAccounting hE s,
+    E.rankThresholdTopChargedPaddedExecution_hasRankThresholdPacking hE s⟩
+
+/-- The charged padded execution is a fully valid ordinary source execution. -/
+theorem rankThresholdTopChargedPaddedExecution_isValid
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.rankThresholdTopChargedPaddedExecution hE s).IsValid :=
+  (E.rankThresholdTopChargedPaddedExecution hE s).isValid_of_semantic_and_rank
+    (E.rankThresholdTopChargedPaddedExecution_isSemanticallyValid hE s)
+    (E.rankThresholdTopChargedPaddedExecution_hasBaseRankAccounting hE s)
+
 /-- Cost of a chosen charged padded slot matches the projected charged slot. -/
 theorem rankThresholdTopChargedPaddedExecution_step_cost_eq
     (E : RawCompressionExecution m n r)
@@ -6606,6 +7078,37 @@ theorem rankThresholdTopProjectedExecution_consumableCost_le_paddedChargedExecut
       (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
       (E.rankThresholdTopChargedPaddedExecution hE s).cost := by
   rw [E.rankThresholdTopChargedPaddedExecution_cost_eq_consumableCost hE s]
+
+/-- The assembled charged padded execution consumes the top side by `topDownCost`. -/
+theorem rankThresholdTopProjectedExecution_consumableCost_le_topDownCost_topBudget
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    let Ct :=
+      E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    Ct.consumableCost <=
+      topDownCost Ct.chargedCount
+        (RankThresholdDissection.topRestrictedBudget (n := n) s)
+        (r - s - 1) := by
+  classical
+  let Ct :=
+    E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Etop := E.rankThresholdTopChargedPaddedExecution hE s
+  have hcost_eq :
+      Etop.cost = Ct.consumableCost := by
+    simpa [Etop, Ct] using
+      E.rankThresholdTopChargedPaddedExecution_cost_eq_consumableCost hE s
+  have htop :
+      Etop.cost <=
+        topDownCost Ct.chargedCount
+          (RankThresholdDissection.topRestrictedBudget (n := n) s)
+          (r - s - 1) := by
+    simpa [Etop, Ct] using
+      Etop.cost_le_topDownCost
+        (E.rankThresholdTopChargedPaddedExecution_isValid hE s)
+  simpa [hcost_eq] using htop
 
 /-- Empty rank-threshold top side forces zero top consumable cost. -/
 theorem rankThresholdTopProjectedExecution_consumableCost_eq_zero_of_topFinset_card_eq_zero
@@ -8394,6 +8897,30 @@ theorem rankThreshold_top_consumableCost_le_JInput_topBudget_of_topDownCost
               (JInput k).g (r - s - 1) :=
       hprev hcharged_pos hbudget_pos
     exact htopCost.trans hsource
+
+/--
+The assembled charged padded top execution supplies the budgeted `JInput`
+top-consumable bound directly.
+-/
+theorem rankThreshold_top_consumableCost_le_JInput_topBudget
+    (k : Nat)
+    (hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    let Ct :=
+      E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    Ct.consumableCost <=
+      k * Ct.chargedCount +
+        2 * RankThresholdDissection.topRestrictedBudget (n := n) s *
+          (JInput k).g (r - s - 1) := by
+  exact
+    E.rankThreshold_top_consumableCost_le_JInput_topBudget_of_topDownCost
+      k hprev hE s i0
+      (E.rankThresholdTopProjectedExecution_consumableCost_le_topDownCost_topBudget
+        hE s)
 
 /--
 The recurrence-consumption package is strong enough to feed the concrete
