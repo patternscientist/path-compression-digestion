@@ -2803,6 +2803,144 @@ theorem topProjectedStep_afterParent_eq_beforeParent_of_cost_eq_zero
       omega
     · exact hS.2.2.2.2.2 v.1 hcomp
 
+/--
+A bottom projected step with no source-relevant boundary event leaves the bottom
+restricted parent map unchanged.  The only compressed bottom vertex that can
+remain when there is no lower bottom-prefix edge is the last bottom vertex
+before a nonempty top suffix; both before and after bottom parents are then
+truncated to the vertex itself.
+-/
+theorem bottomProjectedStep_afterParent_eq_beforeParent_of_no_sourceBoundary
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut)
+    (hnotBoundary :
+      Not (S.path.IsNonrootPath S.before /\
+        Exists fun q : Fin (n + 1) => q.val + 1 < cut)) :
+    (S.bottomProjectedStep D hS cut hcut).afterParent =
+      (S.bottomProjectedStep D hS cut hcut).beforeParent := by
+  funext v
+  apply Subtype.ext
+  change (S.afterBottomParent D hS v).1 = (D.bottomParent v).1
+  classical
+  by_cases hroot : S.path.IsRootPath S.before
+  · have hparent_eq :
+        S.after.parent v.1 = S.before.parent v.1 := by
+      exact congrFun (hS.2.2.2.1 hroot) v.1
+    by_cases hb : D.IsBottom (S.before.parent v.1)
+    · have hb_after : D.IsBottom (S.after.parent v.1) := by
+        simpa [hparent_eq] using hb
+      have hleft :
+          (S.afterBottomParent D hS v).1 = S.after.parent v.1 :=
+        S.afterBottomParent_val_of_parent_bottom D hS v hb_after
+      have hright :
+          (D.bottomParent v).1 = S.before.parent v.1 :=
+        D.bottomParent_val_of_parent_bottom v hb
+      rw [hleft, hright, hparent_eq]
+    · have ht : D.IsTop (S.before.parent v.1) := by
+        unfold RawDissection.IsBottom at hb
+        exact Decidable.not_not.mp hb
+      have ht_after : D.IsTop (S.after.parent v.1) := by
+        simpa [hparent_eq] using ht
+      have hleft :
+          (S.afterBottomParent D hS v).1 = v.1 :=
+        S.afterBottomParent_val_of_parent_top D hS v ht_after
+      have hright :
+          (D.bottomParent v).1 = v.1 :=
+        D.bottomParent_val_of_parent_top v ht
+      rw [hleft, hright]
+  · have hnonroot : S.path.IsNonrootPath S.before := by
+      simpa [RawCompressionPath.IsRootPath, RawCompressionPath.IsNonrootPath,
+        RawRankedForest.IsRoot] using hroot
+    by_cases hcomp : S.path.IsCompressedVertex v.1
+    · rcases hcomp with ⟨q, hq, hqnode⟩
+      have hq_active : q.val < S.path.len.val := by omega
+      by_cases hq_boundary : q.val + 1 < cut
+      · exact False.elim (hnotBoundary ⟨hnonroot, ⟨q, hq_boundary⟩⟩)
+      · have hq_succ_ge_cut : cut <= q.val + 1 := Nat.le_of_not_gt hq_boundary
+        by_cases hq_lt_cut : q.val < cut
+        · have hq_succ_eq_cut : q.val + 1 = cut := by omega
+          have hcut_lt_len : cut < S.path.len.val := by omega
+          let qnext : Fin (n + 1) := ⟨q.val + 1, by
+            have hlen_le : S.path.len.val <= n + 1 :=
+              Nat.le_of_lt_succ S.path.len.isLt
+            omega⟩
+          have hqnext_active : qnext.val < S.path.len.val := by
+            simp [qnext]
+            omega
+          have hqnext_cut : cut <= qnext.val := by
+            simp [qnext, hq_succ_eq_cut]
+          have hqnext_top : D.IsTop (S.path.node qnext) :=
+            hcut.2.2 qnext hqnext_active hqnext_cut
+          have hparent_eq_next :
+              S.before.parent (S.path.node q) = S.path.node qnext :=
+            hS.1.2.2.1 q qnext (by simp [qnext]) hqnext_active
+          have hbefore_top : D.IsTop (S.before.parent v.1) := by
+            rw [← hqnode, hparent_eq_next]
+            exact hqnext_top
+          have hright :
+              (D.bottomParent v).1 = v.1 :=
+            D.bottomParent_val_of_parent_top v hbefore_top
+          have hlen_one : 1 <= S.path.len.val :=
+            Nat.le_trans (by norm_num : 1 <= 2) hS.1.2.1
+          let last := S.path.lastIndex hlen_one
+          have hlast_active : last.val < S.path.len.val :=
+            S.path.lastIndex_active hlen_one
+          have hcut_last : cut <= last.val := by
+            simp [last, RawCompressionPath.lastIndex]
+            omega
+          have hlast_top : D.IsTop (S.path.node last) :=
+            hcut.2.2 last hlast_active hcut_last
+          have hlast_target : S.path.node last = S.path.target :=
+            hS.1.2.2.2 last (S.path.lastIndex_succ hlen_one)
+          have htarget_top : D.IsTop S.path.target := by
+            simpa [hlast_target] using hlast_top
+          have htarget_parent_top :
+              D.IsTop (S.before.parent S.path.target) :=
+            D.parent_top htarget_top
+          have hafter_parent_eq :
+              S.after.parent v.1 = S.before.parent S.path.target := by
+            exact hS.2.2.2.2.1 hnonroot v.1 ⟨q, hq, hqnode⟩
+          have hafter_top : D.IsTop (S.after.parent v.1) := by
+            rw [hafter_parent_eq]
+            exact htarget_parent_top
+          have hleft :
+              (S.afterBottomParent D hS v).1 = v.1 :=
+            S.afterBottomParent_val_of_parent_top D hS v hafter_top
+          rw [hleft, hright]
+        · have hq_ge_cut : cut <= q.val := Nat.le_of_not_gt hq_lt_cut
+          have hq_top : D.IsTop (S.path.node q) :=
+            hcut.2.2 q hq_active hq_ge_cut
+          rw [hqnode] at hq_top
+          exact False.elim (v.2 hq_top)
+    · have hparent_eq :
+        S.after.parent v.1 = S.before.parent v.1 :=
+        hS.2.2.2.2.2 v.1 hcomp
+      by_cases hb : D.IsBottom (S.before.parent v.1)
+      · have hb_after : D.IsBottom (S.after.parent v.1) := by
+          simpa [hparent_eq] using hb
+        have hleft :
+            (S.afterBottomParent D hS v).1 = S.after.parent v.1 :=
+          S.afterBottomParent_val_of_parent_bottom D hS v hb_after
+        have hright :
+            (D.bottomParent v).1 = S.before.parent v.1 :=
+          D.bottomParent_val_of_parent_bottom v hb
+        rw [hleft, hright, hparent_eq]
+      · have ht : D.IsTop (S.before.parent v.1) := by
+          unfold RawDissection.IsBottom at hb
+          exact Decidable.not_not.mp hb
+        have ht_after : D.IsTop (S.after.parent v.1) := by
+          simpa [hparent_eq] using ht
+        have hleft :
+            (S.afterBottomParent D hS v).1 = v.1 :=
+          S.afterBottomParent_val_of_parent_top D hS v ht_after
+        have hright :
+            (D.bottomParent v).1 = v.1 :=
+          D.bottomParent_val_of_parent_top v ht
+        rw [hleft, hright]
+
 /-- If the top side is empty, the top projected step has no consumable cost. -/
 theorem topProjectedStep_consumableCost_eq_zero_of_topFinset_card_eq_zero
     (S : RawCompressionStep n r)
@@ -7550,6 +7688,205 @@ theorem rankThresholdBottomRelevantSlot_of_boundaryException
   exact Or.inr hboundary
 
 /--
+Every source-relevant bottom boundary exception is genuinely state-changing
+for the bottom projected parent map: the lower endpoint of any exceptional
+bottom-prefix edge becomes a restricted root after the source step, while it
+had a bottom parent before the step.
+-/
+theorem rankThresholdBottomBoundaryExceptionSlot_changes_projected_parent
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hboundary : E.rankThresholdBottomBoundaryExceptionSlot hE s i) :
+    Exists fun v :
+        (E.rankThresholdDissectionFamily hE.1 s i).BottomNode =>
+      ((E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).afterParent v ≠
+      ((E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).beforeParent v := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  change Exists fun v : (Dfam i).BottomNode =>
+    ((E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+      (cut i) (hcut i)).afterParent v ≠
+    ((E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+      (cut i) (hcut i)).beforeParent v
+  rcases hboundary with ⟨hnonroot, hnotCharged, ⟨q, hq⟩⟩
+  change Not ((E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+    (cut i) (hcut i)).IsCharged at hnotCharged
+  change q.val + 1 < cut i at hq
+  have hcut_le : cut i <= (E.step i).path.len.val := (hcut i).1
+  have hq_active : q.val < (E.step i).path.len.val := by
+    omega
+  have hq_cut : q.val < cut i := by
+    omega
+  have hq_bottom :
+      (Dfam i).IsBottom ((E.step i).path.node q) :=
+    (hcut i).2.1 q hq_active hq_cut
+  let qnext : Fin (n + 1) := ⟨q.val + 1, by
+    have hlen_le : (E.step i).path.len.val <= n + 1 :=
+      Nat.le_of_lt_succ (E.step i).path.len.isLt
+    omega⟩
+  have hqnext_active : qnext.val < (E.step i).path.len.val := by
+    simp [qnext]
+    omega
+  have hqnext_cut : qnext.val < cut i := by
+    simpa [qnext] using hq
+  have hqnext_bottom :
+      (Dfam i).IsBottom ((E.step i).path.node qnext) :=
+    (hcut i).2.1 qnext hqnext_active hqnext_cut
+  have hparent_eq :
+      (E.step i).before.parent ((E.step i).path.node q) =
+        (E.step i).path.node qnext := by
+    exact (hE.1 i).1.2.2.1 q qnext (by simp [qnext]) hqnext_active
+  let v : (Dfam i).BottomNode := ⟨(E.step i).path.node q, hq_bottom⟩
+  have hbefore_parent_bottom :
+      (Dfam i).IsBottom ((E.step i).before.parent v.1) := by
+    simpa [v, hparent_eq] using hqnext_bottom
+  have hbefore_val :
+      ((Dfam i).bottomParent v).1 = (E.step i).path.node qnext := by
+    have hval :=
+      (Dfam i).bottomParent_val_of_parent_bottom v hbefore_parent_bottom
+    simpa [v, hparent_eq] using hval
+  have hafter_top :
+      (Dfam i).IsTop
+        ((E.step i).after.parent ((E.step i).path.node q)) :=
+    (E.step i).sourceRelevantBottomException_after_parent_top_of_index
+      (Dfam i) (hE.1 i) (cut i) (hcut i)
+      hnonroot hnotCharged q hq
+  have hafter_val :
+      ((E.step i).afterBottomParent (Dfam i) (hE.1 i) v).1 =
+        (E.step i).path.node q := by
+    have hval :=
+      (E.step i).afterBottomParent_val_of_parent_top
+        (Dfam i) (hE.1 i) v (by simpa [v] using hafter_top)
+    simpa [v] using hval
+  have hq_lt_qnext : q.val < qnext.val := by
+    simp [qnext]
+  have hnodes_ne :
+      (E.step i).path.node q ≠ (E.step i).path.node qnext :=
+    (E.step i).path.node_ne_of_lt_active_of_nonroot
+      (hE.1 i).1 hnonroot hq_lt_qnext hqnext_active
+  refine ⟨v, ?_⟩
+  intro heq
+  have hval_eq :
+      ((E.step i).afterBottomParent (Dfam i) (hE.1 i) v).1 =
+        ((Dfam i).bottomParent v).1 := by
+    simpa [RawCompressionStep.bottomProjectedStep] using
+      congrArg Subtype.val heq
+  rw [hafter_val, hbefore_val] at hval_eq
+  exact hnodes_ne hval_eq
+
+/--
+Boundary-exception bottom projected slots are positive-cost root-like projected
+steps, but not no-ops on the restricted parent map.  This is the local shape
+that blocks charged-only no-op padding: ordinary recurrence consumption must
+either account for these projected root-like state changes directly, or use a
+different realization mechanism.
+-/
+theorem rankThresholdBottomBoundaryExceptionSlot_rootLike_pos_not_noop
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hboundary : E.rankThresholdBottomBoundaryExceptionSlot hE s i) :
+    let B :=
+      (E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)
+    B.IsRootLike /\ 0 < B.cost /\ B.afterParent ≠ B.beforeParent := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  let B := (E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+    (cut i) (hcut i)
+  change B.IsRootLike /\ 0 < B.cost /\ B.afterParent ≠ B.beforeParent
+  have hboundary' := hboundary
+  rcases hboundary with ⟨_hnonroot, hnotCharged, ⟨q, hq⟩⟩
+  change Not B.IsCharged at hnotCharged
+  change q.val + 1 < cut i at hq
+  have hroot : B.IsRootLike := (B.not_charged_iff_rootLike).1 hnotCharged
+  have hcost_eq : B.cost = cut i - 1 := by
+    change ((E.step i).path.bottomProjectionSegment
+      (Dfam i) (hE.1 i).1.2.2.1 (cut i) (hcut i)).edgeCost =
+        cut i - 1
+    unfold RawCompressionPath.ProjectedPathSegment.edgeCost
+    rw [RawCompressionPath.bottomProjectionSegment_len]
+    simp [RawCompressionPath.bottomProjectionLength]
+  have hpos : 0 < B.cost := by
+    rw [hcost_eq]
+    omega
+  have hchange :
+      Exists fun v : (Dfam i).BottomNode =>
+        B.afterParent v ≠ B.beforeParent v := by
+    simpa [B, Dfam, cut, hcut] using
+      E.rankThresholdBottomBoundaryExceptionSlot_changes_projected_parent
+        hE s i hboundary'
+  have hnot_noop : B.afterParent ≠ B.beforeParent := by
+    intro heq
+    rcases hchange with ⟨v, hv⟩
+    exact hv (congrFun heq v)
+  exact ⟨hroot, hpos, hnot_noop⟩
+
+/--
+On a source-relevant bottom boundary-exception slot, the projected root-like
+state-changing cost is exactly the local exceptional cost that participates in
+the existing boundary-card accounting.
+-/
+theorem rankThresholdBottomBoundaryExceptionSlot_cost_eq_sourceRelevant
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hboundary : E.rankThresholdBottomBoundaryExceptionSlot hE s i) :
+    let Dfam := E.rankThresholdDissectionFamily hE.1 s
+    let B := (E.step i).bottomProjectedStep
+      (Dfam i) (hE.1 i)
+      (E.dissectionCut hE.1 Dfam i)
+      (E.dissectionCut_spec hE.1 Dfam i)
+    B.cost =
+      (E.step i).sourceRelevantBottomExceptionalCost
+        (Dfam i) (hE.1 i)
+        (E.dissectionCut hE.1 Dfam i)
+        (E.dissectionCut_spec hE.1 Dfam i) := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  let B := (E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+    (cut i) (hcut i)
+  change B.cost =
+    (E.step i).sourceRelevantBottomExceptionalCost
+      (Dfam i) (hE.1 i) (cut i) (hcut i)
+  rcases hboundary with ⟨hnonroot, hnotCharged, _hedge⟩
+  change Not B.IsCharged at hnotCharged
+  have hsrc_exception :
+      (E.step i).sourceRelevantBottomExceptionalCost
+          (Dfam i) (hE.1 i) (cut i) (hcut i) =
+        B.exceptionalCost := by
+    simpa [B, Dfam, cut, hcut] using
+      (E.step i).sourceRelevantBottomExceptionalCost_eq_exceptional_of_nonroot
+        (Dfam i) (hE.1 i) (cut i) (hcut i) hnonroot
+  have hexception : B.exceptionalCost = B.cost :=
+    B.exceptionalCost_eq_cost_of_not_charged hnotCharged
+  exact (hsrc_exception.trans hexception).symm
+
+/--
 There are no boundary-inclusive relevant slots strictly between adjacent
 entries of the relevant-slot enumeration.
 -/
@@ -7608,6 +7945,46 @@ theorem not_rankThresholdBottomRelevantSlot_of_between_relevantSlotEnum_succ
       omega
   omega
 
+/--
+Slots omitted by the boundary-inclusive bottom relevant-slot enumeration are
+literal no-ops on the bottom restricted parent map.  This is the local
+commutation fact needed to skip non-relevant slots between consecutive relevant
+bottom slots.
+-/
+theorem rankThresholdBottomProjectedStep_afterParent_eq_beforeParent_of_not_relevant
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hnot : Not (E.rankThresholdBottomRelevantSlot hE s i)) :
+    ((E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).step i).afterParent =
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).step i).beforeParent := by
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  have hnotBoundary :
+      Not ((E.step i).path.IsNonrootPath (E.step i).before /\
+        Exists fun q : Fin (n + 1) => q.val + 1 < cut i) := by
+    intro hb
+    have hnotCharged :
+        Not ((E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+          (cut i) (hcut i)).IsCharged := by
+      intro hcharged
+      apply hnot
+      exact Or.inl (by
+        simpa [Dfam, cut, hcut, canonicalBottomProjectedExecution,
+          bottomProjectedExecution] using hcharged)
+    apply hnot
+    exact Or.inr ⟨hb.1, by
+      simpa [Dfam, cut, hcut] using hnotCharged, hb.2⟩
+  have hlocal :=
+    (E.step i).bottomProjectedStep_afterParent_eq_beforeParent_of_no_sourceBoundary
+      (Dfam i) (hE.1 i) (cut i) (hcut i) hnotBoundary
+  simpa [Dfam, cut, hcut, canonicalBottomProjectedExecution,
+    bottomProjectedExecution] using hlocal
+
 /-- Rank-threshold top vertex sets are stable across all execution slots. -/
 theorem rankThresholdDissectionFamily_topFinset_eq_of_slot
     (E : RawCompressionExecution m n r)
@@ -7638,6 +8015,271 @@ theorem rankThresholdDissectionFamily_topStable_of_slot
   simp only [RankThresholdDissection.dissection_isTop]
   rw [E.rankThresholdDissectionFamily_rankNat_eq_of_slot
     hsteps hstate i0 i v]
+
+/-- Rank-threshold bottom-side predicates are stable across all execution slots. -/
+theorem rankThresholdDissectionFamily_bottomStable_of_slot
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (s : Nat)
+    (i0 i : Fin m)
+    (v : Fin n) :
+    Iff ((E.rankThresholdDissectionFamily hsteps s i0).IsBottom v)
+      ((E.rankThresholdDissectionFamily hsteps s i).IsBottom v) := by
+  exact (E.rankThresholdDissectionFamily hsteps s i0).bottomIffOfTopIff
+    (E.rankThresholdDissectionFamily hsteps s i)
+    (E.rankThresholdDissectionFamily_topStable_of_slot hsteps hstate s i0 i) v
+
+/--
+If all slots strictly between `i` and `j` are omitted by the
+boundary-inclusive bottom relevant-slot predicate, then the bottom projected
+parent map after slot `i` agrees with the bottom projected parent map before
+slot `j`, after the canonical stable bottom-side identification.
+-/
+theorem rankThresholdBottomProjectedStep_after_commutes_with_later_before_of_not_relevant_between
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    {i j : Fin m}
+    (hij : i.val < j.val)
+    (hskip :
+      forall k : Fin m, i.val < k.val -> k.val < j.val ->
+        Not (E.rankThresholdBottomRelevantSlot hE s k)) :
+    ((E.step i).bottomProjectedStep
+      (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+      (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+      (E.dissectionCut_spec hE.1
+        (E.rankThresholdDissectionFamily hE.1 s) i)).ParentCommutesWithEquiv
+      ((E.step j).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s j) (hE.1 j)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) j)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) j))
+      ((E.rankThresholdDissectionFamily hE.1 s i).bottomEquivOfBottomIff
+        (E.rankThresholdDissectionFamily hE.1 s j)
+        (E.rankThresholdDissectionFamily_bottomStable_of_slot
+          hE.1 hE.2.1 s i j)) := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  let Si :=
+    (E.step i).bottomProjectedStep (Dfam i) (hE.1 i) (cut i) (hcut i)
+  intro v
+  let base := i.val + 1
+  have hbase_le_j : base <= j.val := by
+    simpa [base] using Nat.succ_le_of_lt hij
+  have hbase_lt_m : base < m := by omega
+  have hmain :
+      forall d : Nat, forall hle : base + d <= j.val, forall curr : Fin m,
+        curr.val = base + d ->
+        ((Dfam i).bottomEquivOfBottomIff (Dfam curr)
+          (E.rankThresholdDissectionFamily_bottomStable_of_slot
+            hE.1 hE.2.1 s i curr)) (Si.afterParent v) =
+          ((E.step curr).bottomProjectedStep
+            (Dfam curr) (hE.1 curr) (cut curr) (hcut curr)).beforeParent
+            (((Dfam i).bottomEquivOfBottomIff (Dfam curr)
+              (E.rankThresholdDissectionFamily_bottomStable_of_slot
+                hE.1 hE.2.1 s i curr)) v) := by
+    intro d
+    induction d with
+    | zero =>
+        intro _hle curr hcurr
+        let next : Fin m := ⟨base, hbase_lt_m⟩
+        have hcurr_eq : curr = next := by
+          apply Fin.ext
+          simpa [next] using hcurr
+        subst curr
+        have hcomm :
+            Si.ParentCommutesWithEquiv
+              ((E.step next).bottomProjectedStep
+                (Dfam next) (hE.1 next) (cut next) (hcut next))
+              ((Dfam i).bottomEquivOfBottomIff (Dfam next)
+                (E.rankThresholdDissectionFamily_bottomStable_of_slot
+                  hE.1 hE.2.1 s i next)) := by
+          simpa [Si, Dfam, cut, hcut, next, base] using
+            (E.step i).bottomProjectedStep_after_commutes_with_next_before
+              (E.step next) (Dfam i) (Dfam next) (hE.1 i) (hE.1 next)
+              (hE.2.1 i next (by simp [next, base]))
+              (E.rankThresholdDissectionFamily_bottomStable_of_slot
+                hE.1 hE.2.1 s i next)
+              (cut i) (cut next) (hcut i) (hcut next)
+        simpa [next, base] using hcomm v
+    | succ d ih =>
+        intro hle curr hcurr
+        let prev : Fin m := ⟨base + d, by omega⟩
+        have hprev_le : base + d <= j.val := by omega
+        have hprev_lt_j : prev.val < j.val := by
+          simp [prev] at hle ⊢
+          omega
+        have hi_lt_prev : i.val < prev.val := by
+          simp [prev, base]
+          omega
+        have hnot_prev :
+            Not (E.rankThresholdBottomRelevantSlot hE s prev) :=
+          hskip prev hi_lt_prev hprev_lt_j
+        let e_i_prev :=
+          (Dfam i).bottomEquivOfBottomIff (Dfam prev)
+            (E.rankThresholdDissectionFamily_bottomStable_of_slot
+              hE.1 hE.2.1 s i prev)
+        let e_prev_curr :=
+          (Dfam prev).bottomEquivOfBottomIff (Dfam curr)
+            (E.rankThresholdDissectionFamily_bottomStable_of_slot
+              hE.1 hE.2.1 s prev curr)
+        let e_i_curr :=
+          (Dfam i).bottomEquivOfBottomIff (Dfam curr)
+            (E.rankThresholdDissectionFamily_bottomStable_of_slot
+              hE.1 hE.2.1 s i curr)
+        let Sprev :=
+          (E.step prev).bottomProjectedStep
+            (Dfam prev) (hE.1 prev) (cut prev) (hcut prev)
+        let Scurr :=
+          (E.step curr).bottomProjectedStep
+            (Dfam curr) (hE.1 curr) (cut curr) (hcut curr)
+        have hpersist :
+            e_i_prev (Si.afterParent v) = Sprev.beforeParent (e_i_prev v) := by
+          simpa [prev, e_i_prev, Sprev] using ih hprev_le prev (by simp [prev])
+        have hnoop :
+            Sprev.afterParent (e_i_prev v) = Sprev.beforeParent (e_i_prev v) := by
+          have hfun :=
+            congrFun
+              (E.rankThresholdBottomProjectedStep_afterParent_eq_beforeParent_of_not_relevant
+                hE s prev hnot_prev) (e_i_prev v)
+          simpa [Sprev, Dfam, cut, hcut, canonicalBottomProjectedExecution,
+            bottomProjectedExecution] using hfun
+        have hcomm :
+            Sprev.ParentCommutesWithEquiv Scurr e_prev_curr := by
+          simpa [Sprev, Scurr, e_prev_curr, Dfam, cut, hcut, prev, base] using
+            (E.step prev).bottomProjectedStep_after_commutes_with_next_before
+              (E.step curr) (Dfam prev) (Dfam curr) (hE.1 prev) (hE.1 curr)
+              (hE.2.1 prev curr (by simp [prev, base]; omega))
+              (E.rankThresholdDissectionFamily_bottomStable_of_slot
+                hE.1 hE.2.1 s prev curr)
+              (cut prev) (cut curr) (hcut prev) (hcut curr)
+        have hcomp_after :
+            e_i_curr (Si.afterParent v) =
+              e_prev_curr (e_i_prev (Si.afterParent v)) := by
+          apply Subtype.ext
+          rfl
+        have hcomp_v :
+            e_prev_curr (e_i_prev v) = e_i_curr v := by
+          apply Subtype.ext
+          rfl
+        calc
+          e_i_curr (Si.afterParent v)
+              = e_prev_curr (e_i_prev (Si.afterParent v)) := hcomp_after
+          _ = e_prev_curr (Sprev.beforeParent (e_i_prev v)) := by
+                rw [hpersist]
+          _ = e_prev_curr (Sprev.afterParent (e_i_prev v)) := by
+                rw [hnoop]
+          _ = Scurr.beforeParent (e_prev_curr (e_i_prev v)) := hcomm (e_i_prev v)
+          _ = Scurr.beforeParent (e_i_curr v) := by
+                rw [hcomp_v]
+  have hfinal := hmain (j.val - base) (by omega) j
+    (by simp [base, Nat.add_sub_of_le hbase_le_j])
+  simpa [Si, Dfam, cut, hcut] using hfinal
+
+/--
+Adjacent entries of the boundary-inclusive bottom relevant-slot enumeration
+have consecutive projected states after skipping the intervening non-relevant
+bottom slots.
+-/
+theorem rankThresholdBottomRelevantSlot_after_commutes_with_next
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    {q q' : Fin (E.rankThresholdBottomRelevantCount hE s)}
+    (hqq' : q.val + 1 = q'.val) :
+    let Dfam := E.rankThresholdDissectionFamily hE.1 s
+    let i := E.rankThresholdBottomRelevantSlotEnum hE s q
+    let j := E.rankThresholdBottomRelevantSlotEnum hE s q'
+    ((E.step i).bottomProjectedStep
+      (Dfam i) (hE.1 i)
+      (E.dissectionCut hE.1 Dfam i)
+      (E.dissectionCut_spec hE.1 Dfam i)).ParentCommutesWithEquiv
+      ((E.step j).bottomProjectedStep
+        (Dfam j) (hE.1 j)
+        (E.dissectionCut hE.1 Dfam j)
+        (E.dissectionCut_spec hE.1 Dfam j))
+      ((Dfam i).bottomEquivOfBottomIff (Dfam j)
+        (E.rankThresholdDissectionFamily_bottomStable_of_slot
+          hE.1 hE.2.1 s i j)) := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let i := E.rankThresholdBottomRelevantSlotEnum hE s q
+  let j := E.rankThresholdBottomRelevantSlotEnum hE s q'
+  have hq_lt_q' : q.val < q'.val := by omega
+  have hij : i.val < j.val := by
+    simpa [i, j] using E.rankThresholdBottomRelevantSlotEnum_strictMono hE s hq_lt_q'
+  refine
+    E.rankThresholdBottomProjectedStep_after_commutes_with_later_before_of_not_relevant_between
+      hE s hij ?_
+  intro k hkleft hkright
+  have hleft :
+      (E.rankThresholdBottomRelevantSlotEnum hE s q).val < k.val := by
+    simpa [i] using hkleft
+  have hright :
+      k.val < (E.rankThresholdBottomRelevantSlotEnum hE s q').val := by
+    simpa [j] using hkright
+  exact E.not_rankThresholdBottomRelevantSlot_of_between_relevantSlotEnum_succ
+    hE s hqq' k hleft hright
+
+/--
+Dependent projected execution consisting of all boundary-inclusive bottom
+relevant slots: charged bottom slots plus source-relevant boundary exceptions.
+-/
+noncomputable def rankThresholdBottomRelevantProjectedExecution
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    RawCompressionPath.ProjectedCompressionExecution
+      (E.rankThresholdBottomRelevantCount hE s) := by
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  exact {
+    vertex := fun q => (Dfam (E.rankThresholdBottomRelevantSlotEnum hE s q)).BottomNode
+    step := fun q =>
+      (E.step (E.rankThresholdBottomRelevantSlotEnum hE s q)).bottomProjectedStep
+        (Dfam (E.rankThresholdBottomRelevantSlotEnum hE s q))
+        (hE.1 (E.rankThresholdBottomRelevantSlotEnum hE s q))
+        (E.dissectionCut hE.1 Dfam (E.rankThresholdBottomRelevantSlotEnum hE s q))
+        (E.dissectionCut_spec hE.1 Dfam
+          (E.rankThresholdBottomRelevantSlotEnum hE s q))
+  }
+
+/-- The boundary-inclusive bottom relevant projected execution has consecutive states. -/
+theorem rankThresholdBottomRelevantProjectedExecution_hasConsecutiveStates
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).HasConsecutiveStates := by
+  intro q q' hqq'
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let i := E.rankThresholdBottomRelevantSlotEnum hE s q
+  let j := E.rankThresholdBottomRelevantSlotEnum hE s q'
+  refine ⟨(Dfam i).bottomEquivOfBottomIff (Dfam j)
+    (E.rankThresholdDissectionFamily_bottomStable_of_slot hE.1 hE.2.1 s i j), ?_⟩
+  simpa [rankThresholdBottomRelevantProjectedExecution, Dfam, i, j] using
+    E.rankThresholdBottomRelevantSlot_after_commutes_with_next hE s hqq'
+
+/--
+The boundary-inclusive bottom relevant projected execution is semantically
+valid in the projected execution API.
+-/
+theorem rankThresholdBottomRelevantProjectedExecution_isSemanticallyValid
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).IsSemanticallyValid :=
+  E.rankThresholdBottomRelevantProjectedExecution_hasConsecutiveStates hE s
+
+/-- The boundary-inclusive bottom relevant projected execution is admissible. -/
+theorem rankThresholdBottomRelevantProjectedExecution_isAdmissible
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).IsAdmissible :=
+  E.rankThresholdBottomRelevantProjectedExecution_isSemanticallyValid hE s
 
 /--
 If all top projected slots strictly between `i` and `j` are uncharged, then
@@ -9034,6 +9676,303 @@ theorem rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_car
           hcount.symm
     _ <= ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) := hle
 
+/--
+The compacted charged bottom projected execution is exactly the consumable cost
+of the full rank-threshold bottom projected execution.  This is the direct
+projected-cost split: uncharged bottom slots do not contribute to
+`consumableCost`.
+-/
+theorem rankThresholdBottomProjectedExecution_consumableCost_eq_chargedProjectedExecution_cost
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).consumableCost =
+      (E.rankThresholdBottomChargedProjectedExecution hE s).cost := by
+  exact (E.rankThresholdBottomChargedProjectedExecution_cost_eq_consumableCost hE s).symm
+
+/--
+Direct projected bottom accounting with source-relevant boundary exceptions:
+the charged projected part is the bottom consumable cost, and the existing
+edge-unit injection bounds the source-relevant uncharged boundary contribution
+by the stable bottom side.  This deliberately avoids constructing an ordinary
+boundary-inclusive bottom execution.
+-/
+theorem rankThresholdBottom_consumable_add_boundary_le_chargedProjected_add_bottomCard
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let X :=
+      E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    Cb.consumableCost + X <=
+      (E.rankThresholdBottomChargedProjectedExecution hE s).cost + Bcard := by
+  intro Cb X Bcard
+  have hcost :
+      Cb.consumableCost =
+        (E.rankThresholdBottomChargedProjectedExecution hE s).cost := by
+    simpa [Cb] using
+      E.rankThresholdBottomProjectedExecution_consumableCost_eq_chargedProjectedExecution_cost
+        hE s
+  have hboundary :
+      X <= Bcard := by
+    simpa [X, Bcard] using
+      E.rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_card
+        hE s i0
+  calc
+    Cb.consumableCost + X <= Cb.consumableCost + Bcard :=
+      Nat.add_le_add_left hboundary Cb.consumableCost
+    _ = (E.rankThresholdBottomChargedProjectedExecution hE s).cost + Bcard := by
+      rw [hcost]
+
+/--
+The boundary-inclusive projected bottom execution cost is the sum over the
+rank-threshold relevant-slot finset.
+-/
+theorem rankThresholdBottomRelevantProjectedExecution_cost_eq_relevantFinset_sum
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).cost =
+      Finset.sum (E.rankThresholdBottomRelevantFinset hE s)
+        (fun i => (Cb.step i).cost) := by
+  classical
+  intro Cb
+  let emb :=
+    ((E.rankThresholdBottomRelevantFinset hE s).orderEmbOfFin
+      (E.rankThresholdBottomRelevantFinset_card_eq_count hE s)).toEmbedding
+  calc
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).cost
+        =
+      Finset.sum (Finset.univ : Finset (Fin (E.rankThresholdBottomRelevantCount hE s)))
+        (fun q => (Cb.step (E.rankThresholdBottomRelevantSlotEnum hE s q)).cost) := by
+          simp [RawCompressionPath.ProjectedCompressionExecution.cost,
+            rankThresholdBottomRelevantProjectedExecution, Cb,
+            canonicalBottomProjectedExecution, bottomProjectedExecution]
+    _ =
+      Finset.sum
+        (Finset.map emb
+          (Finset.univ : Finset (Fin (E.rankThresholdBottomRelevantCount hE s))))
+        (fun i => (Cb.step i).cost) := by
+          rw [Finset.sum_map]
+          rfl
+    _ = Finset.sum (E.rankThresholdBottomRelevantFinset hE s)
+        (fun i => (Cb.step i).cost) := by
+          rw [Finset.map_orderEmbOfFin_univ]
+
+/--
+Slotwise relevant-cost accounting: keeping a bottom slot exactly captures its
+recurrence-consumable cost plus its source-relevant bottom exceptional cost.
+-/
+theorem rankThresholdBottomRelevantSlot_indicator_cost_eq_consumable_add_sourceRelevant
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m) :
+    let Dfam := E.rankThresholdDissectionFamily hE.1 s
+    let Cb := E.canonicalBottomProjectedExecution hE.1 Dfam
+    let X :=
+      (E.step i).sourceRelevantBottomExceptionalCost
+        (Dfam i) (hE.1 i)
+        (E.dissectionCut hE.1 Dfam i)
+        (E.dissectionCut_spec hE.1 Dfam i)
+    (by
+      classical
+      exact if E.rankThresholdBottomRelevantSlot hE s i then (Cb.step i).cost else 0) =
+      (Cb.step i).consumableCost + X := by
+  classical
+  intro Dfam Cb X
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  let B := (E.step i).bottomProjectedStep (Dfam i) (hE.1 i) (cut i) (hcut i)
+  by_cases hcharged : B.IsCharged
+  · have hrel : E.rankThresholdBottomRelevantSlot hE s i := by
+      exact Or.inl (by
+        simpa [Cb, Dfam, cut, hcut, B, canonicalBottomProjectedExecution,
+          bottomProjectedExecution] using hcharged)
+    have hconsume : B.consumableCost = B.cost := by
+      simp [RawCompressionPath.ProjectedCompressionStep.consumableCost, hcharged]
+    have hsrc : X = 0 := by
+      by_cases hnonroot : (E.step i).path.IsNonrootPath (E.step i).before
+      · simp [X, Dfam, cut, B,
+          hnonroot, RawCompressionPath.ProjectedCompressionStep.exceptionalCost, hcharged]
+      · simp [X, hnonroot]
+    rw [if_pos hrel, hsrc, Nat.add_zero]
+    simpa [Cb, Dfam, cut, hcut, B, canonicalBottomProjectedExecution,
+      bottomProjectedExecution] using hconsume.symm
+  · have hconsume : B.consumableCost = 0 := by
+      simp [RawCompressionPath.ProjectedCompressionStep.consumableCost, hcharged]
+    by_cases hboundary : E.rankThresholdBottomBoundaryExceptionSlot hE s i
+    · have hrel : E.rankThresholdBottomRelevantSlot hE s i := Or.inr hboundary
+      have hsrc : X = B.cost := by
+        have hsrc_exception :
+            X = B.exceptionalCost := by
+          simpa [X, Dfam, cut, hcut, B] using
+            (E.step i).sourceRelevantBottomExceptionalCost_eq_exceptional_of_nonroot
+              (Dfam i) (hE.1 i) (cut i) (hcut i) hboundary.1
+        have hexception : B.exceptionalCost = B.cost :=
+          B.exceptionalCost_eq_cost_of_not_charged hcharged
+        exact hsrc_exception.trans hexception
+      rw [if_pos hrel, hsrc]
+      have hconsumeCb : (Cb.step i).consumableCost = 0 := by
+        simpa [Cb, Dfam, cut, hcut, B, canonicalBottomProjectedExecution,
+          bottomProjectedExecution] using hconsume
+      have hcostCb : (Cb.step i).cost = B.cost := by
+        simp [Cb, Dfam, cut, B, canonicalBottomProjectedExecution,
+          bottomProjectedExecution]
+      rw [hconsumeCb, Nat.zero_add]
+      exact hcostCb
+    · have hrel_not : Not (E.rankThresholdBottomRelevantSlot hE s i) := by
+        intro hrel
+        cases hrel with
+        | inl hc =>
+            apply hcharged
+            simpa [Cb, Dfam, cut, hcut, B, canonicalBottomProjectedExecution,
+              bottomProjectedExecution] using hc
+        | inr hb => exact hboundary hb
+      have hsrc : X = 0 := by
+        by_cases hnonroot : (E.step i).path.IsNonrootPath (E.step i).before
+        · have hnoEdge :
+              Not (Exists fun q : Fin (n + 1) => q.val + 1 < cut i) := by
+            intro hedge
+            apply hboundary
+            exact ⟨hnonroot, by
+              simpa [B, Dfam, cut, hcut] using hcharged, hedge⟩
+          have hcut_le_one : cut i <= 1 := by
+            by_contra hnot
+            have hone_lt_cut : 1 < cut i := by omega
+            let q : Fin (n + 1) := ⟨0, Nat.succ_pos n⟩
+            apply hnoEdge
+            exact ⟨q, by simp [q]; omega⟩
+          have hsrc_formula :
+              X = cut i - 1 := by
+            have hsrc_exception :
+                X = B.exceptionalCost := by
+              simpa [X, Dfam, cut, hcut, B] using
+                (E.step i).sourceRelevantBottomExceptionalCost_eq_exceptional_of_nonroot
+                  (Dfam i) (hE.1 i) (cut i) (hcut i) hnonroot
+            have hexception : B.exceptionalCost = B.cost :=
+              B.exceptionalCost_eq_cost_of_not_charged hcharged
+            have hcostB : B.cost = cut i - 1 := by
+              change ((E.step i).path.bottomProjectionSegment
+                (Dfam i) (hE.1 i).1.2.2.1 (cut i) (hcut i)).edgeCost =
+                  cut i - 1
+              unfold RawCompressionPath.ProjectedPathSegment.edgeCost
+              rw [RawCompressionPath.bottomProjectionSegment_len]
+              simp [RawCompressionPath.bottomProjectionLength]
+            exact hsrc_exception.trans (hexception.trans hcostB)
+          have hzero : cut i - 1 = 0 := by omega
+          exact hsrc_formula.trans hzero
+        · simp [X, hnonroot]
+      rw [if_neg hrel_not, hsrc, Nat.add_zero]
+      have hconsumeCb : (Cb.step i).consumableCost = 0 := by
+        simpa [Cb, Dfam, cut, hcut, B, canonicalBottomProjectedExecution,
+          bottomProjectedExecution] using hconsume
+      exact hconsumeCb.symm
+
+/--
+The boundary-inclusive relevant projected execution has exactly the direct
+bottom projected accounting cost: charged consumable cost plus source-relevant
+bottom exceptional boundary cost.
+-/
+theorem rankThresholdBottomRelevantProjectedExecution_cost_eq_consumable_add_boundary
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let X :=
+      E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).cost =
+      Cb.consumableCost + X := by
+  classical
+  intro Cb X
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  have hsum :
+      (E.rankThresholdBottomRelevantProjectedExecution hE s).cost =
+        Finset.sum (E.rankThresholdBottomRelevantFinset hE s)
+          (fun i => (Cb.step i).cost) := by
+    simpa [Cb, Dfam] using
+      E.rankThresholdBottomRelevantProjectedExecution_cost_eq_relevantFinset_sum hE s
+  calc
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).cost
+        =
+      Finset.sum (E.rankThresholdBottomRelevantFinset hE s)
+        (fun i => (Cb.step i).cost) := hsum
+    _ =
+      Finset.sum (Finset.univ : Finset (Fin m))
+        (fun i =>
+          if E.rankThresholdBottomRelevantSlot hE s i then (Cb.step i).cost else 0) := by
+          unfold rankThresholdBottomRelevantFinset
+          rw [Finset.sum_filter]
+    _ =
+      Finset.sum (Finset.univ : Finset (Fin m))
+        (fun i =>
+          (Cb.step i).consumableCost +
+            (E.step i).sourceRelevantBottomExceptionalCost
+              (Dfam i) (hE.1 i) (cut i) (hcut i)) := by
+          apply Finset.sum_congr rfl
+          intro i _hi
+          simpa [Cb, Dfam, cut, hcut] using
+            E.rankThresholdBottomRelevantSlot_indicator_cost_eq_consumable_add_sourceRelevant
+              hE s i
+    _ =
+      Finset.sum (Finset.univ : Finset (Fin m))
+          (fun i => (Cb.step i).consumableCost) +
+        Finset.sum (Finset.univ : Finset (Fin m))
+          (fun i =>
+            (E.step i).sourceRelevantBottomExceptionalCost
+              (Dfam i) (hE.1 i) (cut i) (hcut i)) := by
+          rw [Finset.sum_add_distrib]
+    _ = Cb.consumableCost + X := by
+          simp [RawCompressionPath.ProjectedCompressionExecution.consumableCost,
+            canonicalBottomSourceRelevantExceptionalCostSum,
+            bottomSourceRelevantExceptionalCostSum, Cb, X, Dfam, cut]
+
+/--
+The full cost of the boundary-inclusive relevant projected bottom execution is
+bounded by the charged projected cost plus the stable bottom boundary card.
+-/
+theorem rankThresholdBottomRelevantProjectedExecution_cost_le_chargedProjected_add_bottomCard
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).cost <=
+      (E.rankThresholdBottomChargedProjectedExecution hE s).cost + Bcard := by
+  intro Bcard
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let X :=
+    E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  have hcost :
+      (E.rankThresholdBottomRelevantProjectedExecution hE s).cost =
+        Cb.consumableCost + X := by
+    simpa [Cb, X] using
+      E.rankThresholdBottomRelevantProjectedExecution_cost_eq_consumable_add_boundary hE s
+  have hbound :
+      Cb.consumableCost + X <=
+        (E.rankThresholdBottomChargedProjectedExecution hE s).cost + Bcard := by
+    simpa [Cb, X, Bcard] using
+      E.rankThresholdBottom_consumable_add_boundary_le_chargedProjected_add_bottomCard
+        hE s i0
+  exact hcost.trans_le hbound
+
 /-- Slot-level bottom rank bound for the rank-threshold dissection family. -/
 theorem rankThresholdDissectionFamily_bottom_rank_le
     (E : RawCompressionExecution m n r)
@@ -10421,6 +11360,63 @@ def RankThresholdJInputBottomConsumableBounds (k : Nat) : Prop :=
       (k + 1) * Cb.chargedCount + 2 * Bcard * (JInput k).diamond s
 
 /--
+Exact remaining charged-bottom projected recurrence boundary.
+
+The direct boundary-accounting route has already identified
+`Cb.consumableCost` with this compacted charged projected cost.  Thus this is
+the smallest projected-cost theorem still needed for the bottom field, without
+constructing an ordinary boundary-inclusive bottom execution and without using
+the known-bad charged-only consecutive-state theorem.
+-/
+def RankThresholdJInputBottomChargedProjectedBounds (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < (JInput k).g r),
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+      (k + 1) * Cb.chargedCount + 2 * Bcard * (JInput k).diamond s
+
+/--
+The direct projected split reduces the `JInput` bottom consumable field to the
+charged-bottom projected recurrence boundary.
+-/
+theorem rankThresholdJInputBottomConsumableBounds_of_chargedProjectedBounds
+    (k : Nat)
+    (hcharged : RankThresholdJInputBottomChargedProjectedBounds k) :
+    RankThresholdJInputBottomConsumableBounds k := by
+  intro m n r hm hn hprev E hE hlarge
+  let s := ceilLog2 ((JInput k).g r)
+  let i0 : Fin m := ⟨0, by omega⟩
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+  have hcost :
+      Cb.consumableCost =
+        (E.rankThresholdBottomChargedProjectedExecution hE s).cost := by
+    simpa [Cb] using
+      E.rankThresholdBottomProjectedExecution_consumableCost_eq_chargedProjectedExecution_cost
+        hE s
+  have hcharged' :
+      (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+        (k + 1) * Cb.chargedCount + 2 * Bcard * (JInput k).diamond s := by
+    simpa [s, i0, Cb, Bcard] using hcharged hm hn hprev E hE hlarge
+  calc
+    Cb.consumableCost =
+        (E.rankThresholdBottomChargedProjectedExecution hE s).cost := hcost
+    _ <= (k + 1) * Cb.chargedCount +
+        2 * Bcard * (JInput k).diamond s := hcharged'
+
+/--
 Budgeted-top concrete `JInput` consumable package.
 
 This has the same bottom field as `RankThresholdJInputConsumableBounds`, but
@@ -10509,6 +11505,18 @@ theorem topDown_shift_step_of_rankThresholdJInputBottomConsumableBounds
   topDown_shift_step_of_rankThresholdJInputTopBudgetConsumableBounds k
     (rankThresholdJInputTopBudgetConsumableBounds_of_bottomConsumableBounds
       k hbottom)
+
+/--
+The charged-bottom projected recurrence boundary is now the only remaining
+bottom-side input needed by the padded-top source-shift bridge.
+-/
+theorem topDown_shift_step_of_rankThresholdJInputBottomChargedProjectedBounds
+    (k : Nat)
+    (hcharged : RankThresholdJInputBottomChargedProjectedBounds k) :
+    topDownShiftStepTarget k :=
+  topDown_shift_step_of_rankThresholdJInputBottomConsumableBounds k
+    (rankThresholdJInputBottomConsumableBounds_of_chargedProjectedBounds
+      k hcharged)
 
 /--
 The recurrence-consumption package is strong enough to feed the concrete
