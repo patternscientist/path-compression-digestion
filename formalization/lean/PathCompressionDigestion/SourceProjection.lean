@@ -1927,6 +1927,51 @@ theorem exists_admissible_projectedCost_gt_topDownCost_rank_zero :
   · simp [E, step, path, projectedCost, cost, ProjectedCompressionStep.cost,
       ProjectedPathSegment.edgeCost]
 
+/--
+Even adding a positive charged projected slot is still not enough, by itself,
+to justify an ordinary `topDownCost` consumer.  This two-vertex projected
+one-step execution is admissible and charged, but ordinary rank-zero
+`topDownCost` is zero.
+-/
+theorem exists_admissible_chargedProjectedCost_gt_topDownCost_rank_zero :
+    Exists fun E : ProjectedCompressionExecution.{0} 1 =>
+      E.IsAdmissible /\ E.chargedCount = 1 /\ E.projectedCost = 1 /\
+        topDownCost 1 2 0 = 0 := by
+  classical
+  let parent : Bool -> Bool := fun b => if b then false else true
+  let path : ProjectedPathSegment Bool parent := {
+    len := 2
+    node := fun i => if i.val = 0 then false else true
+    parent_chain := by
+      intro i j hij
+      fin_cases i <;> fin_cases j <;> simp [parent] at *
+  }
+  let step : ProjectedCompressionStep Bool := {
+    beforeParent := parent
+    afterParent := parent
+    path := path
+  }
+  let E : ProjectedCompressionExecution 1 := {
+    vertex := fun _ => Bool
+    step := fun _ => step
+  }
+  have hcharged : (E.step ⟨0, by norm_num⟩).IsCharged := by
+    unfold ProjectedCompressionStep.IsCharged
+      ProjectedCompressionStep.IsNonrootPath
+      ProjectedPathSegment.IsNonrootPath
+    refine ⟨by norm_num [E, step, path], ?_⟩
+    simp [E, step, path, parent, ProjectedPathSegment.lastIndex]
+  have hindicator :
+      (E.step ⟨0, by norm_num⟩).nonrootIndicator = 1 :=
+    (E.step ⟨0, by norm_num⟩).nonrootIndicator_eq_one_of_charged hcharged
+  refine ⟨E, ?_, ?_, ?_, topDownCost_rank_zero_eq_zero 1 2⟩
+  · intro i j hij
+    omega
+  · simp [E, RawCompressionPath.ProjectedCompressionExecution.chargedCount,
+      RawCompressionPath.ProjectedCompressionExecution.nonrootCount, hindicator]
+  · simp [E, step, path, projectedCost, cost, ProjectedCompressionStep.cost,
+      ProjectedPathSegment.edgeCost]
+
 end ProjectedCompressionExecution
 
 /--
