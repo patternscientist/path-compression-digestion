@@ -36,6 +36,26 @@ It must use the special rank-threshold origin of
 `rankThresholdBottomChargedProjectedExecution`, or else construct a genuine
 ordinary valid execution with at least the same cost.
 
+This continuation also proves the elementary local range estimate:
+
+```lean
+theorem RawCompressionExecution
+  .rankThresholdBottomChargedProjectedExecution_cost_le_threshold_mul_chargedCount
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+      s *
+        (E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount
+```
+
+This confirms that each charged bottom projected slot is locally range-bounded.
+It still does not prove the positive core: the target needs domination by
+`topDownCost Cb.chargedCount Bcard s`, not by the crude coefficient `s` times
+the charged count.  Thus the gap is not a missing per-slot length bound; it is
+the missing structural recurrence/realization theorem.
+
 ## 1. Expanded Positive-Core Target
 
 The exact expanded target is:
@@ -150,6 +170,17 @@ RawCompressionPath.ProjectedCompressionExecution
 shows that projected admissibility plus positive charged cost is too weak to
 imply any ordinary `topDownCost` domination theorem.
 
+The newly checked local range theorem gives only:
+
+```lean
+(E.rankThresholdBottomChargedProjectedExecution hE s).cost
+  <= s * Cb.chargedCount
+```
+
+This is arithmetically the wrong shape for the recurrence consumer.  Replacing
+`topDownCost Cb.chargedCount Bcard s` by `s * Cb.chargedCount` would lose the
+recursive row coefficient and does not fit the downstream `JInput` algebra.
+
 ## 5. Exact Projected-Extremal Theorem Needed
 
 The smallest direct theorem is exactly the positive core, locally stated as:
@@ -218,7 +249,8 @@ rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_card
 are already available.
 
 The missing theorem is an ordinary-realization or lower-bound theorem for the
-rank-threshold-origin charged projected cost.  The existing per-slot lift:
+rank-threshold-origin charged projected cost.  It must be stronger than the
+local range estimate above.  The existing per-slot lift:
 
 ```lean
 theorem RawCompressionExecution

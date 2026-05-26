@@ -7397,6 +7397,33 @@ theorem rankThresholdBottomProjectedExecution_consumableCost_le_threshold_mul_ch
     canonicalBottomProjectedExecution, bottomProjectedExecution, Dfam, cut, hcut] using hfinal
 
 /--
+The compacted charged bottom projected execution inherits the elementary
+rank-threshold range bound.  This is only a local estimate: it does not supply
+the recurrence coefficient required by the positive core, but it isolates that
+the remaining gap is a genuine `topDownCost` realization/lower-bound issue.
+-/
+theorem rankThresholdBottomChargedProjectedExecution_cost_le_threshold_mul_chargedCount
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+      s *
+        (E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount := by
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  calc
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost =
+        Cb.consumableCost := by
+          simpa [Cb] using
+            E.rankThresholdBottomChargedProjectedExecution_cost_eq_consumableCost hE s
+    _ <= s * Cb.chargedCount := by
+          simpa [Cb] using
+            E.rankThresholdBottomProjectedExecution_consumableCost_le_threshold_mul_chargedCount
+              hE s
+
+/--
 Top rank-threshold projections are range-bounded after the threshold shift:
 the total consumable top cost is at most `(r - s - 1)` times the top projected
 charged count.
