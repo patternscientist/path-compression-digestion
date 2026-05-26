@@ -9731,6 +9731,42 @@ theorem rankThresholdBottom_consumable_add_boundary_le_chargedProjected_add_bott
       rw [hcost]
 
 /--
+Boundary-tax consumer for the charged ordinary bottom skeleton.  If the
+charged-only ordinary skeleton has the consecutive-state property required by
+`topDownCost`, then the direct projected bottom cost plus the source-relevant
+boundary-exception tax is paid by the charged skeleton's `topDownCost` plus one
+stable bottom-card tax.  This theorem deliberately does not realize boundary
+exceptions as ordinary rootpath/no-op steps.
+-/
+theorem rankThresholdBottom_taxedConsumable_le_topDownCost_add_bottomCard_of_skeleton
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hstate :
+      (E.rankThresholdBottomChargedExecutionSkeleton hE s i0).HasConsecutiveStates) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let X :=
+      E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    Cb.consumableCost + X <=
+      topDownCost Cb.chargedCount Bcard s + Bcard := by
+  intro Cb X Bcard
+  have hconsume :
+      Cb.consumableCost <= topDownCost Cb.chargedCount Bcard s := by
+    simpa [Cb, Bcard] using
+      E.rankThresholdBottomProjectedExecution_consumableCost_le_topDownCost_bottomCard_of_skeleton_consecutive
+        hE s i0 hstate
+  have hboundary : X <= Bcard := by
+    simpa [X, Bcard] using
+      E.rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_card
+        hE s i0
+  exact Nat.add_le_add hconsume hboundary
+
+/--
 The boundary-inclusive projected bottom execution cost is the sum over the
 rank-threshold relevant-slot finset.
 -/
