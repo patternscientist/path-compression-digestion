@@ -102,6 +102,40 @@ The `topDownCost` recurrence interface still requires ordinary valid source
 steps, so the remaining fallback gap has moved from projected consecutive-state
 alignment to ordinary realization/cost packaging for the relevant slots.
 
+Fourth continuation update: the boundary-inclusive relevant projected execution
+now also has a checked exact cost decomposition and the corresponding
+boundary-card bound:
+
+```lean
+RawCompressionExecution
+  .rankThresholdBottomRelevantProjectedExecution_cost_eq_relevantFinset_sum
+
+RawCompressionExecution
+  .rankThresholdBottomRelevantSlot_indicator_cost_eq_consumable_add_sourceRelevant
+
+RawCompressionExecution
+  .rankThresholdBottomRelevantProjectedExecution_cost_eq_consumable_add_boundary
+
+RawCompressionExecution
+  .rankThresholdBottomRelevantProjectedExecution_cost_le_chargedProjected_add_bottomCard
+```
+
+The exact decomposition is:
+
+```lean
+(E.rankThresholdBottomRelevantProjectedExecution hE s).cost =
+  (E.canonicalBottomProjectedExecution hE.1
+    (E.rankThresholdDissectionFamily hE.1 s)).consumableCost +
+  E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+    (E.rankThresholdDissectionFamily hE.1 s)
+```
+
+Thus the projected boundary-inclusive object now has both semantic
+consecutive-state alignment and the desired projected cost split.  The
+remaining obstruction is specifically that this object is not an ordinary
+`RawCompressionExecution`, and projected admissibility is not accepted by the
+current `topDownCost` recurrence interface.
+
 ## 1. Exact Bottom Projected Consumable Cost Expression
 
 The package field asks to bound:
@@ -214,6 +248,39 @@ theorem RawCompressionExecution
         (E.rankThresholdDissectionFamily hE.1 s)
     let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
     Cb.consumableCost + X <=
+      (E.rankThresholdBottomChargedProjectedExecution hE s).cost + Bcard
+```
+
+The boundary-inclusive relevant projected execution now packages the same
+accounting as a first-class projected execution:
+
+```lean
+theorem RawCompressionExecution
+  .rankThresholdBottomRelevantProjectedExecution_cost_eq_consumable_add_boundary
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let X :=
+      E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).cost =
+      Cb.consumableCost + X
+```
+
+and its boundary-card corollary is:
+
+```lean
+theorem RawCompressionExecution
+  .rankThresholdBottomRelevantProjectedExecution_cost_le_chargedProjected_add_bottomCard
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).cost <=
       (E.rankThresholdBottomChargedProjectedExecution hE s).cost + Bcard
 ```
 
@@ -408,6 +475,7 @@ theorem RawCompressionExecution
 Ambition C achieved for direct projected boundary accounting.  The projected
 bottom decomposition and boundary-card bound are proved without an ordinary
 boundary-inclusive execution.  The fallback boundary-inclusive route now has
-the checked projected relevant-slot consecutive-state composition, but it still
-lacks ordinary boundary-exception realization/cost packaging.  Ambition B
-remains blocked by the charged projected recurrence-consumption bridge.
+the checked projected relevant-slot consecutive-state composition and exact
+projected relevant-cost decomposition, but it still lacks an ordinary
+recurrence consumer for that projected object.  Ambition B remains blocked by
+the charged projected recurrence-consumption bridge.

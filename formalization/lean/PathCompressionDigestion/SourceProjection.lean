@@ -9531,6 +9531,249 @@ theorem rankThresholdBottom_consumable_add_boundary_le_chargedProjected_add_bott
     _ = (E.rankThresholdBottomChargedProjectedExecution hE s).cost + Bcard := by
       rw [hcost]
 
+/--
+The boundary-inclusive projected bottom execution cost is the sum over the
+rank-threshold relevant-slot finset.
+-/
+theorem rankThresholdBottomRelevantProjectedExecution_cost_eq_relevantFinset_sum
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).cost =
+      Finset.sum (E.rankThresholdBottomRelevantFinset hE s)
+        (fun i => (Cb.step i).cost) := by
+  classical
+  intro Cb
+  let emb :=
+    ((E.rankThresholdBottomRelevantFinset hE s).orderEmbOfFin
+      (E.rankThresholdBottomRelevantFinset_card_eq_count hE s)).toEmbedding
+  calc
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).cost
+        =
+      Finset.sum (Finset.univ : Finset (Fin (E.rankThresholdBottomRelevantCount hE s)))
+        (fun q => (Cb.step (E.rankThresholdBottomRelevantSlotEnum hE s q)).cost) := by
+          simp [RawCompressionPath.ProjectedCompressionExecution.cost,
+            rankThresholdBottomRelevantProjectedExecution, Cb,
+            canonicalBottomProjectedExecution, bottomProjectedExecution]
+    _ =
+      Finset.sum
+        (Finset.map emb
+          (Finset.univ : Finset (Fin (E.rankThresholdBottomRelevantCount hE s))))
+        (fun i => (Cb.step i).cost) := by
+          rw [Finset.sum_map]
+          rfl
+    _ = Finset.sum (E.rankThresholdBottomRelevantFinset hE s)
+        (fun i => (Cb.step i).cost) := by
+          rw [Finset.map_orderEmbOfFin_univ]
+
+/--
+Slotwise relevant-cost accounting: keeping a bottom slot exactly captures its
+recurrence-consumable cost plus its source-relevant bottom exceptional cost.
+-/
+theorem rankThresholdBottomRelevantSlot_indicator_cost_eq_consumable_add_sourceRelevant
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m) :
+    let Dfam := E.rankThresholdDissectionFamily hE.1 s
+    let Cb := E.canonicalBottomProjectedExecution hE.1 Dfam
+    let X :=
+      (E.step i).sourceRelevantBottomExceptionalCost
+        (Dfam i) (hE.1 i)
+        (E.dissectionCut hE.1 Dfam i)
+        (E.dissectionCut_spec hE.1 Dfam i)
+    (by
+      classical
+      exact if E.rankThresholdBottomRelevantSlot hE s i then (Cb.step i).cost else 0) =
+      (Cb.step i).consumableCost + X := by
+  classical
+  intro Dfam Cb X
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  let B := (E.step i).bottomProjectedStep (Dfam i) (hE.1 i) (cut i) (hcut i)
+  by_cases hcharged : B.IsCharged
+  · have hrel : E.rankThresholdBottomRelevantSlot hE s i := by
+      exact Or.inl (by
+        simpa [Cb, Dfam, cut, hcut, B, canonicalBottomProjectedExecution,
+          bottomProjectedExecution] using hcharged)
+    have hconsume : B.consumableCost = B.cost := by
+      simp [RawCompressionPath.ProjectedCompressionStep.consumableCost, hcharged]
+    have hsrc : X = 0 := by
+      by_cases hnonroot : (E.step i).path.IsNonrootPath (E.step i).before
+      · simp [X, Dfam, cut, B,
+          hnonroot, RawCompressionPath.ProjectedCompressionStep.exceptionalCost, hcharged]
+      · simp [X, hnonroot]
+    rw [if_pos hrel, hsrc, Nat.add_zero]
+    simpa [Cb, Dfam, cut, hcut, B, canonicalBottomProjectedExecution,
+      bottomProjectedExecution] using hconsume.symm
+  · have hconsume : B.consumableCost = 0 := by
+      simp [RawCompressionPath.ProjectedCompressionStep.consumableCost, hcharged]
+    by_cases hboundary : E.rankThresholdBottomBoundaryExceptionSlot hE s i
+    · have hrel : E.rankThresholdBottomRelevantSlot hE s i := Or.inr hboundary
+      have hsrc : X = B.cost := by
+        have hsrc_exception :
+            X = B.exceptionalCost := by
+          simpa [X, Dfam, cut, hcut, B] using
+            (E.step i).sourceRelevantBottomExceptionalCost_eq_exceptional_of_nonroot
+              (Dfam i) (hE.1 i) (cut i) (hcut i) hboundary.1
+        have hexception : B.exceptionalCost = B.cost :=
+          B.exceptionalCost_eq_cost_of_not_charged hcharged
+        exact hsrc_exception.trans hexception
+      rw [if_pos hrel, hsrc]
+      have hconsumeCb : (Cb.step i).consumableCost = 0 := by
+        simpa [Cb, Dfam, cut, hcut, B, canonicalBottomProjectedExecution,
+          bottomProjectedExecution] using hconsume
+      have hcostCb : (Cb.step i).cost = B.cost := by
+        simp [Cb, Dfam, cut, B, canonicalBottomProjectedExecution,
+          bottomProjectedExecution]
+      rw [hconsumeCb, Nat.zero_add]
+      exact hcostCb
+    · have hrel_not : Not (E.rankThresholdBottomRelevantSlot hE s i) := by
+        intro hrel
+        cases hrel with
+        | inl hc =>
+            apply hcharged
+            simpa [Cb, Dfam, cut, hcut, B, canonicalBottomProjectedExecution,
+              bottomProjectedExecution] using hc
+        | inr hb => exact hboundary hb
+      have hsrc : X = 0 := by
+        by_cases hnonroot : (E.step i).path.IsNonrootPath (E.step i).before
+        · have hnoEdge :
+              Not (Exists fun q : Fin (n + 1) => q.val + 1 < cut i) := by
+            intro hedge
+            apply hboundary
+            exact ⟨hnonroot, by
+              simpa [B, Dfam, cut, hcut] using hcharged, hedge⟩
+          have hcut_le_one : cut i <= 1 := by
+            by_contra hnot
+            have hone_lt_cut : 1 < cut i := by omega
+            let q : Fin (n + 1) := ⟨0, Nat.succ_pos n⟩
+            apply hnoEdge
+            exact ⟨q, by simp [q]; omega⟩
+          have hsrc_formula :
+              X = cut i - 1 := by
+            have hsrc_exception :
+                X = B.exceptionalCost := by
+              simpa [X, Dfam, cut, hcut, B] using
+                (E.step i).sourceRelevantBottomExceptionalCost_eq_exceptional_of_nonroot
+                  (Dfam i) (hE.1 i) (cut i) (hcut i) hnonroot
+            have hexception : B.exceptionalCost = B.cost :=
+              B.exceptionalCost_eq_cost_of_not_charged hcharged
+            have hcostB : B.cost = cut i - 1 := by
+              change ((E.step i).path.bottomProjectionSegment
+                (Dfam i) (hE.1 i).1.2.2.1 (cut i) (hcut i)).edgeCost =
+                  cut i - 1
+              unfold RawCompressionPath.ProjectedPathSegment.edgeCost
+              rw [RawCompressionPath.bottomProjectionSegment_len]
+              simp [RawCompressionPath.bottomProjectionLength]
+            exact hsrc_exception.trans (hexception.trans hcostB)
+          have hzero : cut i - 1 = 0 := by omega
+          exact hsrc_formula.trans hzero
+        · simp [X, hnonroot]
+      rw [if_neg hrel_not, hsrc, Nat.add_zero]
+      have hconsumeCb : (Cb.step i).consumableCost = 0 := by
+        simpa [Cb, Dfam, cut, hcut, B, canonicalBottomProjectedExecution,
+          bottomProjectedExecution] using hconsume
+      exact hconsumeCb.symm
+
+/--
+The boundary-inclusive relevant projected execution has exactly the direct
+bottom projected accounting cost: charged consumable cost plus source-relevant
+bottom exceptional boundary cost.
+-/
+theorem rankThresholdBottomRelevantProjectedExecution_cost_eq_consumable_add_boundary
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let X :=
+      E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).cost =
+      Cb.consumableCost + X := by
+  classical
+  intro Cb X
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  have hsum :
+      (E.rankThresholdBottomRelevantProjectedExecution hE s).cost =
+        Finset.sum (E.rankThresholdBottomRelevantFinset hE s)
+          (fun i => (Cb.step i).cost) := by
+    simpa [Cb, Dfam] using
+      E.rankThresholdBottomRelevantProjectedExecution_cost_eq_relevantFinset_sum hE s
+  calc
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).cost
+        =
+      Finset.sum (E.rankThresholdBottomRelevantFinset hE s)
+        (fun i => (Cb.step i).cost) := hsum
+    _ =
+      Finset.sum (Finset.univ : Finset (Fin m))
+        (fun i =>
+          if E.rankThresholdBottomRelevantSlot hE s i then (Cb.step i).cost else 0) := by
+          unfold rankThresholdBottomRelevantFinset
+          rw [Finset.sum_filter]
+    _ =
+      Finset.sum (Finset.univ : Finset (Fin m))
+        (fun i =>
+          (Cb.step i).consumableCost +
+            (E.step i).sourceRelevantBottomExceptionalCost
+              (Dfam i) (hE.1 i) (cut i) (hcut i)) := by
+          apply Finset.sum_congr rfl
+          intro i _hi
+          simpa [Cb, Dfam, cut, hcut] using
+            E.rankThresholdBottomRelevantSlot_indicator_cost_eq_consumable_add_sourceRelevant
+              hE s i
+    _ =
+      Finset.sum (Finset.univ : Finset (Fin m))
+          (fun i => (Cb.step i).consumableCost) +
+        Finset.sum (Finset.univ : Finset (Fin m))
+          (fun i =>
+            (E.step i).sourceRelevantBottomExceptionalCost
+              (Dfam i) (hE.1 i) (cut i) (hcut i)) := by
+          rw [Finset.sum_add_distrib]
+    _ = Cb.consumableCost + X := by
+          simp [RawCompressionPath.ProjectedCompressionExecution.consumableCost,
+            canonicalBottomSourceRelevantExceptionalCostSum,
+            bottomSourceRelevantExceptionalCostSum, Cb, X, Dfam, cut]
+
+/--
+The full cost of the boundary-inclusive relevant projected bottom execution is
+bounded by the charged projected cost plus the stable bottom boundary card.
+-/
+theorem rankThresholdBottomRelevantProjectedExecution_cost_le_chargedProjected_add_bottomCard
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).cost <=
+      (E.rankThresholdBottomChargedProjectedExecution hE s).cost + Bcard := by
+  intro Bcard
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let X :=
+    E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  have hcost :
+      (E.rankThresholdBottomRelevantProjectedExecution hE s).cost =
+        Cb.consumableCost + X := by
+    simpa [Cb, X] using
+      E.rankThresholdBottomRelevantProjectedExecution_cost_eq_consumable_add_boundary hE s
+  have hbound :
+      Cb.consumableCost + X <=
+        (E.rankThresholdBottomChargedProjectedExecution hE s).cost + Bcard := by
+    simpa [Cb, X, Bcard] using
+      E.rankThresholdBottom_consumable_add_boundary_le_chargedProjected_add_bottomCard
+        hE s i0
+  exact hcost.trans_le hbound
+
 /-- Slot-level bottom rank bound for the rank-threshold dissection family. -/
 theorem rankThresholdDissectionFamily_bottom_rank_le
     (E : RawCompressionExecution m n r)
