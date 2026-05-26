@@ -7688,6 +7688,107 @@ theorem rankThresholdBottomRelevantSlot_of_boundaryException
   exact Or.inr hboundary
 
 /--
+Every source-relevant bottom boundary exception is genuinely state-changing
+for the bottom projected parent map: the lower endpoint of any exceptional
+bottom-prefix edge becomes a restricted root after the source step, while it
+had a bottom parent before the step.
+-/
+theorem rankThresholdBottomBoundaryExceptionSlot_changes_projected_parent
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hboundary : E.rankThresholdBottomBoundaryExceptionSlot hE s i) :
+    Exists fun v :
+        (E.rankThresholdDissectionFamily hE.1 s i).BottomNode =>
+      ((E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).afterParent v ≠
+      ((E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).beforeParent v := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  change Exists fun v : (Dfam i).BottomNode =>
+    ((E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+      (cut i) (hcut i)).afterParent v ≠
+    ((E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+      (cut i) (hcut i)).beforeParent v
+  rcases hboundary with ⟨hnonroot, hnotCharged, ⟨q, hq⟩⟩
+  change Not ((E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+    (cut i) (hcut i)).IsCharged at hnotCharged
+  change q.val + 1 < cut i at hq
+  have hcut_le : cut i <= (E.step i).path.len.val := (hcut i).1
+  have hq_active : q.val < (E.step i).path.len.val := by
+    omega
+  have hq_cut : q.val < cut i := by
+    omega
+  have hq_bottom :
+      (Dfam i).IsBottom ((E.step i).path.node q) :=
+    (hcut i).2.1 q hq_active hq_cut
+  let qnext : Fin (n + 1) := ⟨q.val + 1, by
+    have hlen_le : (E.step i).path.len.val <= n + 1 :=
+      Nat.le_of_lt_succ (E.step i).path.len.isLt
+    omega⟩
+  have hqnext_active : qnext.val < (E.step i).path.len.val := by
+    simp [qnext]
+    omega
+  have hqnext_cut : qnext.val < cut i := by
+    simpa [qnext] using hq
+  have hqnext_bottom :
+      (Dfam i).IsBottom ((E.step i).path.node qnext) :=
+    (hcut i).2.1 qnext hqnext_active hqnext_cut
+  have hparent_eq :
+      (E.step i).before.parent ((E.step i).path.node q) =
+        (E.step i).path.node qnext := by
+    exact (hE.1 i).1.2.2.1 q qnext (by simp [qnext]) hqnext_active
+  let v : (Dfam i).BottomNode := ⟨(E.step i).path.node q, hq_bottom⟩
+  have hbefore_parent_bottom :
+      (Dfam i).IsBottom ((E.step i).before.parent v.1) := by
+    simpa [v, hparent_eq] using hqnext_bottom
+  have hbefore_val :
+      ((Dfam i).bottomParent v).1 = (E.step i).path.node qnext := by
+    have hval :=
+      (Dfam i).bottomParent_val_of_parent_bottom v hbefore_parent_bottom
+    simpa [v, hparent_eq] using hval
+  have hafter_top :
+      (Dfam i).IsTop
+        ((E.step i).after.parent ((E.step i).path.node q)) :=
+    (E.step i).sourceRelevantBottomException_after_parent_top_of_index
+      (Dfam i) (hE.1 i) (cut i) (hcut i)
+      hnonroot hnotCharged q hq
+  have hafter_val :
+      ((E.step i).afterBottomParent (Dfam i) (hE.1 i) v).1 =
+        (E.step i).path.node q := by
+    have hval :=
+      (E.step i).afterBottomParent_val_of_parent_top
+        (Dfam i) (hE.1 i) v (by simpa [v] using hafter_top)
+    simpa [v] using hval
+  have hq_lt_qnext : q.val < qnext.val := by
+    simp [qnext]
+  have hnodes_ne :
+      (E.step i).path.node q ≠ (E.step i).path.node qnext :=
+    (E.step i).path.node_ne_of_lt_active_of_nonroot
+      (hE.1 i).1 hnonroot hq_lt_qnext hqnext_active
+  refine ⟨v, ?_⟩
+  intro heq
+  have hval_eq :
+      ((E.step i).afterBottomParent (Dfam i) (hE.1 i) v).1 =
+        ((Dfam i).bottomParent v).1 := by
+    simpa [RawCompressionStep.bottomProjectedStep] using
+      congrArg Subtype.val heq
+  rw [hafter_val, hbefore_val] at hval_eq
+  exact hnodes_ne hval_eq
+
+/--
 There are no boundary-inclusive relevant slots strictly between adjacent
 entries of the relevant-slot enumeration.
 -/

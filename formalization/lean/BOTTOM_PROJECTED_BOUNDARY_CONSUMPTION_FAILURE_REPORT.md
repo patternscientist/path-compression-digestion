@@ -470,6 +470,45 @@ theorem RawCompressionExecution
               S.after.HasRankThresholdPacking
 ```
 
+## Fifth Continuation Update
+
+The boundary-exception obstruction is now exposed as a checked local theorem:
+
+```lean
+theorem RawCompressionExecution
+  .rankThresholdBottomBoundaryExceptionSlot_changes_projected_parent
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hboundary :
+      E.rankThresholdBottomBoundaryExceptionSlot hE s i) :
+    Exists fun v :
+        (E.rankThresholdDissectionFamily hE.1 s i).BottomNode =>
+      ((E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).afterParent v ≠
+      ((E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)).beforeParent v
+```
+
+This proves that every `rankThresholdBottomBoundaryExceptionSlot` contains a
+bottom node whose projected after-parent differs from its projected before-
+parent.  Thus those slots cannot be replaced by no-op charged-skeleton padding,
+and the old charged-only consecutive-state theorem is the wrong object.
+
+The remaining gap is unchanged in kind but sharper: the project either needs a
+recurrence consumer for the checked boundary-inclusive projected execution, or
+it needs the ordinary realization theorem for boundary-exception slots stated
+above.
+
 ## Verdict
 
 Ambition C achieved for direct projected boundary accounting.  The projected
