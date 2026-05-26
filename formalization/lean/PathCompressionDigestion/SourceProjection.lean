@@ -9034,6 +9034,60 @@ theorem rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_car
           hcount.symm
     _ <= ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card) := hle
 
+/--
+The compacted charged bottom projected execution is exactly the consumable cost
+of the full rank-threshold bottom projected execution.  This is the direct
+projected-cost split: uncharged bottom slots do not contribute to
+`consumableCost`.
+-/
+theorem rankThresholdBottomProjectedExecution_consumableCost_eq_chargedProjectedExecution_cost
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).consumableCost =
+      (E.rankThresholdBottomChargedProjectedExecution hE s).cost := by
+  exact (E.rankThresholdBottomChargedProjectedExecution_cost_eq_consumableCost hE s).symm
+
+/--
+Direct projected bottom accounting with source-relevant boundary exceptions:
+the charged projected part is the bottom consumable cost, and the existing
+edge-unit injection bounds the source-relevant uncharged boundary contribution
+by the stable bottom side.  This deliberately avoids constructing an ordinary
+boundary-inclusive bottom execution.
+-/
+theorem rankThresholdBottom_consumable_add_boundary_le_chargedProjected_add_bottomCard
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let X :=
+      E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    Cb.consumableCost + X <=
+      (E.rankThresholdBottomChargedProjectedExecution hE s).cost + Bcard := by
+  intro Cb X Bcard
+  have hcost :
+      Cb.consumableCost =
+        (E.rankThresholdBottomChargedProjectedExecution hE s).cost := by
+    simpa [Cb] using
+      E.rankThresholdBottomProjectedExecution_consumableCost_eq_chargedProjectedExecution_cost
+        hE s
+  have hboundary :
+      X <= Bcard := by
+    simpa [X, Bcard] using
+      E.rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_card
+        hE s i0
+  calc
+    Cb.consumableCost + X <= Cb.consumableCost + Bcard :=
+      Nat.add_le_add_left hboundary Cb.consumableCost
+    _ = (E.rankThresholdBottomChargedProjectedExecution hE s).cost + Bcard := by
+      rw [hcost]
+
 /-- Slot-level bottom rank bound for the rank-threshold dissection family. -/
 theorem rankThresholdDissectionFamily_bottom_rank_le
     (E : RawCompressionExecution m n r)
