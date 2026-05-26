@@ -2369,6 +2369,27 @@ theorem cost_eq_zero_of_one_vertex (S : RawCompressionStep 1 r) :
   unfold cost RawCompressionPath.sourceCost
   rw [if_pos hroot]
 
+/--
+Any valid ordinary source step with zero source cost is a literal no-op on the
+parent map.  Nonroot valid paths have length at least two and hence positive
+source cost; the only zero-cost case is a rootpath, whose validity clause
+forces the parent map to stay fixed.
+-/
+theorem after_parent_eq_before_parent_of_cost_eq_zero
+    (S : RawCompressionStep n r)
+    (hS : S.IsValid)
+    (hcost : S.cost = 0) :
+    S.after.parent = S.before.parent := by
+  classical
+  by_cases hroot : S.path.IsRootPath S.before
+  · exact hS.2.2.2.1 hroot
+  · have hpos : 0 < S.cost := by
+      unfold cost RawCompressionPath.sourceCost RawCompressionPath.cost
+      rw [if_neg hroot]
+      have hlen : 2 <= S.path.len.val := hS.1.2.1
+      omega
+    omega
+
 /-- A charged bottom rank-threshold projected step has at most `s` consumable edges. -/
 theorem bottomProjectedStep_consumableCost_le_rankThreshold
     (S : RawCompressionStep n r)
@@ -4163,6 +4184,21 @@ theorem cost_eq_zero_of_one_vertex
     intro i _hi
     exact RawCompressionStep.cost_eq_zero_of_one_vertex (E.step i))
 
+/-- A zero-slot raw execution has zero cost. -/
+theorem cost_eq_zero_of_zero_length
+    (E : RawCompressionExecution 0 n r) :
+    E.cost = 0 := by
+  unfold RawCompressionExecution.cost RawCompressionExecution.ChargeUnit
+  simp
+
+/-- The ordinary base-accounted top-down cost with no execution slots is zero. -/
+theorem topDownCost_zero_length_eq_zero (n r : Nat) :
+    topDownCost 0 n r = 0 := by
+  exact Nat.eq_zero_of_le_zero (by
+    apply topDownCost_le_of_forall_valid
+    intro E _hE
+    rw [E.cost_eq_zero_of_zero_length])
+
 /-- The ordinary base-accounted top-down cost over one vertex is zero. -/
 theorem topDownCost_one_vertex_eq_zero (m r : Nat) :
     topDownCost m 1 r = 0 := by
@@ -5590,6 +5626,56 @@ theorem rankThresholdBottomChargedProjectedExecution_cost_eq_consumableCost
     RawCompressionPath.ProjectedCompressionExecution.chargedSubexecution,
     Cb, Dfam, canonicalBottomProjectedExecution, bottomProjectedExecution]
     using Cb.chargedSubexecution_cost_eq_consumableCost
+
+/--
+If the bottom projection has no charged slots, the compacted charged projected
+execution has zero cost.
+-/
+theorem rankThresholdBottomChargedProjectedExecution_cost_eq_zero_of_chargedCount_eq_zero
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (hcount :
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount = 0) :
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost = 0 := by
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  have hconsume : Cb.consumableCost = 0 :=
+    Cb.consumableCost_eq_zero_of_chargedCount_eq_zero
+      (by simpa [Cb] using hcount)
+  calc
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost =
+        Cb.consumableCost := by
+          simpa [Cb] using
+            E.rankThresholdBottomChargedProjectedExecution_cost_eq_consumableCost
+              hE s
+    _ = 0 := hconsume
+
+/--
+The sharp charged-projected `topDownCost` premise is automatic in the empty
+charged-count case.
+-/
+theorem rankThresholdBottomChargedProjectedCost_le_topDownCost_of_chargedCount_zero
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hcount :
+      (E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).chargedCount = 0) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+      topDownCost Cb.chargedCount Bcard s := by
+  intro Cb Bcard
+  rw [
+    E.rankThresholdBottomChargedProjectedExecution_cost_eq_zero_of_chargedCount_eq_zero
+      hE s hcount]
+  exact Nat.zero_le _
 
 /--
 Positive-cost compacted charged bottom slots lift to valid ordinary source
@@ -7429,6 +7515,93 @@ theorem rankThresholdBottomChargedSlot_bottomFinset_card_eq_of_slot
   exact congrArg Finset.card hfinset
 
 /--
+A positive charged bottom projected count forces the stable bottom side to be
+nonempty.  This separates the remaining charged-projected `topDownCost` gap
+from the trivial zero-cardinality case.
+-/
+theorem rankThresholdBottomProjectedExecution_bottomFinset_card_pos_of_chargedCount_pos
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hcount :
+      0 <
+        (E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)).chargedCount) :
+    1 <= (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card := by
+  classical
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let q : Fin Cb.chargedCount := ⟨0, by simpa [Cb] using hcount⟩
+  let i := E.rankThresholdBottomChargedSlot hE s q
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  have hcharged_i :
+      ((E.step i).bottomProjectedStep
+        (Dfam i) (hE.1 i) (cut i) (hcut i)).IsCharged := by
+    simpa [i, Dfam, cut, hcut] using
+      E.rankThresholdBottomChargedSlot_isCharged hE s q
+  have hlen_pos :
+      0 < (E.step i).path.bottomProjectionLength (Dfam i) (cut i) (hcut i) := by
+    have hnonroot :
+        ((E.step i).path.bottomProjectionSegment
+          (Dfam i) (hE.1 i).1.2.2.1 (cut i) (hcut i)).IsNonrootPath := by
+      simpa [RawCompressionStep.bottomProjectedStep,
+        RawCompressionPath.ProjectedCompressionStep.IsCharged,
+        RawCompressionPath.ProjectedCompressionStep.IsNonrootPath] using hcharged_i
+    rcases hnonroot with ⟨hlen, _hneq⟩
+    simpa [RawCompressionPath.bottomProjectionSegment_len] using hlen
+  have hlen_le :
+      (E.step i).path.bottomProjectionLength (Dfam i) (cut i) (hcut i) <=
+        (Dfam i).bottomFinset.card := by
+    simpa [Dfam, cut, hcut] using
+      E.rankThresholdBottomProjectedStep_bottomProjectionLength_le_bottomFinset_card_of_charged
+        hE s i hcharged_i
+  have hcard_i_pos : 0 < (Dfam i).bottomFinset.card :=
+    lt_of_lt_of_le hlen_pos hlen_le
+  have hcard_eq :
+      (Dfam i).bottomFinset.card =
+        (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card := by
+    simpa [Dfam, i] using
+      E.rankThresholdBottomChargedSlot_bottomFinset_card_eq_of_slot hE s i0 q
+  omega
+
+/--
+If the stable bottom side is empty, the sharp charged-projected `topDownCost`
+premise is automatic: there cannot be a charged bottom projected slot.
+-/
+theorem rankThresholdBottomChargedProjectedCost_le_topDownCost_of_bottomCard_zero
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hcard :
+      (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card = 0) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+      topDownCost Cb.chargedCount Bcard s := by
+  intro Cb Bcard
+  have hcount :
+      Cb.chargedCount = 0 := by
+    by_contra hne
+    have hpos : 0 < Cb.chargedCount := Nat.pos_of_ne_zero hne
+    have hcard_pos :
+        1 <= (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card := by
+      simpa [Cb] using
+        E.rankThresholdBottomProjectedExecution_bottomFinset_card_pos_of_chargedCount_pos
+          hE s i0 hpos
+    omega
+  rw [
+    E.rankThresholdBottomChargedProjectedExecution_cost_eq_zero_of_chargedCount_eq_zero
+      hE s (by simpa [Cb] using hcount)]
+  exact Nat.zero_le _
+
+/--
 Ordinary bottom charged execution skeleton over a fixed reference bottom
 cardinality.  The steps are the chosen per-slot bottom realizations, cast along
 the stable bottom-cardinality equality.  This skeleton has valid slots and the
@@ -7561,6 +7734,38 @@ theorem rankThresholdBottomProjectedExecution_consumableCost_le_topDownCost_bott
     simpa [Ebot, Cb] using
       E.rankThresholdBottomChargedExecutionSkeleton_cost_eq_consumableCost hE s i0
   simpa [hcost_eq] using hcost
+
+/--
+The sharp charged-projected `topDownCost` premise follows from the old
+charged-only ordinary skeleton exactly when that skeleton has consecutive
+states.  This isolates the known wrong-object dependency without asserting it.
+-/
+theorem rankThresholdBottomChargedProjectedCost_le_topDownCost_of_skeleton_consecutive
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hstate :
+      (E.rankThresholdBottomChargedExecutionSkeleton hE s i0).HasConsecutiveStates) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+      topDownCost Cb.chargedCount Bcard s := by
+  intro Cb Bcard
+  have hconsume :
+      Cb.consumableCost <= topDownCost Cb.chargedCount Bcard s := by
+    simpa [Cb, Bcard] using
+      E.rankThresholdBottomProjectedExecution_consumableCost_le_topDownCost_bottomCard_of_skeleton_consecutive
+        hE s i0 hstate
+  have hcost :
+      (E.rankThresholdBottomChargedProjectedExecution hE s).cost =
+        Cb.consumableCost := by
+    simpa [Cb] using
+      E.rankThresholdBottomChargedProjectedExecution_cost_eq_consumableCost hE s
+  rw [hcost]
+  exact hconsume
 
 /--
 Source-relevant bottom boundary-exception slots.  These are precisely the
@@ -9731,6 +9936,42 @@ theorem rankThresholdBottom_consumable_add_boundary_le_chargedProjected_add_bott
       rw [hcost]
 
 /--
+Boundary-tax consumer for the charged ordinary bottom skeleton.  If the
+charged-only ordinary skeleton has the consecutive-state property required by
+`topDownCost`, then the direct projected bottom cost plus the source-relevant
+boundary-exception tax is paid by the charged skeleton's `topDownCost` plus one
+stable bottom-card tax.  This theorem deliberately does not realize boundary
+exceptions as ordinary rootpath/no-op steps.
+-/
+theorem rankThresholdBottom_taxedConsumable_le_topDownCost_add_bottomCard_of_skeleton
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hstate :
+      (E.rankThresholdBottomChargedExecutionSkeleton hE s i0).HasConsecutiveStates) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let X :=
+      E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    Cb.consumableCost + X <=
+      topDownCost Cb.chargedCount Bcard s + Bcard := by
+  intro Cb X Bcard
+  have hconsume :
+      Cb.consumableCost <= topDownCost Cb.chargedCount Bcard s := by
+    simpa [Cb, Bcard] using
+      E.rankThresholdBottomProjectedExecution_consumableCost_le_topDownCost_bottomCard_of_skeleton_consecutive
+        hE s i0 hstate
+  have hboundary : X <= Bcard := by
+    simpa [X, Bcard] using
+      E.rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_card
+        hE s i0
+  exact Nat.add_le_add hconsume hboundary
+
+/--
 The boundary-inclusive projected bottom execution cost is the sum over the
 rank-threshold relevant-slot finset.
 -/
@@ -11044,6 +11285,128 @@ theorem rankThreshold_source_cost_le_diamond_budget_of_topBudget_consumable_boun
           Nat.add_le_add hcoeff hboundary
 
 /--
+Taxed-bottom variant of the budgeted-top source-shift arithmetic consumer.
+
+The bottom premise is deliberately stated as a recurrence call on
+`topDownCost` plus one bottom-card tax.  The source-relevant boundary exception
+sum is consumed together with the bottom projected consumable cost, so this
+consumer does not ask for an ordinary execution containing boundary exception
+slots.
+-/
+theorem rankThreshold_source_cost_le_diamond_budget_of_topBudget_taxedTopDown_bounds
+    (Drow : DiamondInput)
+    (k : Nat)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hs : Drow.g r <= 2 ^ s)
+    (hdiamond : Drow.diamond r = 1 + Drow.diamond s)
+    (hbottomTax :
+      let Cb :=
+        E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)
+      let X :=
+        E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)
+      let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+      Cb.consumableCost + X <= topDownCost Cb.chargedCount Bcard s + Bcard)
+    (hbottomTopDown :
+      let Cb :=
+        E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)
+      let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+      topDownCost Cb.chargedCount Bcard s <=
+        (k + 1) * Cb.chargedCount + 2 * Bcard * Drow.diamond s)
+    (htop :
+      (E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+        k *
+          (E.canonicalTopProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+          2 * RankThresholdDissection.topRestrictedBudget (n := n) s *
+            Drow.g (r - s - 1)) :
+    E.cost <= (k + 1) * m + 2 * n * Drow.diamond r := by
+  classical
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let X :=
+    E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Ct :=
+    E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+  let Tbudget := RankThresholdDissection.topRestrictedBudget (n := n) s
+  let ds := Drow.diamond s
+  let gt := Drow.g (r - s - 1)
+  have hmain :
+      E.cost <= Cb.consumableCost + X + Ct.consumableCost + Ct.chargedCount := by
+    simpa [Cb, X, Ct] using
+      E.rankThreshold_sourceRelevant_projected_accounting hE s
+  have hbottomTax' :
+      Cb.consumableCost + X <= topDownCost Cb.chargedCount Bcard s + Bcard := by
+    simpa [Cb, X, Bcard] using hbottomTax
+  have hbottomTopDown' :
+      topDownCost Cb.chargedCount Bcard s <=
+        (k + 1) * Cb.chargedCount + 2 * Bcard * ds := by
+    simpa [Cb, Bcard, ds] using hbottomTopDown
+  have hbottom' :
+      Cb.consumableCost + X <=
+        (k + 1) * Cb.chargedCount + 2 * Bcard * ds + Bcard := by
+    omega
+  have htop' :
+      Ct.consumableCost <= k * Ct.chargedCount + 2 * Tbudget * gt := by
+    simpa [Ct, Tbudget, gt] using htop
+  have hcounts :
+      Cb.chargedCount + Ct.chargedCount <= E.nonrootCount := by
+    simpa [Cb, Ct] using E.rankThreshold_projected_nonroot_count_le hE s
+  have hcount_m :
+      Cb.chargedCount + Ct.chargedCount <= m :=
+    hcounts.trans E.nonrootCount_le_length
+  have hcoeff :
+      (k + 1) * Cb.chargedCount + k * Ct.chargedCount + Ct.chargedCount <=
+        (k + 1) * m := by
+    calc
+      (k + 1) * Cb.chargedCount + k * Ct.chargedCount + Ct.chargedCount
+          = (k + 1) * (Cb.chargedCount + Ct.chargedCount) := by
+              ring
+      _ <= (k + 1) * m := Nat.mul_le_mul_left (k + 1) hcount_m
+  have hBcard_le : Bcard <= n := by
+    simpa [Bcard] using
+      (Finset.card_le_univ ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset))
+  have htopBudget :
+      2 * Tbudget * gt <= n := by
+    simpa [Tbudget, gt] using
+      E.rankThresholdDissectionFamily_two_mul_topBudget_mul_g_le Drow s hs
+  have hbottomDiamond :
+      2 * Bcard * ds <= 2 * n * ds := by
+    exact Nat.mul_le_mul_right ds (Nat.mul_le_mul_left 2 hBcard_le)
+  have hboundary :
+      2 * Bcard * ds + Bcard + 2 * Tbudget * gt <=
+        2 * n * Drow.diamond r := by
+    calc
+      2 * Bcard * ds + Bcard + 2 * Tbudget * gt
+          <= 2 * n * ds + n + n := by
+              omega
+      _ = 2 * n * (1 + ds) := by
+              ring
+      _ = 2 * n * Drow.diamond r := by
+              rw [hdiamond]
+  have hcombined :
+      E.cost <=
+        ((k + 1) * Cb.chargedCount + k * Ct.chargedCount + Ct.chargedCount) +
+          (2 * Bcard * ds + Bcard + 2 * Tbudget * gt) := by
+    omega
+  calc
+    E.cost <=
+        ((k + 1) * Cb.chargedCount + k * Ct.chargedCount + Ct.chargedCount) +
+          (2 * Bcard * ds + Bcard + 2 * Tbudget * gt) := hcombined
+    _ <= (k + 1) * m + 2 * n * Drow.diamond r :=
+          Nat.add_le_add hcoeff hboundary
+
+/--
 Log-threshold specialization of
 `rankThreshold_source_cost_le_diamond_budget_of_consumable_bounds`.
 -/
@@ -11360,6 +11723,197 @@ def RankThresholdJInputBottomConsumableBounds (k : Nat) : Prop :=
       (k + 1) * Cb.chargedCount + 2 * Bcard * (JInput k).diamond s
 
 /--
+Tax-aware bottom recurrence boundary for `JInput`.
+
+This is the consumer shape left by the direct boundary accounting route: the
+ordinary recurrence is invoked only for the charged bottom projected part, and
+the source-relevant boundary-exception contribution is paid by one bottom-card
+tax.  The tax is then absorbed by the rank induction in the shift bridge below,
+not by the previous-row source bound.
+-/
+def RankThresholdJInputBottomTaxedTopDownCostBounds (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < (JInput k).g r),
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let X :=
+      E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    Cb.consumableCost + X <= topDownCost Cb.chargedCount Bcard s + Bcard
+
+/--
+Sharp remaining charged-bottom projected recurrence boundary.
+
+The source-relevant boundary-exception tax is already paid separately by
+bottom-card accounting.  After the taxed-bottom consumer, the only remaining
+recurrence-realization statement needed on the bottom side is domination of the
+charged projected bottom cost by ordinary `topDownCost` at the stable bottom
+cardinality.
+-/
+def RankThresholdJInputBottomChargedProjectedTopDownCostBounds (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (_hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < (JInput k).g r),
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+      topDownCost Cb.chargedCount Bcard s
+
+/--
+Positive core of the remaining charged-projected bottom recurrence boundary.
+
+The zero charged-count and zero bottom-card cases are formal consequences of
+the projected slot/cardinality lemmas, so future work can target only this
+nontrivial case.
+-/
+def RankThresholdJInputBottomChargedProjectedTopDownCostPositiveCore
+    (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (_hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < (JInput k).g r),
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    0 < Cb.chargedCount ->
+      1 <= Bcard ->
+        (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+          topDownCost Cb.chargedCount Bcard s
+
+/--
+The positive core is equivalent to the sharp charged-projected premise for the
+only direction needed downstream: zero charged-count cases are cost-zero, and
+positive charged count forces a nonempty stable bottom side.
+-/
+theorem rankThresholdJInputBottomChargedProjectedTopDownCostBounds_of_positiveCore
+    (k : Nat)
+    (hcore :
+      RankThresholdJInputBottomChargedProjectedTopDownCostPositiveCore k) :
+    RankThresholdJInputBottomChargedProjectedTopDownCostBounds k := by
+  intro m n r hm hn hprev E hE hlarge
+  let s := ceilLog2 ((JInput k).g r)
+  let i0 : Fin m := ⟨0, by omega⟩
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+  by_cases hcount_zero : Cb.chargedCount = 0
+  · simpa [s, i0, Cb, Bcard] using
+      E.rankThresholdBottomChargedProjectedCost_le_topDownCost_of_chargedCount_zero
+        hE s i0 (by simpa [Cb] using hcount_zero)
+  · have hcount_pos : 0 < Cb.chargedCount := Nat.pos_of_ne_zero hcount_zero
+    have hcard_pos : 1 <= Bcard := by
+      simpa [s, i0, Cb, Bcard] using
+        E.rankThresholdBottomProjectedExecution_bottomFinset_card_pos_of_chargedCount_pos
+          hE s i0 (by simpa [Cb] using hcount_pos)
+    simpa [s, i0, Cb, Bcard] using
+      hcore hm hn hprev E hE hlarge hcount_pos hcard_pos
+
+/--
+The old charged-only skeleton consecutive-state premise, specialized to the
+`JInput` bottom slice.  It is named only as a diagnostic boundary: this is the
+known wrong-object condition that boundary exceptions can violate.
+-/
+def RankThresholdJInputBottomChargedSkeletonConsecutive (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (_hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < (JInput k).g r),
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    (E.rankThresholdBottomChargedExecutionSkeleton hE s i0).HasConsecutiveStates
+
+/--
+If the charged-only skeleton consecutive-state premise were available, it
+would imply the sharp charged-projected `topDownCost` premise.  The point of
+the boundary-tax route is that this premise should be avoided or replaced, not
+proved unchanged.
+-/
+theorem rankThresholdJInputBottomChargedProjectedTopDownCostBounds_of_chargedSkeletonConsecutive
+    (k : Nat)
+    (hstate : RankThresholdJInputBottomChargedSkeletonConsecutive k) :
+    RankThresholdJInputBottomChargedProjectedTopDownCostBounds k := by
+  intro m n r hm hn hprev E hE hlarge
+  let s := ceilLog2 ((JInput k).g r)
+  let i0 : Fin m := ⟨0, by omega⟩
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+  have hstate' :
+      (E.rankThresholdBottomChargedExecutionSkeleton hE s i0).HasConsecutiveStates := by
+    simpa [s, i0] using hstate hm hn hprev E hE hlarge
+  simpa [s, i0, Cb, Bcard] using
+    E.rankThresholdBottomChargedProjectedCost_le_topDownCost_of_skeleton_consecutive
+      hE s i0 hstate'
+
+/--
+The sharp charged-projected `topDownCost` boundary supplies the taxed-bottom
+premise: the charged cost is exactly the bottom consumable cost, while the
+source-relevant boundary exception contribution is bounded by one bottom-card
+tax.
+-/
+theorem rankThresholdJInputBottomTaxedTopDownCostBounds_of_chargedProjectedTopDownCostBounds
+    (k : Nat)
+    (hcharged : RankThresholdJInputBottomChargedProjectedTopDownCostBounds k) :
+    RankThresholdJInputBottomTaxedTopDownCostBounds k := by
+  intro m n r hm hn hprev E hE hlarge
+  let s := ceilLog2 ((JInput k).g r)
+  let i0 : Fin m := ⟨0, by omega⟩
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let X :=
+    E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+  have hcost :
+      Cb.consumableCost =
+        (E.rankThresholdBottomChargedProjectedExecution hE s).cost := by
+    simpa [Cb] using
+      E.rankThresholdBottomProjectedExecution_consumableCost_eq_chargedProjectedExecution_cost
+        hE s
+  have hcharged' :
+      (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+        topDownCost Cb.chargedCount Bcard s := by
+    simpa [s, i0, Cb, Bcard] using hcharged hm hn hprev E hE hlarge
+  have hboundary : X <= Bcard := by
+    simpa [X, Bcard] using
+      E.rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_card
+        hE s i0
+  have hconsume :
+      Cb.consumableCost <= topDownCost Cb.chargedCount Bcard s := by
+    rw [hcost]
+    exact hcharged'
+  exact Nat.add_le_add hconsume hboundary
+
+/--
 Exact remaining charged-bottom projected recurrence boundary.
 
 The direct boundary-accounting route has already identified
@@ -11505,6 +12059,176 @@ theorem topDown_shift_step_of_rankThresholdJInputBottomConsumableBounds
   topDown_shift_step_of_rankThresholdJInputTopBudgetConsumableBounds k
     (rankThresholdJInputTopBudgetConsumableBounds_of_bottomConsumableBounds
       k hbottom)
+
+/--
+Tax-aware source-shift bridge.
+
+Unlike `topDown_shift_step_of_rankThresholdJInputBottomConsumableBounds`, this
+consumer accepts a bottom recurrence call at the smaller threshold rank plus one
+bottom-card tax.  The proof uses strong induction on the ambient rank to pay
+that smaller-rank `topDownCost` in the successor row.
+-/
+theorem topDown_shift_step_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+    (k : Nat)
+    (hbottomTax : RankThresholdJInputBottomTaxedTopDownCostBounds k) :
+    topDownShiftStepTarget k := by
+  intro hprev m n r hm hn
+  induction r using Nat.strong_induction_on generalizing m n with
+  | h r ih =>
+      apply topDownCost_le_of_forall_valid
+      intro E hE
+      by_cases hsmall : (JInput k).g r <= 1
+      · exact (E.cost_le_topDownCost hE).trans
+          (topDownCost_le_shift_target_of_g_small (JInput k) k hprev hm hn hsmall)
+      · have hlarge : 1 < (JInput k).g r := Nat.lt_of_not_ge hsmall
+        let s := ceilLog2 ((JInput k).g r)
+        let i0 : Fin m := ⟨0, by omega⟩
+        let Cb :=
+          E.canonicalBottomProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)
+        let X :=
+          E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)
+        let Ct :=
+          E.canonicalTopProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)
+        let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+        let Tbudget := RankThresholdDissection.topRestrictedBudget (n := n) s
+        have hs_lt : s < r := by
+          simpa [s] using (JInput k).ceilLog2_g_lt_of_large hlarge
+        have htax :
+            Cb.consumableCost + X <=
+              topDownCost Cb.chargedCount Bcard s + Bcard := by
+          simpa [s, i0, Cb, X, Bcard] using
+            hbottomTax hm hn hprev E hE hlarge
+        have hbottomTopDown :
+            topDownCost Cb.chargedCount Bcard s <=
+              (k + 1) * Cb.chargedCount +
+                2 * Bcard * (JInput k).diamond s := by
+          by_cases hcharged_zero : Cb.chargedCount = 0
+          · have hzero :
+                topDownCost Cb.chargedCount Bcard s = 0 := by
+              simpa [hcharged_zero] using
+                topDownCost_zero_length_eq_zero Bcard s
+            omega
+          · have hcharged_pos : 1 <= Cb.chargedCount :=
+              Nat.succ_le_of_lt (Nat.pos_of_ne_zero hcharged_zero)
+            by_cases hbottom_zero : Bcard = 0
+            · have hzero :
+                  topDownCost Cb.chargedCount Bcard s = 0 := by
+                exact Nat.eq_zero_of_le_zero (by
+                  have hbase := topDownCost_le_base_budget Cb.chargedCount Bcard s
+                  simpa [hbottom_zero] using hbase)
+              omega
+            · have hbottom_pos : 1 <= Bcard :=
+                Nat.succ_le_of_lt (Nat.pos_of_ne_zero hbottom_zero)
+              exact ih s hs_lt hcharged_pos hbottom_pos
+        have htop :
+            Ct.consumableCost <=
+              k * Ct.chargedCount +
+                2 * Tbudget * (JInput k).g (r - s - 1) := by
+          simpa [s, i0, Ct, Tbudget] using
+            E.rankThreshold_top_consumableCost_le_JInput_topBudget k hprev hE s i0
+        exact
+          E.rankThreshold_source_cost_le_diamond_budget_of_topBudget_taxedTopDown_bounds
+            (JInput k) k hE s i0
+            (by simpa [s] using le_two_pow_ceilLog2 ((JInput k).g r))
+            (by simpa [s] using (JInput k).diamond_eq_large hlarge)
+            (by simpa [Cb, X, Bcard] using htax)
+            (by simpa [Cb, Bcard] using hbottomTopDown)
+            (by simpa [Ct, Tbudget] using htop)
+
+/--
+Uniform taxed-bottom bounds supply every concrete top-down shift step.
+-/
+theorem topDown_shift_steps_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+    (hbottomTax : forall k : Nat,
+      RankThresholdJInputBottomTaxedTopDownCostBounds k) :
+    forall k : Nat, topDownShiftStepTarget k := by
+  intro k
+  exact topDown_shift_step_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+    k (hbottomTax k)
+
+/--
+Conditional source recurrence from the single remaining taxed-bottom premise.
+This keeps the recurrence interface unchanged while making the exact missing
+bottom theorem explicit.
+-/
+theorem sourceRecurrence_topDownCost_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+    (hbottomTax : forall k : Nat,
+      RankThresholdJInputBottomTaxedTopDownCostBounds k) :
+    SourceRecurrence topDownCost :=
+  sourceRecurrence_topDownCost_of_shift
+    (topDown_shift_steps_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+      hbottomTax)
+
+/--
+Conditional paper-facing finite bound from the taxed-bottom premise.  The
+constants and statement are exactly the existing packet-facing target.
+-/
+theorem paper_finite_bound_topDownCost_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+    (hbottomTax : forall k : Nat,
+      RankThresholdJInputBottomTaxedTopDownCostBounds k)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    topDownCost m n (L n) <= (alphaQ m n + 3) * m + 4 * n :=
+  paper_finite_bound_topDownCost_of_shift
+    (topDown_shift_steps_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+      hbottomTax)
+    hm hn
+
+/--
+The charged-projected `topDownCost` boundary is sufficient for each concrete
+source shift step.
+-/
+theorem topDown_shift_step_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+    (k : Nat)
+    (hcharged :
+      RankThresholdJInputBottomChargedProjectedTopDownCostBounds k) :
+    topDownShiftStepTarget k :=
+  topDown_shift_step_of_rankThresholdJInputBottomTaxedTopDownCostBounds k
+    (rankThresholdJInputBottomTaxedTopDownCostBounds_of_chargedProjectedTopDownCostBounds
+      k hcharged)
+
+/--
+Uniform charged-projected `topDownCost` bounds supply every concrete top-down
+shift step.
+-/
+theorem topDown_shift_steps_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+    (hcharged : forall k : Nat,
+      RankThresholdJInputBottomChargedProjectedTopDownCostBounds k) :
+    forall k : Nat, topDownShiftStepTarget k := by
+  intro k
+  exact topDown_shift_step_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+    k (hcharged k)
+
+/--
+Conditional source recurrence from the sharp charged-projected bottom premise.
+-/
+theorem sourceRecurrence_topDownCost_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+    (hcharged : forall k : Nat,
+      RankThresholdJInputBottomChargedProjectedTopDownCostBounds k) :
+    SourceRecurrence topDownCost :=
+  sourceRecurrence_topDownCost_of_shift
+    (topDown_shift_steps_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+      hcharged)
+
+/--
+Conditional paper-facing finite bound from the sharp charged-projected bottom
+premise.
+-/
+theorem paper_finite_bound_topDownCost_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+    (hcharged : forall k : Nat,
+      RankThresholdJInputBottomChargedProjectedTopDownCostBounds k)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    topDownCost m n (L n) <= (alphaQ m n + 3) * m + 4 * n :=
+  paper_finite_bound_topDownCost_of_shift
+    (topDown_shift_steps_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+      hcharged)
+    hm hn
 
 /--
 The charged-bottom projected recurrence boundary is now the only remaining
