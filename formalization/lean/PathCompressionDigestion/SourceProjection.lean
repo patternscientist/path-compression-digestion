@@ -7817,6 +7817,271 @@ theorem rankThresholdDissectionFamily_topStable_of_slot
   rw [E.rankThresholdDissectionFamily_rankNat_eq_of_slot
     hsteps hstate i0 i v]
 
+/-- Rank-threshold bottom-side predicates are stable across all execution slots. -/
+theorem rankThresholdDissectionFamily_bottomStable_of_slot
+    (E : RawCompressionExecution m n r)
+    (hsteps : forall i : Fin m, (E.step i).IsValid)
+    (hstate : forall i j : Fin m, i.val + 1 = j.val ->
+      (E.step i).after = (E.step j).before)
+    (s : Nat)
+    (i0 i : Fin m)
+    (v : Fin n) :
+    Iff ((E.rankThresholdDissectionFamily hsteps s i0).IsBottom v)
+      ((E.rankThresholdDissectionFamily hsteps s i).IsBottom v) := by
+  exact (E.rankThresholdDissectionFamily hsteps s i0).bottomIffOfTopIff
+    (E.rankThresholdDissectionFamily hsteps s i)
+    (E.rankThresholdDissectionFamily_topStable_of_slot hsteps hstate s i0 i) v
+
+/--
+If all slots strictly between `i` and `j` are omitted by the
+boundary-inclusive bottom relevant-slot predicate, then the bottom projected
+parent map after slot `i` agrees with the bottom projected parent map before
+slot `j`, after the canonical stable bottom-side identification.
+-/
+theorem rankThresholdBottomProjectedStep_after_commutes_with_later_before_of_not_relevant_between
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    {i j : Fin m}
+    (hij : i.val < j.val)
+    (hskip :
+      forall k : Fin m, i.val < k.val -> k.val < j.val ->
+        Not (E.rankThresholdBottomRelevantSlot hE s k)) :
+    ((E.step i).bottomProjectedStep
+      (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+      (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) i)
+      (E.dissectionCut_spec hE.1
+        (E.rankThresholdDissectionFamily hE.1 s) i)).ParentCommutesWithEquiv
+      ((E.step j).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s j) (hE.1 j)
+        (E.dissectionCut hE.1 (E.rankThresholdDissectionFamily hE.1 s) j)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) j))
+      ((E.rankThresholdDissectionFamily hE.1 s i).bottomEquivOfBottomIff
+        (E.rankThresholdDissectionFamily hE.1 s j)
+        (E.rankThresholdDissectionFamily_bottomStable_of_slot
+          hE.1 hE.2.1 s i j)) := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  let Si :=
+    (E.step i).bottomProjectedStep (Dfam i) (hE.1 i) (cut i) (hcut i)
+  intro v
+  let base := i.val + 1
+  have hbase_le_j : base <= j.val := by
+    simpa [base] using Nat.succ_le_of_lt hij
+  have hbase_lt_m : base < m := by omega
+  have hmain :
+      forall d : Nat, forall hle : base + d <= j.val, forall curr : Fin m,
+        curr.val = base + d ->
+        ((Dfam i).bottomEquivOfBottomIff (Dfam curr)
+          (E.rankThresholdDissectionFamily_bottomStable_of_slot
+            hE.1 hE.2.1 s i curr)) (Si.afterParent v) =
+          ((E.step curr).bottomProjectedStep
+            (Dfam curr) (hE.1 curr) (cut curr) (hcut curr)).beforeParent
+            (((Dfam i).bottomEquivOfBottomIff (Dfam curr)
+              (E.rankThresholdDissectionFamily_bottomStable_of_slot
+                hE.1 hE.2.1 s i curr)) v) := by
+    intro d
+    induction d with
+    | zero =>
+        intro _hle curr hcurr
+        let next : Fin m := ⟨base, hbase_lt_m⟩
+        have hcurr_eq : curr = next := by
+          apply Fin.ext
+          simpa [next] using hcurr
+        subst curr
+        have hcomm :
+            Si.ParentCommutesWithEquiv
+              ((E.step next).bottomProjectedStep
+                (Dfam next) (hE.1 next) (cut next) (hcut next))
+              ((Dfam i).bottomEquivOfBottomIff (Dfam next)
+                (E.rankThresholdDissectionFamily_bottomStable_of_slot
+                  hE.1 hE.2.1 s i next)) := by
+          simpa [Si, Dfam, cut, hcut, next, base] using
+            (E.step i).bottomProjectedStep_after_commutes_with_next_before
+              (E.step next) (Dfam i) (Dfam next) (hE.1 i) (hE.1 next)
+              (hE.2.1 i next (by simp [next, base]))
+              (E.rankThresholdDissectionFamily_bottomStable_of_slot
+                hE.1 hE.2.1 s i next)
+              (cut i) (cut next) (hcut i) (hcut next)
+        simpa [next, base] using hcomm v
+    | succ d ih =>
+        intro hle curr hcurr
+        let prev : Fin m := ⟨base + d, by omega⟩
+        have hprev_le : base + d <= j.val := by omega
+        have hprev_lt_j : prev.val < j.val := by
+          simp [prev] at hle ⊢
+          omega
+        have hi_lt_prev : i.val < prev.val := by
+          simp [prev, base]
+          omega
+        have hnot_prev :
+            Not (E.rankThresholdBottomRelevantSlot hE s prev) :=
+          hskip prev hi_lt_prev hprev_lt_j
+        let e_i_prev :=
+          (Dfam i).bottomEquivOfBottomIff (Dfam prev)
+            (E.rankThresholdDissectionFamily_bottomStable_of_slot
+              hE.1 hE.2.1 s i prev)
+        let e_prev_curr :=
+          (Dfam prev).bottomEquivOfBottomIff (Dfam curr)
+            (E.rankThresholdDissectionFamily_bottomStable_of_slot
+              hE.1 hE.2.1 s prev curr)
+        let e_i_curr :=
+          (Dfam i).bottomEquivOfBottomIff (Dfam curr)
+            (E.rankThresholdDissectionFamily_bottomStable_of_slot
+              hE.1 hE.2.1 s i curr)
+        let Sprev :=
+          (E.step prev).bottomProjectedStep
+            (Dfam prev) (hE.1 prev) (cut prev) (hcut prev)
+        let Scurr :=
+          (E.step curr).bottomProjectedStep
+            (Dfam curr) (hE.1 curr) (cut curr) (hcut curr)
+        have hpersist :
+            e_i_prev (Si.afterParent v) = Sprev.beforeParent (e_i_prev v) := by
+          simpa [prev, e_i_prev, Sprev] using ih hprev_le prev (by simp [prev])
+        have hnoop :
+            Sprev.afterParent (e_i_prev v) = Sprev.beforeParent (e_i_prev v) := by
+          have hfun :=
+            congrFun
+              (E.rankThresholdBottomProjectedStep_afterParent_eq_beforeParent_of_not_relevant
+                hE s prev hnot_prev) (e_i_prev v)
+          simpa [Sprev, Dfam, cut, hcut, canonicalBottomProjectedExecution,
+            bottomProjectedExecution] using hfun
+        have hcomm :
+            Sprev.ParentCommutesWithEquiv Scurr e_prev_curr := by
+          simpa [Sprev, Scurr, e_prev_curr, Dfam, cut, hcut, prev, base] using
+            (E.step prev).bottomProjectedStep_after_commutes_with_next_before
+              (E.step curr) (Dfam prev) (Dfam curr) (hE.1 prev) (hE.1 curr)
+              (hE.2.1 prev curr (by simp [prev, base]; omega))
+              (E.rankThresholdDissectionFamily_bottomStable_of_slot
+                hE.1 hE.2.1 s prev curr)
+              (cut prev) (cut curr) (hcut prev) (hcut curr)
+        have hcomp_after :
+            e_i_curr (Si.afterParent v) =
+              e_prev_curr (e_i_prev (Si.afterParent v)) := by
+          apply Subtype.ext
+          rfl
+        have hcomp_v :
+            e_prev_curr (e_i_prev v) = e_i_curr v := by
+          apply Subtype.ext
+          rfl
+        calc
+          e_i_curr (Si.afterParent v)
+              = e_prev_curr (e_i_prev (Si.afterParent v)) := hcomp_after
+          _ = e_prev_curr (Sprev.beforeParent (e_i_prev v)) := by
+                rw [hpersist]
+          _ = e_prev_curr (Sprev.afterParent (e_i_prev v)) := by
+                rw [hnoop]
+          _ = Scurr.beforeParent (e_prev_curr (e_i_prev v)) := hcomm (e_i_prev v)
+          _ = Scurr.beforeParent (e_i_curr v) := by
+                rw [hcomp_v]
+  have hfinal := hmain (j.val - base) (by omega) j
+    (by simp [base, Nat.add_sub_of_le hbase_le_j])
+  simpa [Si, Dfam, cut, hcut] using hfinal
+
+/--
+Adjacent entries of the boundary-inclusive bottom relevant-slot enumeration
+have consecutive projected states after skipping the intervening non-relevant
+bottom slots.
+-/
+theorem rankThresholdBottomRelevantSlot_after_commutes_with_next
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    {q q' : Fin (E.rankThresholdBottomRelevantCount hE s)}
+    (hqq' : q.val + 1 = q'.val) :
+    let Dfam := E.rankThresholdDissectionFamily hE.1 s
+    let i := E.rankThresholdBottomRelevantSlotEnum hE s q
+    let j := E.rankThresholdBottomRelevantSlotEnum hE s q'
+    ((E.step i).bottomProjectedStep
+      (Dfam i) (hE.1 i)
+      (E.dissectionCut hE.1 Dfam i)
+      (E.dissectionCut_spec hE.1 Dfam i)).ParentCommutesWithEquiv
+      ((E.step j).bottomProjectedStep
+        (Dfam j) (hE.1 j)
+        (E.dissectionCut hE.1 Dfam j)
+        (E.dissectionCut_spec hE.1 Dfam j))
+      ((Dfam i).bottomEquivOfBottomIff (Dfam j)
+        (E.rankThresholdDissectionFamily_bottomStable_of_slot
+          hE.1 hE.2.1 s i j)) := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let i := E.rankThresholdBottomRelevantSlotEnum hE s q
+  let j := E.rankThresholdBottomRelevantSlotEnum hE s q'
+  have hq_lt_q' : q.val < q'.val := by omega
+  have hij : i.val < j.val := by
+    simpa [i, j] using E.rankThresholdBottomRelevantSlotEnum_strictMono hE s hq_lt_q'
+  refine
+    E.rankThresholdBottomProjectedStep_after_commutes_with_later_before_of_not_relevant_between
+      hE s hij ?_
+  intro k hkleft hkright
+  have hleft :
+      (E.rankThresholdBottomRelevantSlotEnum hE s q).val < k.val := by
+    simpa [i] using hkleft
+  have hright :
+      k.val < (E.rankThresholdBottomRelevantSlotEnum hE s q').val := by
+    simpa [j] using hkright
+  exact E.not_rankThresholdBottomRelevantSlot_of_between_relevantSlotEnum_succ
+    hE s hqq' k hleft hright
+
+/--
+Dependent projected execution consisting of all boundary-inclusive bottom
+relevant slots: charged bottom slots plus source-relevant boundary exceptions.
+-/
+noncomputable def rankThresholdBottomRelevantProjectedExecution
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    RawCompressionPath.ProjectedCompressionExecution
+      (E.rankThresholdBottomRelevantCount hE s) := by
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  exact {
+    vertex := fun q => (Dfam (E.rankThresholdBottomRelevantSlotEnum hE s q)).BottomNode
+    step := fun q =>
+      (E.step (E.rankThresholdBottomRelevantSlotEnum hE s q)).bottomProjectedStep
+        (Dfam (E.rankThresholdBottomRelevantSlotEnum hE s q))
+        (hE.1 (E.rankThresholdBottomRelevantSlotEnum hE s q))
+        (E.dissectionCut hE.1 Dfam (E.rankThresholdBottomRelevantSlotEnum hE s q))
+        (E.dissectionCut_spec hE.1 Dfam
+          (E.rankThresholdBottomRelevantSlotEnum hE s q))
+  }
+
+/-- The boundary-inclusive bottom relevant projected execution has consecutive states. -/
+theorem rankThresholdBottomRelevantProjectedExecution_hasConsecutiveStates
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).HasConsecutiveStates := by
+  intro q q' hqq'
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let i := E.rankThresholdBottomRelevantSlotEnum hE s q
+  let j := E.rankThresholdBottomRelevantSlotEnum hE s q'
+  refine ⟨(Dfam i).bottomEquivOfBottomIff (Dfam j)
+    (E.rankThresholdDissectionFamily_bottomStable_of_slot hE.1 hE.2.1 s i j), ?_⟩
+  simpa [rankThresholdBottomRelevantProjectedExecution, Dfam, i, j] using
+    E.rankThresholdBottomRelevantSlot_after_commutes_with_next hE s hqq'
+
+/--
+The boundary-inclusive bottom relevant projected execution is semantically
+valid in the projected execution API.
+-/
+theorem rankThresholdBottomRelevantProjectedExecution_isSemanticallyValid
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).IsSemanticallyValid :=
+  E.rankThresholdBottomRelevantProjectedExecution_hasConsecutiveStates hE s
+
+/-- The boundary-inclusive bottom relevant projected execution is admissible. -/
+theorem rankThresholdBottomRelevantProjectedExecution_isAdmissible
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat) :
+    (E.rankThresholdBottomRelevantProjectedExecution hE s).IsAdmissible :=
+  E.rankThresholdBottomRelevantProjectedExecution_isSemanticallyValid hE s
+
 /--
 If all top projected slots strictly between `i` and `j` are uncharged, then
 the top parent map after slot `i` agrees with the top parent map before slot

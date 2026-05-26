@@ -70,6 +70,38 @@ object for consecutive-state alignment: charged slots and source-relevant
 boundary exceptions are kept, while every skipped slot is now known to preserve
 the bottom projected parent map.
 
+Third continuation update: the projected boundary-inclusive consecutive-state
+gap is now closed.  The following checked Lean objects compose the skipped
+non-relevant no-ops across intervals between adjacent relevant slots:
+
+```lean
+RawCompressionExecution
+  .rankThresholdDissectionFamily_bottomStable_of_slot
+
+RawCompressionExecution
+  .rankThresholdBottomProjectedStep_after_commutes_with_later_before_of_not_relevant_between
+
+RawCompressionExecution
+  .rankThresholdBottomRelevantSlot_after_commutes_with_next
+
+RawCompressionExecution
+  .rankThresholdBottomRelevantProjectedExecution
+
+RawCompressionExecution
+  .rankThresholdBottomRelevantProjectedExecution_hasConsecutiveStates
+
+RawCompressionExecution
+  .rankThresholdBottomRelevantProjectedExecution_isSemanticallyValid
+
+RawCompressionExecution
+  .rankThresholdBottomRelevantProjectedExecution_isAdmissible
+```
+
+This is still a projected execution, not an ordinary `RawCompressionExecution`.
+The `topDownCost` recurrence interface still requires ordinary valid source
+steps, so the remaining fallback gap has moved from projected consecutive-state
+alignment to ordinary realization/cost packaging for the relevant slots.
+
 ## 1. Exact Bottom Projected Consumable Cost Expression
 
 The package field asks to bound:
@@ -235,7 +267,19 @@ theorem RawCompressionExecution
 ```
 
 This would also need a preservation theorem for skipped uncharged
-non-source-relevant bottom slots.
+non-source-relevant bottom slots; that preservation theorem is now supplied by:
+
+```lean
+RawCompressionExecution
+  .rankThresholdBottomProjectedStep_afterParent_eq_beforeParent_of_not_relevant
+```
+
+and its multi-slot projected composition is now supplied by:
+
+```lean
+RawCompressionExecution
+  .rankThresholdBottomRelevantProjectedExecution_hasConsecutiveStates
+```
 
 ## 7. Smallest Next Theorem Statement
 
@@ -296,8 +340,8 @@ theorem RawCompressionExecution
     RawCompressionExecution.RankThresholdJInputBottomChargedProjectedBounds k
 ```
 
-For the boundary-inclusive skeleton fallback, the smallest next theorem is the
-multi-slot commutation theorem for adjacent relevant slots:
+For the boundary-inclusive skeleton fallback, the multi-slot projected
+commutation theorem for adjacent relevant slots is now proved:
 
 ```lean
 theorem RawCompressionExecution
@@ -319,20 +363,51 @@ theorem RawCompressionExecution
         (E.dissectionCut hE.1 Dfam j)
         (E.dissectionCut_spec hE.1 Dfam j))
       ((Dfam i).bottomEquivOfBottomIff (Dfam j)
-        (fun v => not_congr
-          (E.rankThresholdDissectionFamily_topStable_of_slot
-            hE.1 hE.2.1 s i j v)))
+        (E.rankThresholdDissectionFamily_bottomStable_of_slot
+          hE.1 hE.2.1 s i j))
 ```
 
-The new no-op theorem supplies the skip step for all non-relevant intervening
-slots; the remaining work is composing those adjacent projected commutations
-across the interval between adjacent relevant-slot enum entries.
+The smallest next fallback theorem is now the ordinary realization theorem for
+source-relevant bottom boundary-exception slots, with matching before/after
+restricted forests and a cost that can be charged to the existing boundary-card
+term:
+
+```lean
+theorem RawCompressionExecution
+  .rankThreshold_bottomBoundaryExceptionSlot_lifts_to_valid_step_with_state_eq
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hboundary :
+      E.rankThresholdBottomBoundaryExceptionSlot hE s i) :
+    let D := E.rankThresholdDissectionFamily hE.1 s i
+    let Gbefore :=
+      RankThresholdDissection.bottomRestrictedForestFin
+        (E.step i).before (hE.1 i).1.1 s
+    let Gafter :=
+      RankThresholdDissection.bottomRestrictedForestFin
+        (E.step i).after (hE.1 i).2.1 s
+    Exists fun S : RawCompressionStep D.bottomFinset.card s =>
+      S.IsValid /\
+        S.before = Gbefore /\
+          S.after = Gafter /\
+            S.cost <=
+              (E.step i).sourceRelevantBottomExceptionalCost
+                D (hE.1 i)
+                (E.dissectionCut hE.1
+                  (E.rankThresholdDissectionFamily hE.1 s) i)
+                (E.dissectionCut_spec hE.1
+                  (E.rankThresholdDissectionFamily hE.1 s) i) /\
+            S.before.HasRankThresholdPacking /\
+              S.after.HasRankThresholdPacking
+```
 
 ## Verdict
 
 Ambition C achieved for direct projected boundary accounting.  The projected
 bottom decomposition and boundary-card bound are proved without an ordinary
 boundary-inclusive execution.  The fallback boundary-inclusive route now has
-the checked non-relevant-slot no-op lemma, but still lacks the multi-slot
-relevant-slot consecutive-state composition.  Ambition B remains blocked by
-the charged projected recurrence-consumption bridge.
+the checked projected relevant-slot consecutive-state composition, but it still
+lacks ordinary boundary-exception realization/cost packaging.  Ambition B
+remains blocked by the charged projected recurrence-consumption bridge.
