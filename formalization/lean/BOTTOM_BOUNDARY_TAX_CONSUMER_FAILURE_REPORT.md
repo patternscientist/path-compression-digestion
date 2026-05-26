@@ -87,9 +87,28 @@ pays the extra `Bcard` in the usual diamond boundary budget.
 The downstream source recurrence and paper-facing finite theorem are therefore
 closed conditional on the single uniform taxed-bottom premise.
 
+The next continuation sharpened that premise one more step:
+
+```lean
+def RawCompressionExecution
+  .RankThresholdJInputBottomChargedProjectedTopDownCostBounds
+    (k : Nat) : Prop
+
+theorem RawCompressionExecution
+  .rankThresholdJInputBottomTaxedTopDownCostBounds_of_chargedProjectedTopDownCostBounds
+    (k : Nat)
+    (hcharged :
+      RankThresholdJInputBottomChargedProjectedTopDownCostBounds k) :
+    RankThresholdJInputBottomTaxedTopDownCostBounds k
+```
+
+Thus the boundary tax and source-relevant exception sum are now fully consumed
+by existing cost equality and bottom-card accounting.  The remaining theorem is
+only about the charged projected bottom cost and ordinary `topDownCost`.
+
 The pass still does not prove `RankThresholdJInputBottomConsumableBounds` or
-the taxed-bottom premise unconditionally, because the only currently available
-way to prove the taxed bottom premise is through the charged
+the charged-projected `topDownCost` premise unconditionally, because the only
+currently available way to prove that premise is through the charged
 skeleton/topDownCost bridge, which still has the conditional
 `HasConsecutiveStates` premise.  That premise is the known wrong-object
 obstruction for charged-only skeletons: skipped source-relevant boundary
@@ -255,22 +274,23 @@ source-relevant boundary-exception tax.  The new theorem confirms this in the
 charged-topDownCost lane.
 
 What remains missing is a way to prove
-`RankThresholdJInputBottomTaxedTopDownCostBounds` without relying on the
-false/wrong-object charged-only consecutive-state theorem.  Equivalently, one
-needs either:
+`RankThresholdJInputBottomChargedProjectedTopDownCostBounds` without relying on
+the false/wrong-object charged-only consecutive-state theorem.  Equivalently,
+one needs either:
 
 1. a projected theorem bounding the charged bottom projected cost by
-   `topDownCost Cb.chargedCount Bcard s` plus the boundary tax; or
-2. a repaired ordinary bottom realization whose non-charged boundary slots
-   align the states while their cost is charged to `Bcard`.
+   `topDownCost Cb.chargedCount Bcard s`; or
+2. a repaired ordinary bottom realization whose boundary slots align the
+   states, together with an erasure/accounting theorem showing that those
+   boundary slots do not consume ordinary recurrence length.
 
 ## 7. Smallest Next Theorem Statement
 
-The smallest theorem after the inductive consumer is:
+The smallest theorem after the charged-boundary reduction is:
 
 ```lean
 theorem RawCompressionExecution
-  .rankThresholdBottom_taxedConsumable_le_topDownCost_add_bottomCard
+  .rankThresholdBottom_chargedProjectedCost_le_topDownCost_bottomCard
     (k : Nat)
     {m n r : Nat}
     (hm : 1 <= m)
@@ -284,16 +304,16 @@ theorem RawCompressionExecution
     let Cb :=
       E.canonicalBottomProjectedExecution hE.1
         (E.rankThresholdDissectionFamily hE.1 s)
-    let X :=
-      E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
-        (E.rankThresholdDissectionFamily hE.1 s)
     let Bcard :=
       (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
-    Cb.consumableCost + X <= topDownCost Cb.chargedCount Bcard s + Bcard
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+      topDownCost Cb.chargedCount Bcard s
 ```
 
-This theorem is exactly `RankThresholdJInputBottomTaxedTopDownCostBounds k`;
-the new source-shift bridge consumes it directly.
+This theorem is exactly
+`RankThresholdJInputBottomChargedProjectedTopDownCostBounds k`; the checked
+bridge converts it to the taxed-bottom premise, and the existing inductive
+consumer then proves the shift step.
 
 The smallest topDownCost-tax theorem, if the proof stays with ordinary charged
 skeleton consumption, is:
@@ -328,7 +348,8 @@ consumer has replaced it.
 
 Ambition C-style infrastructure for the recurrence consumer is now checked, and
 the downstream recurrence/paper-facing theorem is closed conditional on the
-uniform taxed-bottom premise.  The unconditional bottom field remains blocked
-by the missing proof of `RankThresholdJInputBottomTaxedTopDownCostBounds`; the
-known charged skeleton route still depends on the false/wrong-object
-consecutive-state premise.
+uniform charged-projected `topDownCost` premise.  The unconditional bottom
+field remains blocked by the missing proof of
+`RankThresholdJInputBottomChargedProjectedTopDownCostBounds`; the known charged
+skeleton route still depends on the false/wrong-object consecutive-state
+premise.

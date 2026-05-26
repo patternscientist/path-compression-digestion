@@ -11561,6 +11561,72 @@ def RankThresholdJInputBottomTaxedTopDownCostBounds (k : Nat) : Prop :=
     Cb.consumableCost + X <= topDownCost Cb.chargedCount Bcard s + Bcard
 
 /--
+Sharp remaining charged-bottom projected recurrence boundary.
+
+The source-relevant boundary-exception tax is already paid separately by
+bottom-card accounting.  After the taxed-bottom consumer, the only remaining
+recurrence-realization statement needed on the bottom side is domination of the
+charged projected bottom cost by ordinary `topDownCost` at the stable bottom
+cardinality.
+-/
+def RankThresholdJInputBottomChargedProjectedTopDownCostBounds (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (_hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < (JInput k).g r),
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+      topDownCost Cb.chargedCount Bcard s
+
+/--
+The sharp charged-projected `topDownCost` boundary supplies the taxed-bottom
+premise: the charged cost is exactly the bottom consumable cost, while the
+source-relevant boundary exception contribution is bounded by one bottom-card
+tax.
+-/
+theorem rankThresholdJInputBottomTaxedTopDownCostBounds_of_chargedProjectedTopDownCostBounds
+    (k : Nat)
+    (hcharged : RankThresholdJInputBottomChargedProjectedTopDownCostBounds k) :
+    RankThresholdJInputBottomTaxedTopDownCostBounds k := by
+  intro m n r hm hn hprev E hE hlarge
+  let s := ceilLog2 ((JInput k).g r)
+  let i0 : Fin m := ⟨0, by omega⟩
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let X :=
+    E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+  have hcost :
+      Cb.consumableCost =
+        (E.rankThresholdBottomChargedProjectedExecution hE s).cost := by
+    simpa [Cb] using
+      E.rankThresholdBottomProjectedExecution_consumableCost_eq_chargedProjectedExecution_cost
+        hE s
+  have hcharged' :
+      (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+        topDownCost Cb.chargedCount Bcard s := by
+    simpa [s, i0, Cb, Bcard] using hcharged hm hn hprev E hE hlarge
+  have hboundary : X <= Bcard := by
+    simpa [X, Bcard] using
+      E.rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_card
+        hE s i0
+  have hconsume :
+      Cb.consumableCost <= topDownCost Cb.chargedCount Bcard s := by
+    rw [hcost]
+    exact hcharged'
+  exact Nat.add_le_add hconsume hboundary
+
+/--
 Exact remaining charged-bottom projected recurrence boundary.
 
 The direct boundary-accounting route has already identified
@@ -11823,6 +11889,58 @@ theorem paper_finite_bound_topDownCost_of_rankThresholdJInputBottomTaxedTopDownC
   paper_finite_bound_topDownCost_of_shift
     (topDown_shift_steps_of_rankThresholdJInputBottomTaxedTopDownCostBounds
       hbottomTax)
+    hm hn
+
+/--
+The charged-projected `topDownCost` boundary is sufficient for each concrete
+source shift step.
+-/
+theorem topDown_shift_step_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+    (k : Nat)
+    (hcharged :
+      RankThresholdJInputBottomChargedProjectedTopDownCostBounds k) :
+    topDownShiftStepTarget k :=
+  topDown_shift_step_of_rankThresholdJInputBottomTaxedTopDownCostBounds k
+    (rankThresholdJInputBottomTaxedTopDownCostBounds_of_chargedProjectedTopDownCostBounds
+      k hcharged)
+
+/--
+Uniform charged-projected `topDownCost` bounds supply every concrete top-down
+shift step.
+-/
+theorem topDown_shift_steps_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+    (hcharged : forall k : Nat,
+      RankThresholdJInputBottomChargedProjectedTopDownCostBounds k) :
+    forall k : Nat, topDownShiftStepTarget k := by
+  intro k
+  exact topDown_shift_step_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+    k (hcharged k)
+
+/--
+Conditional source recurrence from the sharp charged-projected bottom premise.
+-/
+theorem sourceRecurrence_topDownCost_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+    (hcharged : forall k : Nat,
+      RankThresholdJInputBottomChargedProjectedTopDownCostBounds k) :
+    SourceRecurrence topDownCost :=
+  sourceRecurrence_topDownCost_of_shift
+    (topDown_shift_steps_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+      hcharged)
+
+/--
+Conditional paper-facing finite bound from the sharp charged-projected bottom
+premise.
+-/
+theorem paper_finite_bound_topDownCost_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+    (hcharged : forall k : Nat,
+      RankThresholdJInputBottomChargedProjectedTopDownCostBounds k)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    topDownCost m n (L n) <= (alphaQ m n + 3) * m + 4 * n :=
+  paper_finite_bound_topDownCost_of_shift
+    (topDown_shift_steps_of_rankThresholdJInputBottomChargedProjectedTopDownCostBounds
+      hcharged)
     hm hn
 
 /--
