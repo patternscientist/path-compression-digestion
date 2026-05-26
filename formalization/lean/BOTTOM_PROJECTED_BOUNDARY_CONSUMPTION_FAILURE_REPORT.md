@@ -509,6 +509,61 @@ recurrence consumer for the checked boundary-inclusive projected execution, or
 it needs the ordinary realization theorem for boundary-exception slots stated
 above.
 
+## Sixth Continuation Update
+
+Two additional local theorems now pin down the exact projected shape and cost
+of a boundary-exception slot:
+
+```lean
+theorem RawCompressionExecution
+  .rankThresholdBottomBoundaryExceptionSlot_rootLike_pos_not_noop
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hboundary :
+      E.rankThresholdBottomBoundaryExceptionSlot hE s i) :
+    let B :=
+      (E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)
+    B.IsRootLike /\ 0 < B.cost /\ Not (B.afterParent = B.beforeParent)
+
+theorem RawCompressionExecution
+  .rankThresholdBottomBoundaryExceptionSlot_cost_eq_sourceRelevant
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hboundary :
+      E.rankThresholdBottomBoundaryExceptionSlot hE s i) :
+    let Dfam := E.rankThresholdDissectionFamily hE.1 s
+    let B := (E.step i).bottomProjectedStep
+      (Dfam i) (hE.1 i)
+      (E.dissectionCut hE.1 Dfam i)
+      (E.dissectionCut_spec hE.1 Dfam i)
+    B.cost =
+      (E.step i).sourceRelevantBottomExceptionalCost
+        (Dfam i) (hE.1 i)
+        (E.dissectionCut hE.1 Dfam i)
+        (E.dissectionCut_spec hE.1 Dfam i)
+```
+
+So the uncharged boundary slots are not zero-cost administrative padding:
+they are positive-cost, root-like projected steps that change the bottom
+restricted parent map, and their cost is exactly the existing
+`sourceRelevantBottomExceptionalCost` term paid by
+`rankThreshold_sourceRelevantBottomExceptionalCostSum_le_bottomFinset_card`.
+
+This makes the remaining design fork more explicit.  A projected recurrence
+consumer would need to consume positive-cost root-like projected state changes
+with this boundary-card side budget.  An ordinary fallback would need a
+realization mechanism stronger than the old charged-only ordinary skeleton,
+because ordinary rootpath validity alone enforces no-op behavior.
+
 ## Verdict
 
 Ambition C achieved for direct projected boundary accounting.  The projected

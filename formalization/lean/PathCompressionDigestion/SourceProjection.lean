@@ -7789,6 +7789,104 @@ theorem rankThresholdBottomBoundaryExceptionSlot_changes_projected_parent
   exact hnodes_ne hval_eq
 
 /--
+Boundary-exception bottom projected slots are positive-cost root-like projected
+steps, but not no-ops on the restricted parent map.  This is the local shape
+that blocks charged-only no-op padding: ordinary recurrence consumption must
+either account for these projected root-like state changes directly, or use a
+different realization mechanism.
+-/
+theorem rankThresholdBottomBoundaryExceptionSlot_rootLike_pos_not_noop
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hboundary : E.rankThresholdBottomBoundaryExceptionSlot hE s i) :
+    let B :=
+      (E.step i).bottomProjectedStep
+        (E.rankThresholdDissectionFamily hE.1 s i) (hE.1 i)
+        (E.dissectionCut hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)
+        (E.dissectionCut_spec hE.1
+          (E.rankThresholdDissectionFamily hE.1 s) i)
+    B.IsRootLike /\ 0 < B.cost /\ B.afterParent ≠ B.beforeParent := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  let B := (E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+    (cut i) (hcut i)
+  change B.IsRootLike /\ 0 < B.cost /\ B.afterParent ≠ B.beforeParent
+  have hboundary' := hboundary
+  rcases hboundary with ⟨_hnonroot, hnotCharged, ⟨q, hq⟩⟩
+  change Not B.IsCharged at hnotCharged
+  change q.val + 1 < cut i at hq
+  have hroot : B.IsRootLike := (B.not_charged_iff_rootLike).1 hnotCharged
+  have hcost_eq : B.cost = cut i - 1 := by
+    change ((E.step i).path.bottomProjectionSegment
+      (Dfam i) (hE.1 i).1.2.2.1 (cut i) (hcut i)).edgeCost =
+        cut i - 1
+    unfold RawCompressionPath.ProjectedPathSegment.edgeCost
+    rw [RawCompressionPath.bottomProjectionSegment_len]
+    simp [RawCompressionPath.bottomProjectionLength]
+  have hpos : 0 < B.cost := by
+    rw [hcost_eq]
+    omega
+  have hchange :
+      Exists fun v : (Dfam i).BottomNode =>
+        B.afterParent v ≠ B.beforeParent v := by
+    simpa [B, Dfam, cut, hcut] using
+      E.rankThresholdBottomBoundaryExceptionSlot_changes_projected_parent
+        hE s i hboundary'
+  have hnot_noop : B.afterParent ≠ B.beforeParent := by
+    intro heq
+    rcases hchange with ⟨v, hv⟩
+    exact hv (congrFun heq v)
+  exact ⟨hroot, hpos, hnot_noop⟩
+
+/--
+On a source-relevant bottom boundary-exception slot, the projected root-like
+state-changing cost is exactly the local exceptional cost that participates in
+the existing boundary-card accounting.
+-/
+theorem rankThresholdBottomBoundaryExceptionSlot_cost_eq_sourceRelevant
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hboundary : E.rankThresholdBottomBoundaryExceptionSlot hE s i) :
+    let Dfam := E.rankThresholdDissectionFamily hE.1 s
+    let B := (E.step i).bottomProjectedStep
+      (Dfam i) (hE.1 i)
+      (E.dissectionCut hE.1 Dfam i)
+      (E.dissectionCut_spec hE.1 Dfam i)
+    B.cost =
+      (E.step i).sourceRelevantBottomExceptionalCost
+        (Dfam i) (hE.1 i)
+        (E.dissectionCut hE.1 Dfam i)
+        (E.dissectionCut_spec hE.1 Dfam i) := by
+  classical
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  let B := (E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+    (cut i) (hcut i)
+  change B.cost =
+    (E.step i).sourceRelevantBottomExceptionalCost
+      (Dfam i) (hE.1 i) (cut i) (hcut i)
+  rcases hboundary with ⟨hnonroot, hnotCharged, _hedge⟩
+  change Not B.IsCharged at hnotCharged
+  have hsrc_exception :
+      (E.step i).sourceRelevantBottomExceptionalCost
+          (Dfam i) (hE.1 i) (cut i) (hcut i) =
+        B.exceptionalCost := by
+    simpa [B, Dfam, cut, hcut] using
+      (E.step i).sourceRelevantBottomExceptionalCost_eq_exceptional_of_nonroot
+        (Dfam i) (hE.1 i) (cut i) (hcut i) hnonroot
+  have hexception : B.exceptionalCost = B.cost :=
+    B.exceptionalCost_eq_cost_of_not_charged hnotCharged
+  exact (hsrc_exception.trans hexception).symm
+
+/--
 There are no boundary-inclusive relevant slots strictly between adjacent
 entries of the relevant-slot enumeration.
 -/
