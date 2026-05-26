@@ -11786,6 +11786,46 @@ theorem topDown_shift_step_of_rankThresholdJInputBottomTaxedTopDownCostBounds
             (by simpa [Ct, Tbudget] using htop)
 
 /--
+Uniform taxed-bottom bounds supply every concrete top-down shift step.
+-/
+theorem topDown_shift_steps_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+    (hbottomTax : forall k : Nat,
+      RankThresholdJInputBottomTaxedTopDownCostBounds k) :
+    forall k : Nat, topDownShiftStepTarget k := by
+  intro k
+  exact topDown_shift_step_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+    k (hbottomTax k)
+
+/--
+Conditional source recurrence from the single remaining taxed-bottom premise.
+This keeps the recurrence interface unchanged while making the exact missing
+bottom theorem explicit.
+-/
+theorem sourceRecurrence_topDownCost_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+    (hbottomTax : forall k : Nat,
+      RankThresholdJInputBottomTaxedTopDownCostBounds k) :
+    SourceRecurrence topDownCost :=
+  sourceRecurrence_topDownCost_of_shift
+    (topDown_shift_steps_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+      hbottomTax)
+
+/--
+Conditional paper-facing finite bound from the taxed-bottom premise.  The
+constants and statement are exactly the existing packet-facing target.
+-/
+theorem paper_finite_bound_topDownCost_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+    (hbottomTax : forall k : Nat,
+      RankThresholdJInputBottomTaxedTopDownCostBounds k)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    topDownCost m n (L n) <= (alphaQ m n + 3) * m + 4 * n :=
+  paper_finite_bound_topDownCost_of_shift
+    (topDown_shift_steps_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+      hbottomTax)
+    hm hn
+
+/--
 The charged-bottom projected recurrence boundary is now the only remaining
 bottom-side input needed by the padded-top source-shift bridge.
 -/

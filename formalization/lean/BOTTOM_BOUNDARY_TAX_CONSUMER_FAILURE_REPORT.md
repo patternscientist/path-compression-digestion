@@ -57,6 +57,21 @@ theorem RawCompressionExecution
     (hbottomTax :
       RankThresholdJInputBottomTaxedTopDownCostBounds k) :
     topDownShiftStepTarget k
+
+theorem RawCompressionExecution
+  .sourceRecurrence_topDownCost_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+    (hbottomTax : forall k : Nat,
+      RankThresholdJInputBottomTaxedTopDownCostBounds k) :
+    SourceRecurrence topDownCost
+
+theorem RawCompressionExecution
+  .paper_finite_bound_topDownCost_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+    (hbottomTax : forall k : Nat,
+      RankThresholdJInputBottomTaxedTopDownCostBounds k)
+    {m n : Nat}
+    (hm : 1 <= m)
+    (hn : 1 <= n) :
+    topDownCost m n (L n) <= (alphaQ m n + 3) * m + 4 * n
 ```
 
 This bridge uses strong induction on the ambient rank.  It accepts a bottom
@@ -69,12 +84,16 @@ Cb.consumableCost + X <= topDownCost Cb.chargedCount Bcard s + Bcard
 It then pays the smaller-rank `topDownCost` by the induction hypothesis and
 pays the extra `Bcard` in the usual diamond boundary budget.
 
-The pass still does not prove `RankThresholdJInputBottomConsumableBounds`,
-because the only currently available way to prove the taxed bottom premise is
-through the charged skeleton/topDownCost bridge, which still has the
-conditional `HasConsecutiveStates` premise.  That premise is the known
-wrong-object obstruction for charged-only skeletons: skipped source-relevant
-boundary exceptions can change the bottom restricted parent map.
+The downstream source recurrence and paper-facing finite theorem are therefore
+closed conditional on the single uniform taxed-bottom premise.
+
+The pass still does not prove `RankThresholdJInputBottomConsumableBounds` or
+the taxed-bottom premise unconditionally, because the only currently available
+way to prove the taxed bottom premise is through the charged
+skeleton/topDownCost bridge, which still has the conditional
+`HasConsecutiveStates` premise.  That premise is the known wrong-object
+obstruction for charged-only skeletons: skipped source-relevant boundary
+exceptions can change the bottom restricted parent map.
 
 ## 1. Exact Bottom Projected Cost Decomposition Theorem Used
 
@@ -307,7 +326,9 @@ consumer has replaced it.
 
 ## Verdict
 
-Ambition C-style infrastructure for the recurrence consumer is now checked.
-The unconditional bottom field remains blocked by the missing proof of
-`RankThresholdJInputBottomTaxedTopDownCostBounds`; the known charged skeleton
-route still depends on the false/wrong-object consecutive-state premise.
+Ambition C-style infrastructure for the recurrence consumer is now checked, and
+the downstream recurrence/paper-facing theorem is closed conditional on the
+uniform taxed-bottom premise.  The unconditional bottom field remains blocked
+by the missing proof of `RankThresholdJInputBottomTaxedTopDownCostBounds`; the
+known charged skeleton route still depends on the false/wrong-object
+consecutive-state premise.
