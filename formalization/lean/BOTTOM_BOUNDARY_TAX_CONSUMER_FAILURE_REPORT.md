@@ -106,6 +106,81 @@ Thus the boundary tax and source-relevant exception sum are now fully consumed
 by existing cost equality and bottom-card accounting.  The remaining theorem is
 only about the charged projected bottom cost and ordinary `topDownCost`.
 
+The latest continuation made the false-premise dependency explicit and added a
+small ordinary-step obstruction lemma:
+
+```lean
+theorem RawCompressionStep
+  .after_parent_eq_before_parent_of_cost_eq_zero
+    (S : RawCompressionStep n r)
+    (hS : S.IsValid)
+    (hcost : S.cost = 0) :
+    S.after.parent = S.before.parent
+
+theorem RawCompressionExecution
+  .rankThresholdBottomChargedProjectedCost_le_topDownCost_of_skeleton_consecutive
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hstate :
+      (E.rankThresholdBottomChargedExecutionSkeleton hE s i0)
+        .HasConsecutiveStates) :
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard :=
+      (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+      topDownCost Cb.chargedCount Bcard s
+
+def RawCompressionExecution
+  .RankThresholdJInputBottomChargedSkeletonConsecutive (k : Nat) : Prop
+
+theorem RawCompressionExecution
+  .rankThresholdJInputBottomChargedProjectedTopDownCostBounds_of_chargedSkeletonConsecutive
+    (k : Nat)
+    (hstate : RankThresholdJInputBottomChargedSkeletonConsecutive k) :
+    RankThresholdJInputBottomChargedProjectedTopDownCostBounds k
+```
+
+The first lemma rules out treating a state-changing boundary exception as a
+zero-cost ordinary source step.  The last two declarations show precisely that
+the current charged-only skeleton route would prove the sharp remaining
+premise only under the known-bad consecutive-state condition.
+
+The newest continuation discharged the trivial edge cases of that sharp
+premise and named the positive core:
+
+```lean
+theorem RawCompressionExecution
+  .rankThresholdBottomChargedProjectedExecution_cost_eq_zero_of_chargedCount_eq_zero
+
+theorem RawCompressionExecution
+  .rankThresholdBottomChargedProjectedCost_le_topDownCost_of_chargedCount_zero
+
+theorem RawCompressionExecution
+  .rankThresholdBottomProjectedExecution_bottomFinset_card_pos_of_chargedCount_pos
+
+theorem RawCompressionExecution
+  .rankThresholdBottomChargedProjectedCost_le_topDownCost_of_bottomCard_zero
+
+def RawCompressionExecution
+  .RankThresholdJInputBottomChargedProjectedTopDownCostPositiveCore
+    (k : Nat) : Prop
+
+theorem RawCompressionExecution
+  .rankThresholdJInputBottomChargedProjectedTopDownCostBounds_of_positiveCore
+    (k : Nat)
+    (hcore :
+      RankThresholdJInputBottomChargedProjectedTopDownCostPositiveCore k) :
+    RankThresholdJInputBottomChargedProjectedTopDownCostBounds k
+```
+
+So the remaining theorem no longer has to consider zero charged-count or empty
+bottom-card cases.  A positive charged bottom projected count now formally
+implies a nonempty stable bottom side.
+
 The pass still does not prove `RankThresholdJInputBottomConsumableBounds` or
 the charged-projected `topDownCost` premise unconditionally, because the only
 currently available way to prove that premise is through the charged
@@ -286,11 +361,11 @@ one needs either:
 
 ## 7. Smallest Next Theorem Statement
 
-The smallest theorem after the charged-boundary reduction is:
+After the zero-case reduction, the smallest theorem is the positive core:
 
 ```lean
 theorem RawCompressionExecution
-  .rankThresholdBottom_chargedProjectedCost_le_topDownCost_bottomCard
+  .rankThresholdBottom_chargedProjectedCost_le_topDownCost_bottomCard_positiveCore
     (k : Nat)
     {m n r : Nat}
     (hm : 1 <= m)
@@ -306,14 +381,19 @@ theorem RawCompressionExecution
         (E.rankThresholdDissectionFamily hE.1 s)
     let Bcard :=
       (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    (hcharged_pos : 0 < Cb.chargedCount)
+    (hbottom_pos : 1 <= Bcard) :
     (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
       topDownCost Cb.chargedCount Bcard s
 ```
 
 This theorem is exactly
-`RankThresholdJInputBottomChargedProjectedTopDownCostBounds k`; the checked
-bridge converts it to the taxed-bottom premise, and the existing inductive
-consumer then proves the shift step.
+`RankThresholdJInputBottomChargedProjectedTopDownCostPositiveCore k`; the
+checked bridge
+`rankThresholdJInputBottomChargedProjectedTopDownCostBounds_of_positiveCore`
+converts it to `RankThresholdJInputBottomChargedProjectedTopDownCostBounds k`.
+From there, the existing bridge converts it to the taxed-bottom premise, and
+the inductive consumer proves the shift step.
 
 The smallest topDownCost-tax theorem, if the proof stays with ordinary charged
 skeleton consumption, is:
