@@ -2803,6 +2803,144 @@ theorem topProjectedStep_afterParent_eq_beforeParent_of_cost_eq_zero
       omega
     · exact hS.2.2.2.2.2 v.1 hcomp
 
+/--
+A bottom projected step with no source-relevant boundary event leaves the bottom
+restricted parent map unchanged.  The only compressed bottom vertex that can
+remain when there is no lower bottom-prefix edge is the last bottom vertex
+before a nonempty top suffix; both before and after bottom parents are then
+truncated to the vertex itself.
+-/
+theorem bottomProjectedStep_afterParent_eq_beforeParent_of_no_sourceBoundary
+    (S : RawCompressionStep n r)
+    (D : RawDissection S.before)
+    (hS : S.IsValid)
+    (cut : Nat)
+    (hcut : S.path.HasDissectionCut D cut)
+    (hnotBoundary :
+      Not (S.path.IsNonrootPath S.before /\
+        Exists fun q : Fin (n + 1) => q.val + 1 < cut)) :
+    (S.bottomProjectedStep D hS cut hcut).afterParent =
+      (S.bottomProjectedStep D hS cut hcut).beforeParent := by
+  funext v
+  apply Subtype.ext
+  change (S.afterBottomParent D hS v).1 = (D.bottomParent v).1
+  classical
+  by_cases hroot : S.path.IsRootPath S.before
+  · have hparent_eq :
+        S.after.parent v.1 = S.before.parent v.1 := by
+      exact congrFun (hS.2.2.2.1 hroot) v.1
+    by_cases hb : D.IsBottom (S.before.parent v.1)
+    · have hb_after : D.IsBottom (S.after.parent v.1) := by
+        simpa [hparent_eq] using hb
+      have hleft :
+          (S.afterBottomParent D hS v).1 = S.after.parent v.1 :=
+        S.afterBottomParent_val_of_parent_bottom D hS v hb_after
+      have hright :
+          (D.bottomParent v).1 = S.before.parent v.1 :=
+        D.bottomParent_val_of_parent_bottom v hb
+      rw [hleft, hright, hparent_eq]
+    · have ht : D.IsTop (S.before.parent v.1) := by
+        unfold RawDissection.IsBottom at hb
+        exact Decidable.not_not.mp hb
+      have ht_after : D.IsTop (S.after.parent v.1) := by
+        simpa [hparent_eq] using ht
+      have hleft :
+          (S.afterBottomParent D hS v).1 = v.1 :=
+        S.afterBottomParent_val_of_parent_top D hS v ht_after
+      have hright :
+          (D.bottomParent v).1 = v.1 :=
+        D.bottomParent_val_of_parent_top v ht
+      rw [hleft, hright]
+  · have hnonroot : S.path.IsNonrootPath S.before := by
+      simpa [RawCompressionPath.IsRootPath, RawCompressionPath.IsNonrootPath,
+        RawRankedForest.IsRoot] using hroot
+    by_cases hcomp : S.path.IsCompressedVertex v.1
+    · rcases hcomp with ⟨q, hq, hqnode⟩
+      have hq_active : q.val < S.path.len.val := by omega
+      by_cases hq_boundary : q.val + 1 < cut
+      · exact False.elim (hnotBoundary ⟨hnonroot, ⟨q, hq_boundary⟩⟩)
+      · have hq_succ_ge_cut : cut <= q.val + 1 := Nat.le_of_not_gt hq_boundary
+        by_cases hq_lt_cut : q.val < cut
+        · have hq_succ_eq_cut : q.val + 1 = cut := by omega
+          have hcut_lt_len : cut < S.path.len.val := by omega
+          let qnext : Fin (n + 1) := ⟨q.val + 1, by
+            have hlen_le : S.path.len.val <= n + 1 :=
+              Nat.le_of_lt_succ S.path.len.isLt
+            omega⟩
+          have hqnext_active : qnext.val < S.path.len.val := by
+            simp [qnext]
+            omega
+          have hqnext_cut : cut <= qnext.val := by
+            simp [qnext, hq_succ_eq_cut]
+          have hqnext_top : D.IsTop (S.path.node qnext) :=
+            hcut.2.2 qnext hqnext_active hqnext_cut
+          have hparent_eq_next :
+              S.before.parent (S.path.node q) = S.path.node qnext :=
+            hS.1.2.2.1 q qnext (by simp [qnext]) hqnext_active
+          have hbefore_top : D.IsTop (S.before.parent v.1) := by
+            rw [← hqnode, hparent_eq_next]
+            exact hqnext_top
+          have hright :
+              (D.bottomParent v).1 = v.1 :=
+            D.bottomParent_val_of_parent_top v hbefore_top
+          have hlen_one : 1 <= S.path.len.val :=
+            Nat.le_trans (by norm_num : 1 <= 2) hS.1.2.1
+          let last := S.path.lastIndex hlen_one
+          have hlast_active : last.val < S.path.len.val :=
+            S.path.lastIndex_active hlen_one
+          have hcut_last : cut <= last.val := by
+            simp [last, RawCompressionPath.lastIndex]
+            omega
+          have hlast_top : D.IsTop (S.path.node last) :=
+            hcut.2.2 last hlast_active hcut_last
+          have hlast_target : S.path.node last = S.path.target :=
+            hS.1.2.2.2 last (S.path.lastIndex_succ hlen_one)
+          have htarget_top : D.IsTop S.path.target := by
+            simpa [hlast_target] using hlast_top
+          have htarget_parent_top :
+              D.IsTop (S.before.parent S.path.target) :=
+            D.parent_top htarget_top
+          have hafter_parent_eq :
+              S.after.parent v.1 = S.before.parent S.path.target := by
+            exact hS.2.2.2.2.1 hnonroot v.1 ⟨q, hq, hqnode⟩
+          have hafter_top : D.IsTop (S.after.parent v.1) := by
+            rw [hafter_parent_eq]
+            exact htarget_parent_top
+          have hleft :
+              (S.afterBottomParent D hS v).1 = v.1 :=
+            S.afterBottomParent_val_of_parent_top D hS v hafter_top
+          rw [hleft, hright]
+        · have hq_ge_cut : cut <= q.val := Nat.le_of_not_gt hq_lt_cut
+          have hq_top : D.IsTop (S.path.node q) :=
+            hcut.2.2 q hq_active hq_ge_cut
+          rw [hqnode] at hq_top
+          exact False.elim (v.2 hq_top)
+    · have hparent_eq :
+        S.after.parent v.1 = S.before.parent v.1 :=
+        hS.2.2.2.2.2 v.1 hcomp
+      by_cases hb : D.IsBottom (S.before.parent v.1)
+      · have hb_after : D.IsBottom (S.after.parent v.1) := by
+          simpa [hparent_eq] using hb
+        have hleft :
+            (S.afterBottomParent D hS v).1 = S.after.parent v.1 :=
+          S.afterBottomParent_val_of_parent_bottom D hS v hb_after
+        have hright :
+            (D.bottomParent v).1 = S.before.parent v.1 :=
+          D.bottomParent_val_of_parent_bottom v hb
+        rw [hleft, hright, hparent_eq]
+      · have ht : D.IsTop (S.before.parent v.1) := by
+          unfold RawDissection.IsBottom at hb
+          exact Decidable.not_not.mp hb
+        have ht_after : D.IsTop (S.after.parent v.1) := by
+          simpa [hparent_eq] using ht
+        have hleft :
+            (S.afterBottomParent D hS v).1 = v.1 :=
+          S.afterBottomParent_val_of_parent_top D hS v ht_after
+        have hright :
+            (D.bottomParent v).1 = v.1 :=
+          D.bottomParent_val_of_parent_top v ht
+        rw [hleft, hright]
+
 /-- If the top side is empty, the top projected step has no consumable cost. -/
 theorem topProjectedStep_consumableCost_eq_zero_of_topFinset_card_eq_zero
     (S : RawCompressionStep n r)
@@ -7607,6 +7745,46 @@ theorem not_rankThresholdBottomRelevantSlot_of_between_relevantSlotEnum_succ
       rw [hp_eq] at hslot_lt
       omega
   omega
+
+/--
+Slots omitted by the boundary-inclusive bottom relevant-slot enumeration are
+literal no-ops on the bottom restricted parent map.  This is the local
+commutation fact needed to skip non-relevant slots between consecutive relevant
+bottom slots.
+-/
+theorem rankThresholdBottomProjectedStep_afterParent_eq_beforeParent_of_not_relevant
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i : Fin m)
+    (hnot : Not (E.rankThresholdBottomRelevantSlot hE s i)) :
+    ((E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)).step i).afterParent =
+      ((E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).step i).beforeParent := by
+  let Dfam := E.rankThresholdDissectionFamily hE.1 s
+  let cut := E.dissectionCut hE.1 Dfam
+  let hcut := E.dissectionCut_spec hE.1 Dfam
+  have hnotBoundary :
+      Not ((E.step i).path.IsNonrootPath (E.step i).before /\
+        Exists fun q : Fin (n + 1) => q.val + 1 < cut i) := by
+    intro hb
+    have hnotCharged :
+        Not ((E.step i).bottomProjectedStep (Dfam i) (hE.1 i)
+          (cut i) (hcut i)).IsCharged := by
+      intro hcharged
+      apply hnot
+      exact Or.inl (by
+        simpa [Dfam, cut, hcut, canonicalBottomProjectedExecution,
+          bottomProjectedExecution] using hcharged)
+    apply hnot
+    exact Or.inr ⟨hb.1, by
+      simpa [Dfam, cut, hcut] using hnotCharged, hb.2⟩
+  have hlocal :=
+    (E.step i).bottomProjectedStep_afterParent_eq_beforeParent_of_no_sourceBoundary
+      (Dfam i) (hE.1 i) (cut i) (hcut i) hnotBoundary
+  simpa [Dfam, cut, hcut, canonicalBottomProjectedExecution,
+    bottomProjectedExecution] using hlocal
 
 /-- Rank-threshold top vertex sets are stable across all execution slots. -/
 theorem rankThresholdDissectionFamily_topFinset_eq_of_slot

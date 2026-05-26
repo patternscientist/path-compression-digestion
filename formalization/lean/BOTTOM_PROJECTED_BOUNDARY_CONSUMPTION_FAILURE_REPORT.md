@@ -52,6 +52,24 @@ Thus the bottom projected boundary-consumption work has been reduced to the
 single charged projected recurrence bound; the boundary-card contribution is no
 longer part of the gap.
 
+Second continuation update: the fallback boundary-inclusive skeleton route now
+has its first checked skip-safety lemma.  Any rank-threshold bottom slot omitted
+by `rankThresholdBottomRelevantSlot` is a literal no-op on the bottom restricted
+parent map:
+
+```lean
+RawCompressionStep
+  .bottomProjectedStep_afterParent_eq_beforeParent_of_no_sourceBoundary
+
+RawCompressionExecution
+  .rankThresholdBottomProjectedStep_afterParent_eq_beforeParent_of_not_relevant
+```
+
+This identifies the boundary-inclusive relevant-slot enumeration as the right
+object for consecutive-state alignment: charged slots and source-relevant
+boundary exceptions are kept, while every skipped slot is now known to preserve
+the bottom projected parent map.
+
 ## 1. Exact Bottom Projected Consumable Cost Expression
 
 The package field asks to bound:
@@ -278,8 +296,43 @@ theorem RawCompressionExecution
     RawCompressionExecution.RankThresholdJInputBottomChargedProjectedBounds k
 ```
 
+For the boundary-inclusive skeleton fallback, the smallest next theorem is the
+multi-slot commutation theorem for adjacent relevant slots:
+
+```lean
+theorem RawCompressionExecution
+  .rankThresholdBottomRelevantSlot_after_commutes_with_next
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    {q q' : Fin (E.rankThresholdBottomRelevantCount hE s)}
+    (hqq' : q.val + 1 = q'.val) :
+    let Dfam := E.rankThresholdDissectionFamily hE.1 s
+    let i := E.rankThresholdBottomRelevantSlotEnum hE s q
+    let j := E.rankThresholdBottomRelevantSlotEnum hE s q'
+    ((E.step i).bottomProjectedStep
+      (Dfam i) (hE.1 i)
+      (E.dissectionCut hE.1 Dfam i)
+      (E.dissectionCut_spec hE.1 Dfam i)).ParentCommutesWithEquiv
+      ((E.step j).bottomProjectedStep
+        (Dfam j) (hE.1 j)
+        (E.dissectionCut hE.1 Dfam j)
+        (E.dissectionCut_spec hE.1 Dfam j))
+      ((Dfam i).bottomEquivOfBottomIff (Dfam j)
+        (fun v => not_congr
+          (E.rankThresholdDissectionFamily_topStable_of_slot
+            hE.1 hE.2.1 s i j v)))
+```
+
+The new no-op theorem supplies the skip step for all non-relevant intervening
+slots; the remaining work is composing those adjacent projected commutations
+across the interval between adjacent relevant-slot enum entries.
+
 ## Verdict
 
-Ambition C achieved.  The projected bottom decomposition and boundary-card
-bound are proved without an ordinary boundary-inclusive execution.  Ambition B
-remains blocked by the charged projected recurrence-consumption bridge.
+Ambition C achieved for direct projected boundary accounting.  The projected
+bottom decomposition and boundary-card bound are proved without an ordinary
+boundary-inclusive execution.  The fallback boundary-inclusive route now has
+the checked non-relevant-slot no-op lemma, but still lacks the multi-slot
+relevant-slot consecutive-state composition.  Ambition B remains blocked by
+the charged projected recurrence-consumption bridge.
