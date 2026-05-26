@@ -15,7 +15,7 @@ This pass followed the direct projected-accounting route and did not try to
 turn source-relevant boundary exceptions into ordinary rootpath/no-op
 `RawCompressionStep`s.
 
-The pass added the checked conditional boundary-tax consumer:
+The first pass added the checked conditional boundary-tax consumer:
 
 ```lean
 theorem RawCompressionExecution
@@ -45,11 +45,36 @@ existing charged ordinary skeleton/topDownCost bridge, and consumes the
 source-relevant boundary-exception part through the existing boundary-card
 accounting.
 
-It does not close `RankThresholdJInputBottomConsumableBounds`, because the
-charged skeleton/topDownCost bridge still has the conditional
-`HasConsecutiveStates` premise.  That premise is the known wrong-object
-obstruction for charged-only skeletons: skipped source-relevant boundary
-exceptions can change the bottom restricted parent map.
+The continuation pass added the missing recurrence consumer:
+
+```lean
+def RawCompressionExecution
+  .RankThresholdJInputBottomTaxedTopDownCostBounds (k : Nat) : Prop
+
+theorem RawCompressionExecution
+  .topDown_shift_step_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+    (k : Nat)
+    (hbottomTax :
+      RankThresholdJInputBottomTaxedTopDownCostBounds k) :
+    topDownShiftStepTarget k
+```
+
+This bridge uses strong induction on the ambient rank.  It accepts a bottom
+bound of the form:
+
+```lean
+Cb.consumableCost + X <= topDownCost Cb.chargedCount Bcard s + Bcard
+```
+
+It then pays the smaller-rank `topDownCost` by the induction hypothesis and
+pays the extra `Bcard` in the usual diamond boundary budget.
+
+The pass still does not prove `RankThresholdJInputBottomConsumableBounds`,
+because the only currently available way to prove the taxed bottom premise is
+through the charged skeleton/topDownCost bridge, which still has the
+conditional `HasConsecutiveStates` premise.  That premise is the known
+wrong-object obstruction for charged-only skeletons: skipped source-relevant
+boundary exceptions can change the bottom restricted parent map.
 
 ## 1. Exact Bottom Projected Cost Decomposition Theorem Used
 
@@ -160,8 +185,8 @@ under the charged skeleton consecutive-state premise.
 
 ## 5. Exact JInput Arithmetic Inequality Needed
 
-To absorb the boundary tax into the bottom side of the shifted recurrence, the
-needed inequality is:
+The first-pass non-inductive attempt would have needed the false-shape
+inequality:
 
 ```lean
 topDownCost Cb.chargedCount Bcard s + Bcard <=
@@ -187,8 +212,19 @@ topDownCost Cb.chargedCount Bcard s <=
   k * Cb.chargedCount + 2 * Bcard * (JInput k).g s
 ```
 
-That is not the required diamond-budget inequality.  The missing ingredient is
-a same-row/smaller-rank recurrence consumer, not a Nat arithmetic cleanup.
+That is not derivable from `hprev` alone.  The continuation pass avoids asking
+for it by proving the inductive consumer
+`topDown_shift_step_of_rankThresholdJInputBottomTaxedTopDownCostBounds`.
+
+The remaining bottom premise is now:
+
+```lean
+Cb.consumableCost + X <= topDownCost Cb.chargedCount Bcard s + Bcard
+```
+
+where `X` is the source-relevant bottom exceptional cost sum and `s` is the
+rank-threshold logarithm.  The existing conditional theorem proves this only
+when the charged bottom skeleton has consecutive states.
 
 ## 6. Obstruction Classification
 
@@ -199,22 +235,23 @@ The boundary-card theorem is already strong enough to pay the
 source-relevant boundary-exception tax.  The new theorem confirms this in the
 charged-topDownCost lane.
 
-What remains missing is:
+What remains missing is a way to prove
+`RankThresholdJInputBottomTaxedTopDownCostBounds` without relying on the
+false/wrong-object charged-only consecutive-state theorem.  Equivalently, one
+needs either:
 
-1. a way to use `topDownCost` for the charged bottom ordinary skeleton without
-   the false/wrong-object charged-only consecutive-state theorem; or
-2. a projected recurrence consumer that directly accepts the
-   boundary-inclusive projected execution and its boundary-card tax; or
-3. a same-row smaller-rank theorem proving the `topDownCost + Bcard` diamond
-   absorption inequality above.
+1. a projected theorem bounding the charged bottom projected cost by
+   `topDownCost Cb.chargedCount Bcard s` plus the boundary tax; or
+2. a repaired ordinary bottom realization whose non-charged boundary slots
+   align the states while their cost is charged to `Bcard`.
 
 ## 7. Smallest Next Theorem Statement
 
-The smallest direct projected theorem that would close the bottom field is:
+The smallest theorem after the inductive consumer is:
 
 ```lean
 theorem RawCompressionExecution
-  .rankThresholdBottom_consumable_add_boundary_le_JInput_bottom_budget
+  .rankThresholdBottom_taxedConsumable_le_topDownCost_add_bottomCard
     (k : Nat)
     {m n r : Nat}
     (hm : 1 <= m)
@@ -233,15 +270,11 @@ theorem RawCompressionExecution
         (E.rankThresholdDissectionFamily hE.1 s)
     let Bcard :=
       (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
-    Cb.consumableCost + X <=
-      (k + 1) * Cb.chargedCount +
-        2 * Bcard * (JInput k).diamond s
+    Cb.consumableCost + X <= topDownCost Cb.chargedCount Bcard s + Bcard
 ```
 
-This theorem would imply `RankThresholdJInputBottomConsumableBounds` by dropping
-the nonnegative boundary term.  It would also match the source-cost accounting
-more directly than the current bottom field, because the source accounting
-already contains the boundary-card tax.
+This theorem is exactly `RankThresholdJInputBottomTaxedTopDownCostBounds k`;
+the new source-shift bridge consumes it directly.
 
 The smallest topDownCost-tax theorem, if the proof stays with ordinary charged
 skeleton consumption, is:
@@ -269,12 +302,12 @@ theorem RawCompressionExecution
         2 * Bcard * (JInput k).diamond s
 ```
 
-This is not currently derivable from `hprev` alone.
+This non-inductive theorem is no longer the preferred next step; the inductive
+consumer has replaced it.
 
 ## Verdict
 
-Ambition D, with a checked conditional Ambition-C-style theorem.  The
-boundary-tax consumer exists under the charged skeleton's existing
-consecutive-state condition, but the unconditional bottom field remains blocked
-by the charged skeleton/topDownCost theorem shape and by the missing
-`topDownCost + Bcard` diamond absorption theorem.
+Ambition C-style infrastructure for the recurrence consumer is now checked.
+The unconditional bottom field remains blocked by the missing proof of
+`RankThresholdJInputBottomTaxedTopDownCostBounds`; the known charged skeleton
+route still depends on the false/wrong-object consecutive-state premise.

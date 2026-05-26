@@ -4163,6 +4163,21 @@ theorem cost_eq_zero_of_one_vertex
     intro i _hi
     exact RawCompressionStep.cost_eq_zero_of_one_vertex (E.step i))
 
+/-- A zero-slot raw execution has zero cost. -/
+theorem cost_eq_zero_of_zero_length
+    (E : RawCompressionExecution 0 n r) :
+    E.cost = 0 := by
+  unfold RawCompressionExecution.cost RawCompressionExecution.ChargeUnit
+  simp
+
+/-- The ordinary base-accounted top-down cost with no execution slots is zero. -/
+theorem topDownCost_zero_length_eq_zero (n r : Nat) :
+    topDownCost 0 n r = 0 := by
+  exact Nat.eq_zero_of_le_zero (by
+    apply topDownCost_le_of_forall_valid
+    intro E _hE
+    rw [E.cost_eq_zero_of_zero_length])
+
 /-- The ordinary base-accounted top-down cost over one vertex is zero. -/
 theorem topDownCost_one_vertex_eq_zero (m r : Nat) :
     topDownCost m 1 r = 0 := by
@@ -11080,6 +11095,128 @@ theorem rankThreshold_source_cost_le_diamond_budget_of_topBudget_consumable_boun
           Nat.add_le_add hcoeff hboundary
 
 /--
+Taxed-bottom variant of the budgeted-top source-shift arithmetic consumer.
+
+The bottom premise is deliberately stated as a recurrence call on
+`topDownCost` plus one bottom-card tax.  The source-relevant boundary exception
+sum is consumed together with the bottom projected consumable cost, so this
+consumer does not ask for an ordinary execution containing boundary exception
+slots.
+-/
+theorem rankThreshold_source_cost_le_diamond_budget_of_topBudget_taxedTopDown_bounds
+    (Drow : DiamondInput)
+    (k : Nat)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (s : Nat)
+    (i0 : Fin m)
+    (hs : Drow.g r <= 2 ^ s)
+    (hdiamond : Drow.diamond r = 1 + Drow.diamond s)
+    (hbottomTax :
+      let Cb :=
+        E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)
+      let X :=
+        E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)
+      let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+      Cb.consumableCost + X <= topDownCost Cb.chargedCount Bcard s + Bcard)
+    (hbottomTopDown :
+      let Cb :=
+        E.canonicalBottomProjectedExecution hE.1
+          (E.rankThresholdDissectionFamily hE.1 s)
+      let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+      topDownCost Cb.chargedCount Bcard s <=
+        (k + 1) * Cb.chargedCount + 2 * Bcard * Drow.diamond s)
+    (htop :
+      (E.canonicalTopProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)).consumableCost <=
+        k *
+          (E.canonicalTopProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)).chargedCount +
+          2 * RankThresholdDissection.topRestrictedBudget (n := n) s *
+            Drow.g (r - s - 1)) :
+    E.cost <= (k + 1) * m + 2 * n * Drow.diamond r := by
+  classical
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let X :=
+    E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Ct :=
+    E.canonicalTopProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+  let Tbudget := RankThresholdDissection.topRestrictedBudget (n := n) s
+  let ds := Drow.diamond s
+  let gt := Drow.g (r - s - 1)
+  have hmain :
+      E.cost <= Cb.consumableCost + X + Ct.consumableCost + Ct.chargedCount := by
+    simpa [Cb, X, Ct] using
+      E.rankThreshold_sourceRelevant_projected_accounting hE s
+  have hbottomTax' :
+      Cb.consumableCost + X <= topDownCost Cb.chargedCount Bcard s + Bcard := by
+    simpa [Cb, X, Bcard] using hbottomTax
+  have hbottomTopDown' :
+      topDownCost Cb.chargedCount Bcard s <=
+        (k + 1) * Cb.chargedCount + 2 * Bcard * ds := by
+    simpa [Cb, Bcard, ds] using hbottomTopDown
+  have hbottom' :
+      Cb.consumableCost + X <=
+        (k + 1) * Cb.chargedCount + 2 * Bcard * ds + Bcard := by
+    omega
+  have htop' :
+      Ct.consumableCost <= k * Ct.chargedCount + 2 * Tbudget * gt := by
+    simpa [Ct, Tbudget, gt] using htop
+  have hcounts :
+      Cb.chargedCount + Ct.chargedCount <= E.nonrootCount := by
+    simpa [Cb, Ct] using E.rankThreshold_projected_nonroot_count_le hE s
+  have hcount_m :
+      Cb.chargedCount + Ct.chargedCount <= m :=
+    hcounts.trans E.nonrootCount_le_length
+  have hcoeff :
+      (k + 1) * Cb.chargedCount + k * Ct.chargedCount + Ct.chargedCount <=
+        (k + 1) * m := by
+    calc
+      (k + 1) * Cb.chargedCount + k * Ct.chargedCount + Ct.chargedCount
+          = (k + 1) * (Cb.chargedCount + Ct.chargedCount) := by
+              ring
+      _ <= (k + 1) * m := Nat.mul_le_mul_left (k + 1) hcount_m
+  have hBcard_le : Bcard <= n := by
+    simpa [Bcard] using
+      (Finset.card_le_univ ((E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset))
+  have htopBudget :
+      2 * Tbudget * gt <= n := by
+    simpa [Tbudget, gt] using
+      E.rankThresholdDissectionFamily_two_mul_topBudget_mul_g_le Drow s hs
+  have hbottomDiamond :
+      2 * Bcard * ds <= 2 * n * ds := by
+    exact Nat.mul_le_mul_right ds (Nat.mul_le_mul_left 2 hBcard_le)
+  have hboundary :
+      2 * Bcard * ds + Bcard + 2 * Tbudget * gt <=
+        2 * n * Drow.diamond r := by
+    calc
+      2 * Bcard * ds + Bcard + 2 * Tbudget * gt
+          <= 2 * n * ds + n + n := by
+              omega
+      _ = 2 * n * (1 + ds) := by
+              ring
+      _ = 2 * n * Drow.diamond r := by
+              rw [hdiamond]
+  have hcombined :
+      E.cost <=
+        ((k + 1) * Cb.chargedCount + k * Ct.chargedCount + Ct.chargedCount) +
+          (2 * Bcard * ds + Bcard + 2 * Tbudget * gt) := by
+    omega
+  calc
+    E.cost <=
+        ((k + 1) * Cb.chargedCount + k * Ct.chargedCount + Ct.chargedCount) +
+          (2 * Bcard * ds + Bcard + 2 * Tbudget * gt) := hcombined
+    _ <= (k + 1) * m + 2 * n * Drow.diamond r :=
+          Nat.add_le_add hcoeff hboundary
+
+/--
 Log-threshold specialization of
 `rankThreshold_source_cost_le_diamond_budget_of_consumable_bounds`.
 -/
@@ -11396,6 +11533,34 @@ def RankThresholdJInputBottomConsumableBounds (k : Nat) : Prop :=
       (k + 1) * Cb.chargedCount + 2 * Bcard * (JInput k).diamond s
 
 /--
+Tax-aware bottom recurrence boundary for `JInput`.
+
+This is the consumer shape left by the direct boundary accounting route: the
+ordinary recurrence is invoked only for the charged bottom projected part, and
+the source-relevant boundary-exception contribution is paid by one bottom-card
+tax.  The tax is then absorbed by the rank induction in the shift bridge below,
+not by the previous-row source bound.
+-/
+def RankThresholdJInputBottomTaxedTopDownCostBounds (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < (JInput k).g r),
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let X :=
+      E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    Cb.consumableCost + X <= topDownCost Cb.chargedCount Bcard s + Bcard
+
+/--
 Exact remaining charged-bottom projected recurrence boundary.
 
 The direct boundary-accounting route has already identified
@@ -11541,6 +11706,84 @@ theorem topDown_shift_step_of_rankThresholdJInputBottomConsumableBounds
   topDown_shift_step_of_rankThresholdJInputTopBudgetConsumableBounds k
     (rankThresholdJInputTopBudgetConsumableBounds_of_bottomConsumableBounds
       k hbottom)
+
+/--
+Tax-aware source-shift bridge.
+
+Unlike `topDown_shift_step_of_rankThresholdJInputBottomConsumableBounds`, this
+consumer accepts a bottom recurrence call at the smaller threshold rank plus one
+bottom-card tax.  The proof uses strong induction on the ambient rank to pay
+that smaller-rank `topDownCost` in the successor row.
+-/
+theorem topDown_shift_step_of_rankThresholdJInputBottomTaxedTopDownCostBounds
+    (k : Nat)
+    (hbottomTax : RankThresholdJInputBottomTaxedTopDownCostBounds k) :
+    topDownShiftStepTarget k := by
+  intro hprev m n r hm hn
+  induction r using Nat.strong_induction_on generalizing m n with
+  | h r ih =>
+      apply topDownCost_le_of_forall_valid
+      intro E hE
+      by_cases hsmall : (JInput k).g r <= 1
+      · exact (E.cost_le_topDownCost hE).trans
+          (topDownCost_le_shift_target_of_g_small (JInput k) k hprev hm hn hsmall)
+      · have hlarge : 1 < (JInput k).g r := Nat.lt_of_not_ge hsmall
+        let s := ceilLog2 ((JInput k).g r)
+        let i0 : Fin m := ⟨0, by omega⟩
+        let Cb :=
+          E.canonicalBottomProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)
+        let X :=
+          E.canonicalBottomSourceRelevantExceptionalCostSum hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)
+        let Ct :=
+          E.canonicalTopProjectedExecution hE.1
+            (E.rankThresholdDissectionFamily hE.1 s)
+        let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+        let Tbudget := RankThresholdDissection.topRestrictedBudget (n := n) s
+        have hs_lt : s < r := by
+          simpa [s] using (JInput k).ceilLog2_g_lt_of_large hlarge
+        have htax :
+            Cb.consumableCost + X <=
+              topDownCost Cb.chargedCount Bcard s + Bcard := by
+          simpa [s, i0, Cb, X, Bcard] using
+            hbottomTax hm hn hprev E hE hlarge
+        have hbottomTopDown :
+            topDownCost Cb.chargedCount Bcard s <=
+              (k + 1) * Cb.chargedCount +
+                2 * Bcard * (JInput k).diamond s := by
+          by_cases hcharged_zero : Cb.chargedCount = 0
+          · have hzero :
+                topDownCost Cb.chargedCount Bcard s = 0 := by
+              simpa [hcharged_zero] using
+                topDownCost_zero_length_eq_zero Bcard s
+            omega
+          · have hcharged_pos : 1 <= Cb.chargedCount :=
+              Nat.succ_le_of_lt (Nat.pos_of_ne_zero hcharged_zero)
+            by_cases hbottom_zero : Bcard = 0
+            · have hzero :
+                  topDownCost Cb.chargedCount Bcard s = 0 := by
+                exact Nat.eq_zero_of_le_zero (by
+                  have hbase := topDownCost_le_base_budget Cb.chargedCount Bcard s
+                  simpa [hbottom_zero] using hbase)
+              omega
+            · have hbottom_pos : 1 <= Bcard :=
+                Nat.succ_le_of_lt (Nat.pos_of_ne_zero hbottom_zero)
+              exact ih s hs_lt hcharged_pos hbottom_pos
+        have htop :
+            Ct.consumableCost <=
+              k * Ct.chargedCount +
+                2 * Tbudget * (JInput k).g (r - s - 1) := by
+          simpa [s, i0, Ct, Tbudget] using
+            E.rankThreshold_top_consumableCost_le_JInput_topBudget k hprev hE s i0
+        exact
+          E.rankThreshold_source_cost_le_diamond_budget_of_topBudget_taxedTopDown_bounds
+            (JInput k) k hE s i0
+            (by simpa [s] using le_two_pow_ceilLog2 ((JInput k).g r))
+            (by simpa [s] using (JInput k).diamond_eq_large hlarge)
+            (by simpa [Cb, X, Bcard] using htax)
+            (by simpa [Cb, Bcard] using hbottomTopDown)
+            (by simpa [Ct, Tbudget] using htop)
 
 /--
 The charged-bottom projected recurrence boundary is now the only remaining
