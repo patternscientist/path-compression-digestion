@@ -3239,6 +3239,204 @@ theorem exists_rankThreshold_bottomExceptionalCost_gt_bottomFinset_card :
   norm_num
 
 /--
+Unlike top uncharged projected slots, a bottom uncharged projected slot need
+not be identity on the restricted bottom parent map.  A bottom prefix ending at
+a top boundary is root-like in the restricted bottom forest, but earlier bottom
+vertices may still be rewired by the original source nonroot step.
+-/
+theorem exists_rankThreshold_bottom_not_charged_afterParent_ne_beforeParent :
+    Exists fun S : RawCompressionStep 4 3 =>
+      Exists fun hS : S.IsValid =>
+        let D := RankThresholdDissection.dissection S.before hS.1.1 1
+        Exists fun cut : Nat =>
+          Exists fun hcut : S.path.HasDissectionCut D cut =>
+            Not (S.bottomProjectedStep D hS cut hcut).IsCharged /\
+              (S.bottomProjectedStep D hS cut hcut).afterParent ≠
+                (S.bottomProjectedStep D hS cut hcut).beforeParent := by
+  classical
+  let v0 : Fin 4 := ⟨0, by norm_num⟩
+  let v1 : Fin 4 := ⟨1, by norm_num⟩
+  let v2 : Fin 4 := ⟨2, by norm_num⟩
+  let v3 : Fin 4 := ⟨3, by norm_num⟩
+  let F : RawRankedForest 4 3 := {
+    parent := fun v =>
+      if v.val = 0 then v1
+      else if v.val = 1 then v2
+      else if v.val = 2 then v3
+      else v
+    rank := fun v =>
+      if v.val = 0 then ⟨0, by norm_num⟩
+      else if v.val = 1 then ⟨1, by norm_num⟩
+      else if v.val = 2 then ⟨2, by norm_num⟩
+      else ⟨3, by norm_num⟩
+  }
+  let A : RawRankedForest 4 3 := {
+    parent := fun v =>
+      if v.val = 0 then v3
+      else if v.val = 1 then v3
+      else if v.val = 2 then v3
+      else v
+    rank := F.rank
+  }
+  let P : RawCompressionPath 4 := {
+    len := ⟨3, by norm_num⟩
+    node := fun i =>
+      if i.val = 0 then v0 else if i.val = 1 then v1 else v2
+    target := v2
+  }
+  let S : RawCompressionStep 4 3 := {
+    before := F
+    after := A
+    path := P
+  }
+  have hF : F.IsRankValid := by
+    intro v hv
+    fin_cases v
+    · norm_num [F, v0, v1, v2, v3, RawRankedForest.rankNat]
+    · norm_num [F, v0, v1, v2, v3, RawRankedForest.rankNat]
+    · norm_num [F, v0, v1, v2, v3, RawRankedForest.rankNat]
+    · exact False.elim (hv (by norm_num [F, v0, v1, v2, v3]))
+  have hA : A.IsRankValid := by
+    intro v hv
+    fin_cases v
+    · norm_num [A, F, v0, v1, v2, v3, RawRankedForest.rankNat]
+    · norm_num [A, F, v0, v1, v2, v3, RawRankedForest.rankNat]
+    · norm_num [A, F, v0, v1, v2, v3, RawRankedForest.rankNat]
+    · exact False.elim (hv (by norm_num [A, v0, v1, v2, v3]))
+  have hP : P.IsValidFor F := by
+    refine ⟨hF, ?_, ?_, ?_⟩
+    · norm_num [P]
+    · intro i j hij hj
+      have hj3 : j.val < 3 := by
+        simpa [P] using hj
+      have hcases : (i.val = 0 ∧ j.val = 1) ∨ (i.val = 1 ∧ j.val = 2) := by
+        omega
+      rcases hcases with hcase | hcase
+      · apply Fin.ext
+        norm_num [P, F, v0, v1, hcase.1, hcase.2]
+      · apply Fin.ext
+        norm_num [P, F, v1, v2, hcase.1, hcase.2]
+    · intro i hi
+      have hival : i.val = 2 := by
+        norm_num [P] at hi
+        omega
+      apply Fin.ext
+      norm_num [P, v2, hival]
+  have hS : S.IsValid := by
+    refine ⟨hP, hA, ?_, ?_, ?_, ?_⟩
+    · intro v
+      rfl
+    · intro hroot
+      exfalso
+      have hnot : F.parent P.target ≠ P.target := by
+        intro h
+        have hval := congrArg Fin.val h
+        norm_num [F, P, v0, v1, v2, v3] at hval
+      exact hnot hroot
+    · intro _hnonroot v hcomp
+      rcases hcomp with ⟨i, hi, hnode⟩
+      have hival : i.val = 0 ∨ i.val = 1 := by
+        norm_num [S, P] at hi
+        omega
+      rcases hival with hival | hival
+      · have hv : v = v0 := by
+          rw [← hnode]
+          apply Fin.ext
+          norm_num [S, P, v0, hival]
+        rw [hv]
+        apply Fin.ext
+        norm_num [S, A, F, P, v0, v1, v2, v3]
+      · have hv : v = v1 := by
+          rw [← hnode]
+          apply Fin.ext
+          norm_num [S, P, v1, hival]
+        rw [hv]
+        apply Fin.ext
+        norm_num [S, A, F, P, v0, v1, v2, v3]
+    · intro v hnot
+      fin_cases v
+      · exfalso
+        apply hnot
+        refine ⟨⟨0, by norm_num⟩, ?_, ?_⟩
+        · norm_num [S, P]
+        · apply Fin.ext
+          norm_num [S, P, v0]
+      · exfalso
+        apply hnot
+        refine ⟨⟨1, by norm_num⟩, ?_, ?_⟩
+        · norm_num [S, P]
+        · apply Fin.ext
+          norm_num [S, P, v1]
+      · apply Fin.ext
+        norm_num [S, A, F, v0, v1, v2, v3]
+      · apply Fin.ext
+        norm_num [S, A, F, v0, v1, v2, v3]
+  let D := RankThresholdDissection.dissection S.before hS.1.1 1
+  have hcut : S.path.HasDissectionCut D 2 := by
+    refine ⟨?_, ?_, ?_⟩
+    · norm_num [S, P]
+    · intro i hia hilt
+      have hival : i.val = 0 ∨ i.val = 1 := by
+        norm_num [S, P] at hia
+        omega
+      rcases hival with hival | hival
+      · simp [D, S, P, F, v0, v1, v2, v3, hival,
+          RankThresholdDissection.dissection,
+          RankThresholdDissection.topPred, RawDissection.IsBottom,
+          RawDissection.IsTop, RawRankedForest.rankNat]
+      · simp [D, S, P, F, v0, v1, v2, v3, hival,
+          RankThresholdDissection.dissection,
+          RankThresholdDissection.topPred, RawDissection.IsBottom,
+          RawDissection.IsTop, RawRankedForest.rankNat]
+    · intro i hia hle
+      have hival : i.val = 2 := by
+        norm_num [S, P] at hia
+        omega
+      simp [D, S, P, F, v0, v1, v2, v3, hival,
+        RankThresholdDissection.dissection,
+        RankThresholdDissection.topPred, RawDissection.IsTop,
+        RawRankedForest.rankNat]
+  refine ⟨S, hS, 2, hcut, ?_, ?_⟩
+  · have hroot :
+      (S.bottomProjectedStep D hS 2 hcut).IsRootLike := by
+      unfold RawCompressionPath.ProjectedCompressionStep.IsRootLike
+      exact S.path.bottomProjectionSegment_isRootPath_of_top_nonempty
+        D hS.1.2.2.1 2 hcut (by norm_num [S, P])
+    exact ((S.bottomProjectedStep D hS 2 hcut).not_charged_iff_rootLike).2 hroot
+  · intro hparent_eq
+    have hx0_bottom : D.IsBottom v0 := by
+      simp [D, S, F, v0, v1, v2, v3, RankThresholdDissection.dissection,
+        RankThresholdDissection.topPred, RawDissection.IsBottom,
+        RawDissection.IsTop, RawRankedForest.rankNat]
+    let x0 : D.BottomNode := ⟨v0, hx0_bottom⟩
+    have hafter :
+        ((S.bottomProjectedStep D hS 2 hcut).afterParent x0).1 = v0 := by
+      have hv3_top : D.IsTop v3 := by
+        simp [D, S, F, v1, v2, v3, RankThresholdDissection.dissection,
+          RankThresholdDissection.topPred, RawDissection.IsTop,
+          RawRankedForest.rankNat]
+      have hparent_top : D.IsTop (S.after.parent x0.1) := by
+        simpa [S, A, v0, v1, v2, v3, x0] using hv3_top
+      simpa [RawCompressionStep.bottomProjectedStep, x0] using
+        S.afterBottomParent_val_of_parent_top D hS x0 hparent_top
+    have hbefore :
+        ((S.bottomProjectedStep D hS 2 hcut).beforeParent x0).1 = v1 := by
+      have hv1_bottom : D.IsBottom v1 := by
+        simp [D, S, F, v1, v2, v3, RankThresholdDissection.dissection,
+          RankThresholdDissection.topPred, RawDissection.IsBottom,
+          RawDissection.IsTop, RawRankedForest.rankNat]
+      have hraw : F.parent v0 = v1 := by
+        apply Fin.ext
+        norm_num [F, v0, v1, v2, v3]
+      have hbottom_val : (D.bottomParent x0).1 = F.parent v0 := by
+        simpa [x0] using D.bottomParent_val_of_parent_bottom x0
+          (by simpa [hraw] using hv1_bottom)
+      simpa [RawCompressionStep.bottomProjectedStep, x0, hraw] using hbottom_val
+    have hval := congrArg Subtype.val (congrFun hparent_eq x0)
+    rw [hafter, hbefore] at hval
+    norm_num [v0, v1] at hval
+
+/--
 Top restricted vertices are preserved by `afterDissection`, packaged as the
 identity-on-values equivalence needed for execution commutation.
 -/
