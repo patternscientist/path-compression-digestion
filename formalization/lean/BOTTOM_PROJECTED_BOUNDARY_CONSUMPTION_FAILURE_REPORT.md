@@ -13,7 +13,7 @@ Add boundary-inclusive bottom slot skeleton report
 
 This pass followed the direct projected-accounting route and avoided packaging
 source-relevant boundary exceptions as ordinary bottom `RawCompressionStep`s.
-It added two checked Lean theorems:
+The first pass added two checked Lean theorems:
 
 ```lean
 RawCompressionExecution
@@ -36,6 +36,21 @@ The available recurrence interface `topDownCost` applies to valid ordinary
 `RawCompressionExecution`s, not directly to a projected execution.  The old
 charged-only ordinary skeleton cannot currently supply that bridge because its
 consecutive-state theorem is the known false/wrong-object target.
+
+Continuation update: the remaining charged-projected obligation is now named
+and connected to the existing bottom and shift bridges by checked Lean:
+
+```lean
+RawCompressionExecution.RankThresholdJInputBottomChargedProjectedBounds
+RawCompressionExecution
+  .rankThresholdJInputBottomConsumableBounds_of_chargedProjectedBounds
+RawCompressionExecution
+  .topDown_shift_step_of_rankThresholdJInputBottomChargedProjectedBounds
+```
+
+Thus the bottom projected boundary-consumption work has been reduced to the
+single charged projected recurrence bound; the boundary-card contribution is no
+longer part of the gap.
 
 ## 1. Exact Bottom Projected Consumable Cost Expression
 
@@ -206,19 +221,19 @@ non-source-relevant bottom slots.
 
 ## 7. Smallest Next Theorem Statement
 
-For the direct projected route, the smallest next theorem is the charged
-projected recurrence-consumption bound:
+For the direct projected route, the smallest next theorem is now the named
+charged projected recurrence-consumption boundary:
 
 ```lean
-theorem RawCompressionExecution
-  .rankThresholdBottomChargedProjectedExecution_cost_le_JInput_bottomBudget
-    (k : Nat)
+def RawCompressionExecution.RankThresholdJInputBottomChargedProjectedBounds
+    (k : Nat) : Prop :=
+  forall {m n r : Nat}
     (hm : 1 <= m)
-    (hn : 1 <= n)
+    (_hn : 1 <= n)
     (hprev : SourceBound topDownCost k (JInput k).g)
     (E : RawCompressionExecution m n r)
     (hE : E.IsValid)
-    (hlarge : 1 < (JInput k).g r) :
+    (_hlarge : 1 < (JInput k).g r),
     let s := ceilLog2 ((JInput k).g r)
     let i0 : Fin m := ⟨0, by omega⟩
     let Cb :=
@@ -230,9 +245,38 @@ theorem RawCompressionExecution
         2 * Bcard * (JInput k).diamond s
 ```
 
-Together with
-`rankThresholdBottomProjectedExecution_consumableCost_eq_chargedProjectedExecution_cost`,
-this would close `RankThresholdJInputBottomConsumableBounds`.
+The new bridge theorem proves that this exact proposition closes
+`RankThresholdJInputBottomConsumableBounds`:
+
+```lean
+theorem RawCompressionExecution
+  .rankThresholdJInputBottomConsumableBounds_of_chargedProjectedBounds
+    (k : Nat)
+    (hcharged :
+      RawCompressionExecution.RankThresholdJInputBottomChargedProjectedBounds k) :
+    RawCompressionExecution.RankThresholdJInputBottomConsumableBounds k
+```
+
+and the existing padded-top shift bridge then gives:
+
+```lean
+theorem RawCompressionExecution
+  .topDown_shift_step_of_rankThresholdJInputBottomChargedProjectedBounds
+    (k : Nat)
+    (hcharged :
+      RawCompressionExecution.RankThresholdJInputBottomChargedProjectedBounds k) :
+    topDownShiftStepTarget k
+```
+
+So the smallest next mathematical theorem can be stated either as the named
+proposition above or as a theorem returning it:
+
+```lean
+theorem RawCompressionExecution
+  .rankThresholdJInputBottomChargedProjectedBounds_closed
+    (k : Nat) :
+    RawCompressionExecution.RankThresholdJInputBottomChargedProjectedBounds k
+```
 
 ## Verdict
 

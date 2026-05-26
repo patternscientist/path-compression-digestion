@@ -10475,6 +10475,63 @@ def RankThresholdJInputBottomConsumableBounds (k : Nat) : Prop :=
       (k + 1) * Cb.chargedCount + 2 * Bcard * (JInput k).diamond s
 
 /--
+Exact remaining charged-bottom projected recurrence boundary.
+
+The direct boundary-accounting route has already identified
+`Cb.consumableCost` with this compacted charged projected cost.  Thus this is
+the smallest projected-cost theorem still needed for the bottom field, without
+constructing an ordinary boundary-inclusive bottom execution and without using
+the known-bad charged-only consecutive-state theorem.
+-/
+def RankThresholdJInputBottomChargedProjectedBounds (k : Nat) : Prop :=
+  forall {m n r : Nat}
+    (hm : 1 <= m)
+    (_hn : 1 <= n)
+    (hprev : SourceBound topDownCost k (JInput k).g)
+    (E : RawCompressionExecution m n r)
+    (hE : E.IsValid)
+    (_hlarge : 1 < (JInput k).g r),
+    let s := ceilLog2 ((JInput k).g r)
+    let i0 : Fin m := ⟨0, by omega⟩
+    let Cb :=
+      E.canonicalBottomProjectedExecution hE.1
+        (E.rankThresholdDissectionFamily hE.1 s)
+    let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+    (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+      (k + 1) * Cb.chargedCount + 2 * Bcard * (JInput k).diamond s
+
+/--
+The direct projected split reduces the `JInput` bottom consumable field to the
+charged-bottom projected recurrence boundary.
+-/
+theorem rankThresholdJInputBottomConsumableBounds_of_chargedProjectedBounds
+    (k : Nat)
+    (hcharged : RankThresholdJInputBottomChargedProjectedBounds k) :
+    RankThresholdJInputBottomConsumableBounds k := by
+  intro m n r hm hn hprev E hE hlarge
+  let s := ceilLog2 ((JInput k).g r)
+  let i0 : Fin m := ⟨0, by omega⟩
+  let Cb :=
+    E.canonicalBottomProjectedExecution hE.1
+      (E.rankThresholdDissectionFamily hE.1 s)
+  let Bcard := (E.rankThresholdDissectionFamily hE.1 s i0).bottomFinset.card
+  have hcost :
+      Cb.consumableCost =
+        (E.rankThresholdBottomChargedProjectedExecution hE s).cost := by
+    simpa [Cb] using
+      E.rankThresholdBottomProjectedExecution_consumableCost_eq_chargedProjectedExecution_cost
+        hE s
+  have hcharged' :
+      (E.rankThresholdBottomChargedProjectedExecution hE s).cost <=
+        (k + 1) * Cb.chargedCount + 2 * Bcard * (JInput k).diamond s := by
+    simpa [s, i0, Cb, Bcard] using hcharged hm hn hprev E hE hlarge
+  calc
+    Cb.consumableCost =
+        (E.rankThresholdBottomChargedProjectedExecution hE s).cost := hcost
+    _ <= (k + 1) * Cb.chargedCount +
+        2 * Bcard * (JInput k).diamond s := hcharged'
+
+/--
 Budgeted-top concrete `JInput` consumable package.
 
 This has the same bottom field as `RankThresholdJInputConsumableBounds`, but
@@ -10563,6 +10620,18 @@ theorem topDown_shift_step_of_rankThresholdJInputBottomConsumableBounds
   topDown_shift_step_of_rankThresholdJInputTopBudgetConsumableBounds k
     (rankThresholdJInputTopBudgetConsumableBounds_of_bottomConsumableBounds
       k hbottom)
+
+/--
+The charged-bottom projected recurrence boundary is now the only remaining
+bottom-side input needed by the padded-top source-shift bridge.
+-/
+theorem topDown_shift_step_of_rankThresholdJInputBottomChargedProjectedBounds
+    (k : Nat)
+    (hcharged : RankThresholdJInputBottomChargedProjectedBounds k) :
+    topDownShiftStepTarget k :=
+  topDown_shift_step_of_rankThresholdJInputBottomConsumableBounds k
+    (rankThresholdJInputBottomConsumableBounds_of_chargedProjectedBounds
+      k hcharged)
 
 /--
 The recurrence-consumption package is strong enough to feed the concrete
